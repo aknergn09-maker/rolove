@@ -205,6 +205,15 @@ Programda:
 - Daire algılama: yarıçap sapması < %13, sivri köşe yok, en/boy 0,7–1,43. Lazerle çap (ayardan yarıçap) ölçülür. DXF'te CIRCLE.
 - Daha sade etiketler. Düğmeye basılı tutunca ne işe yaradığı gösteriliyor.
 
+**v4 – CAD araçları**
+- Kroki araç çubuğu: ✎ serbest, ╱ çizgi, ⌒ fillet, ◯ daire, 🚪 kapı, ∥ ofset, ⟲ takip, ⊥ eksen kilidi.
+- Çizgi: cm tuş takımı ile doğrudan mesafe (200 → 2,00 m), sonra yöne dokunulur. Eksen kilidi açıksa 90°, ana yön ilk duvardan alınır. Yazılan değerler **tahmini**dir (est), lazer ölçüsü gerçek değerdir.
+- Ölçek: oda başına, ölçülen kenarların ölçü/tahmin oranının medyanı. Ölçülmemiş kenarlar bu katsayıyla büyür/küçülür.
+- Fillet: köşeye yarıçap. Köşe sanal kesişim olarak kalır, duvarlar teğet noktalarda kesilir.
+- Kapı: duvar üstünde konum t ve genişlik w; menteşe ve yön değiştirilebilir. Ölç'te genişlik ya da köşeden uzaklık ölçülür. DXF'te duvar kapı boşluğunda bölünür.
+- Ofset: tek duvar ya da odanın tamamı (dışa, köşeler kesişimle), kalınlık ölçülebilir.
+- DXF: ölçülmemiş her şey **TAHMINI** katmanında (renk 30, kesikli) ve ~ ile. Ayrıca KAPI ve OFSET katmanları, açıklama yazısı.
+
 ## 9. Açık sorular
 
 - [ ] 3° TM dilimi
