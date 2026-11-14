@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Rölöve Kroki</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1f2a37">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#f4f5f7;--ink:#1f2a37;--mut:#6b7280;--acc:#0b7cc1;--ok:#15803d;--warn:#c2410c;--bad:#b91c1c;--card:#fff;--line:#e5e7eb}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:calc(6px + env(safe-area-inset-top)) 8px 6px;background:var(--ink);color:#fff}
+header .t{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;border:0;border-radius:10px;padding:9px 12px;background:#e8ebf0;color:var(--ink);cursor:pointer}
+button:active{filter:brightness(.92)}
+button.p{background:var(--acc);color:#fff}
+button.on{background:var(--ink);color:#fff}
+button:disabled{opacity:.45}
+header button{background:#334155;color:#fff;padding:7px 10px}
+#ble.ok{background:var(--ok)}#ble.busy{background:#a16207}#ble.bad{background:var(--bad)}
+#wrap{position:relative;flex:1;min-height:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#fbfbfc}
+#hint{position:absolute;left:8px;right:8px;top:8px;background:rgba(31,42,55,.88);color:#fff;border-radius:10px;padding:7px 10px;font-size:13.5px;pointer-events:none}
+#hint:empty{display:none}
+#toast{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:.95}
+#flash{position:absolute;right:10px;bottom:12px;background:var(--ok);color:#fff;font-weight:700;font-size:20px;padding:6px 12px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none}
+#flash.show{opacity:1}
+#panel{background:var(--card);border-top:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:7px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row>button{flex:1;min-width:0;padding:10px 6px}
+.info{font-size:13.5px;color:var(--mut)}
+.info b{color:var(--ink)}
+input[type=text],input[type=number],select{font:inherit;padding:9px 10px;border:1px solid #cbd5e1;border-radius:10px;min-width:0;background:#fff;color:var(--ink)}
+.num{flex:1}
+nav{display:flex;gap:6px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+nav button{flex:1;padding:9px 4px;font-size:14px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;z-index:10}
+.sheet.hidden{display:none}
+.sheet .box{background:var(--card);width:100%;max-height:85%;overflow:auto;border-radius:16px 16px 0 0;padding:12px 12px calc(12px + env(safe-area-inset-bottom));touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.box h3{margin:6px 0 8px;font-size:16px}
+.box .row>button{flex:1 1 45%}
+.box label{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.list button{display:block;width:100%;text-align:left;margin:4px 0}
+pre{font-size:12px;background:#f1f5f9;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto}
+.tag{display:inline-block;padding:1px 7px;border-radius:8px;font-size:12px;background:#e2e8f0;color:var(--ink)}
+.tag.ok{background:#dcfce7;color:var(--ok)}.tag.warn{background:#ffedd5;color:var(--warn)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="bMenu" aria-label="Menü">☰</button>
+    <div class="t" id="title">Rölöve Kroki</div>
+    <button id="ble">Lazer bağla</button>
+  </header>
+  <div id="wrap">
+    <canvas id="cv"></canvas>
+    <div id="hint"></div>
+    <div id="toast"></div>
+    <div id="flash"></div>
+  </div>
+  <div id="panel"></div>
+  <nav>
+    <button data-tool="takip">Takip</button>
+    <button data-tool="kroki">Kroki</button>
+    <button data-tool="sec">Seç</button>
+    <button id="bUndo" aria-label="Geri al">↶</button>
+    <button id="bRedo" aria-label="Yinele">↷</button>
+    <button id="bFit" aria-label="Sığdır">⤢</button>
+  </nav>
+</div>
+
+<div class="sheet hidden" id="sheet"><div class="box" id="sheetBox"></div></div>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+/* ============ Sabitler ============ */
+const SVC = '02a6c0d0-0451-4000-b000-fb3210111989';
+const CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
+const AUTOSYNC = [0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A];
+const LS_PROJ = 'rk_projects', LS_CUR = 'rk_current', LS_SET = 'rk_settings';
+const PREFIXES = 'ABCDEFGHJKLMNPRSTUVYZ';
+const deg = Math.PI / 180;
+
+/* ============ Durum ============ */
+const defaultSettings = { scaleDen: 50, defaultTurn: -90, autoAdvance: true, offset: 0, demo: false, closeTol: 0.02 };
+let SET = Object.assign({}, defaultSettings, readJSON(LS_SET, {}));
+let P = null;                // proje
+let S = { tool: 'takip', active: null, sel: null, pendingTurn: SET.defaultTurn, lastMeasure: null };
+let undoStack = [], redoStack = [];
+let view = { s: 40, ox: 0, oy: 0 };   // px/m, ekran orijini (css px)
+const bleLog = [];
+
+function readJSON(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+function newProject(name) { return { name: name || ('Proje ' + new Date().toLocaleDateString('tr-TR')), rooms: [], seq: 0, created: Date.now() }; }
+function allProjects() { return readJSON(LS_PROJ, {}); }
+function saveProject() {
+  const all = allProjects(); P.saved = Date.now(); all[P.name] = P; writeJSON(LS_PROJ, all); localStorage.setItem(LS_CUR, P.name);
+}
+function loadInitial() {
+  const all = allProjects(); const cur = localStorage.getItem(LS_CUR);
+  P = (cur && all[cur]) ? all[cur] : newProject();
+}
+
+/* ============ Geometri ============ */
+const norm180 = a => { a = ((a + 180) % 360 + 360) % 360 - 180; return a === -180 ? 180 : a; };
+function roomPts(r) {
+  const out = [[r.x0, r.y0]]; let x = r.x0, y = r.y0, h = r.h0; const hs = [];
+  r.legs.forEach((L, i) => { if (i > 0) h += L.turn; hs.push(h); x += L.len * Math.cos(h * deg); y += L.len * Math.sin(h * deg); out.push([x, y]); });
+  return { pts: out, heads: hs, lastHead: hs.length ? hs[hs.length - 1] : r.h0 };
+}
+function roomGap(r) { const { pts } = roomPts(r); const a = pts[0], b = pts[pts.length - 1]; return Math.hypot(b[0] - a[0], b[1] - a[1]); }
+function polyArea(pts) { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += a[0] * b[1] - b[0] * a[1]; } return s / 2; }
+function roomById(id) { return P.rooms.find(r => r.id === id); }
+function ptName(r, k) { const n = r.legs.length; if (r.closed && k === n) return r.prefix + '1'; return r.prefix + (k + 1); }
+function legName(r, i) { return ptName(r, i) + '–' + ptName(r, i + 1); }
+function fmt(v) { return v.toFixed(3); }
+function turnText(t) { t = norm180(t); if (Math.abs(t) < 1e-9) return 'Düz'; return (t > 0 ? 'Sol ' : 'Sağ ') + (+Math.abs(t).toFixed(2)) + '°'; }
+function parseNum(s) { s = String(s).trim().replace(',', '.'); const v = parseFloat(s); return isFinite(v) ? v : NaN; }
+
+/* ============ Geri al / yinele ============ */
+function snap() { undoStack.push(JSON.stringify(P)); if (undoStack.length > 150) undoStack.shift(); redoStack = []; }
+function undo() { if (!undoStack.length) return toast('Geri alınacak işlem yok'); redoStack.push(JSON.stringify(P)); P = JSON.parse(undoStack.pop()); fixSel(); commit(false); }
+function redo() { if (!redoStack.length) return toast('Yinelenecek işlem yok'); undoStack.push(JSON.stringify(P)); P = JSON.parse(redoStack.pop()); fixSel(); commit(false); }
+function fixSel() {
+  if (S.sel) { const r = roomById(S.sel.room); if (!r || (S.sel.type === 'leg' && S.sel.i >= r.legs.length) || (S.sel.type === 'pt' && S.sel.i > r.legs.length)) S.sel = null; }
+  if (S.active && !roomById(S.active)) S.active = null;
+}
+function commit(doSnapshot) { saveProject(); render(); }
+
+/* ============ Oda işlemleri ============ */
+function freeSpot() {
+  const bb = bbox(); if (!bb) return [0, 0]; return [bb[2] + 2, bb[1]];
+}
+function createRoom(x, y) {
+  const prefix = PREFIXES[P.seq % PREFIXES.length] + (P.seq >= PREFIXES.length ? Math.floor(P.seq / PREFIXES.length) : '');
+  P.seq++;
+  const r = { id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), prefix, name: 'Oda ' + prefix, x0: x, y0: y, h0: 0, legs: [], closed: false };
+  P.rooms.push(r); S.active = r.id; return r;
+}
+function activeRoom() { const r = S.active && roomById(S.active); return r && !r.closed ? r : null; }
+function addLegTakip(len, measured) {
+  snap();
+  let r = activeRoom();
+  if (!r) { const [x, y] = freeSpot(); r = createRoom(x, y); }
+  r.legs.push({ len, turn: r.legs.length ? S.pendingTurn : 0, measured: !!measured });
+  S.pendingTurn = SET.defaultTurn;
+  S.sel = null;
+  commit(); ensureVisible(roomPts(r).pts.slice(-1)[0]);
+  const g = roomGap(r);
+  if (r.legs.length >= 3 && g < 0.15) toast('Başlangıca yaklaştın (' + (g * 100).toFixed(1) + ' cm). Odayı kapat.');
+}
+function closeRoom(r) {
+  if (!r || r.legs.length < 2) return toast('Kapatmak için en az 2 kenar gerekli');
+  snap();
+  const { pts, lastHead } = roomPts(r); const a = pts[pts.length - 1], b = pts[0];
+  const gap = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (gap > 0.05) {
+    const h = Math.atan2(b[1] - a[1], b[0] - a[0]) / deg;
+    r.legs.push({ len: gap, turn: norm180(h - lastHead), measured: false });
+    toast('Son kenar tahmini eklendi, lazerle ölç');
+  }
+  r.closed = true; S.active = null;
+  const iu = r.legs.findIndex(L => !L.measured);
+  S.sel = iu >= 0 ? { type: 'leg', room: r.id, i: iu } : null;
+  if (iu >= 0 && S.tool !== 'sec') setTool('sec', true);
+  commit();
+}
+function setLeg(r, i, len) {
+  snap(); r.legs[i].len = len; r.legs[i].measured = true;
+  if (SET.autoAdvance) {
+    let j = -1;
+    for (let k = 1; k <= r.legs.length; k++) { const q = (i + k) % r.legs.length; if (!r.legs[q].measured) { j = q; break; } }
+    if (j >= 0) S.sel = { type: 'leg', room: r.id, i: j };
+    else { S.sel = null; const g = roomGap(r); toast(r.closed ? 'Tüm kenarlar ölçüldü · kapanma ' + (g * 100).toFixed(1) + ' cm' : 'Tüm kenarlar ölçüldü'); }
+  }
+  commit();
+}
+function setTurn(r, i, t) { if (i <= 0 || i >= r.legs.length) return; snap(); r.legs[i].turn = norm180(t); commit(); }
+function deleteLastLeg() { const r = activeRoom(); if (!r || !r.legs.length) return toast('Silinecek kenar yok'); snap(); r.legs.pop(); if (!r.legs.length) { P.rooms = P.rooms.filter(q => q !== r); S.active = null; } commit(); }
+function deleteRoom(r) { if (!r) return; snap(); P.rooms = P.rooms.filter(q => q !== r); if (S.active === r.id) S.active = null; S.sel = null; commit(); }
+function reopenRoom(r) { if (!r) return; snap(); r.closed = false; S.active = r.id; commit(); }
+
+/* ============ Lazer ölçüsü ============ */
+function onMeasure(raw, src) {
+  const v = raw + (SET.offset || 0);
+  S.lastMeasure = v; beep(); flash(fmt(v) + ' m');
+  if (S.sel && S.sel.type === 'leg') { const r = roomById(S.sel.room); if (r) { setLeg(r, S.sel.i, v); return; } }
+  if (S.tool === 'takip') { addLegTakip(v, true); return; }
+  toast('Ölçü alındı: ' + fmt(v) + ' m · bir kenar seç');
+  render();
+}
+
+/* ============ Bluetooth (Bosch GLM) ============ */
+let bleDev = null, bleChr = null, bleWanted = false;
+function setBle(state, text) { const b = $('#ble'); b.className = state; b.textContent = text; }
+async function bleConnect() {
+  if (bleDev && bleDev.gatt.connected) { if (confirm('Lazer bağlantısı kesilsin mi?')) { bleWanted = false; bleDev.gatt.disconnect(); } return; }
+  if (!navigator.bluetooth) { alert('Bu tarayıcı Bluetooth desteklemiyor.\n\niPhone: Bluefy tarayıcısını kullan.\nAndroid: Chrome kullan.\n\nLazer olmadan da ölçüleri elle girebilirsin.'); return; }
+  try {
+    setBle('busy', 'Seçiliyor…');
+    bleDev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SVC] });
+    bleDev.addEventListener('gattserverdisconnected', onBleDisc);
+    bleWanted = true; await bleSetup();
+  } catch (e) { logBle('HATA ' + e.message); setBle('', 'Lazer bağla'); if (e.name !== 'NotFoundError') toast('Bağlanamadı: ' + e.message); }
+}
+async function bleSetup() {
+  setBle('busy', 'Bağlanıyor…');
+  const srv = await bleDev.gatt.connect();
+  const svc = await srv.getPrimaryService(SVC);
+  bleChr = await svc.getCharacteristic(CHR);
+  bleChr.addEventListener('characteristicvaluechanged', onBleVal);
+  await bleChr.startNotifications();
+  await bleChr.writeValue(new Uint8Array(AUTOSYNC));
+  logBle('Bağlandı: ' + (bleDev.name || 'isimsiz cihaz'));
+  setBle('ok', 'Lazer ✓'); keepAwake(); toast('Lazer bağlandı');
+}
+async function onBleDisc() {
+  logBle('Bağlantı koptu'); if (!bleWanted) { setBle('', 'Lazer bağla'); return; }
+  setBle('bad', 'Yeniden…');
+  for (let i = 0; i < 6; i++) { await sleep(800 * (i + 1)); try { await bleSetup(); return; } catch (e) { logBle('Deneme ' + (i + 1) + ': ' + e.message); } }
+  setBle('bad', 'Lazer koptu'); toast('Lazer bağlantısı koptu, tekrar bağla');
+}
+function onBleVal(ev) {
+  const dv = ev.target.value; const b = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+  logBle('← ' + hex(b));
+  const v = parseBosch(dv);
+  if (v !== null) onMeasure(v, 'ble');
+}
+function parseBosch(dv) {
+  // Ölçüm paketi: C0 55 <uzunluk> .. .. .. .. <float32 LE @7> ... <CRC>
+  if (dv.byteLength < 11) return null;
+  if (dv.getUint8(0) !== 0xC0 || dv.getUint8(1) !== 0x55 || dv.getUint8(2) < 0x08) return null;
+  const v = dv.getFloat32(7, true);
+  return (isFinite(v) && v > 0 && v < 250) ? v : null;
+}
+const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+function logBle(s) { bleLog.push(new Date().toLocaleTimeString('tr-TR') + '  ' + s); if (bleLog.length > 60) bleLog.shift(); }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let wakeLock = null;
+async function keepAwake() { try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && bleDev && bleDev.gatt.connected) keepAwake(); });
+
+/* ============ Ses / geri bildirim ============ */
+let actx = null;
+function beep() {
+  try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1320; g.gain.value = 0.08;
+    o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.09);
+  } catch (e) {}
+}
+document.addEventListener('pointerdown', () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} }, { once: true });
+const $ = q => document.querySelector(q);
+let toastT; function toast(s) { const t = $('#toast'); t.textContent = s; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+let flashT; function flash(s) { const f = $('#flash'); f.textContent = s; f.classList.add('show'); clearTimeout(flashT); flashT = setTimeout(() => f.classList.remove('show'), 1200); }
+
+/* ============ Çizim ============ */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  const r = cv.getBoundingClientRect(); DPR = window.devicePixelRatio || 1; W = r.width; H = r.height;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); render();
+}
+const w2s = (x, y) => [view.ox + x * view.s, view.oy - y * view.s];
+const s2w = (X, Y) => [(X - view.ox) / view.s, (view.oy - Y) / view.s];
+function bbox() {
+  let b = null;
+  P.rooms.forEach(r => roomPts(r).pts.forEach(([x, y]) => { if (!b) b = [x, y, x, y]; else { b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); } }));
+  return b;
+}
+function fit() {
+  const b = bbox();
+  if (!b) { view.s = 40; view.ox = W / 2; view.oy = H / 2; return render(); }
+  const w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1);
+  view.s = Math.min((W - 80) / w, (H - 110) / h, 400);
+  view.ox = W / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = H / 2 + 20 + (b[1] + b[3]) / 2 * view.s; render();
+}
+function ensureVisible(p) { const [X, Y] = w2s(p[0], p[1]); if (X < 40 || X > W - 40 || Y < 60 || Y > H - 40) fit(); }
+
+function render() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  drawGrid();
+  P.rooms.forEach(drawRoom);
+  drawGhost();
+  drawPlacing();
+  updateHint(); renderPanel(); updateNav();
+}
+function drawGrid() {
+  let step = 1; while (step * view.s < 22) step *= 5; while (step * view.s > 160) step /= 5;
+  const [x0, y1] = s2w(0, 0), [x1, y0] = s2w(W, H);
+  ctx.lineWidth = 1;
+  for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) { const [X] = w2s(x, 0); ctx.strokeStyle = Math.abs(x / (step * 5) - Math.round(x / (step * 5))) < 1e-6 ? '#e3e6ea' : '#f0f1f3'; ctx.beginPath(); ctx.moveTo(X, 0); ctx.lineTo(X, H); ctx.stroke(); }
+  for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) { const [, Y] = w2s(0, y); ctx.strokeStyle = Math.abs(y / (step * 5) - Math.round(y / (step * 5))) < 1e-6 ? '#e3e6ea' : '#f0f1f3'; ctx.beginPath(); ctx.moveTo(0, Y); ctx.lineTo(W, Y); ctx.stroke(); }
+  // ölçek çubuğu
+  const sb = step >= 1 ? step : step; const len = sb * view.s;
+  ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(12, H - 14); ctx.lineTo(12 + len, H - 14); ctx.stroke();
+  ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left'; ctx.fillText((+sb.toFixed(3)) + ' m', 14 + len, H - 10);
+}
+function label(text, X, Y, ang, color, bg) {
+  ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a);
+  ctx.font = '600 12.5px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (bg) { const w = ctx.measureText(text).width + 6; ctx.fillStyle = bg; ctx.fillRect(-w / 2, -8, w, 16); }
+  ctx.fillStyle = color; ctx.fillText(text, 0, 0); ctx.restore();
+}
+function drawRoom(r) {
+  const { pts } = roomPts(r); const area = polyArea(pts.slice(0, -1));
+  const inSide = (r.closed ? (area < 0 ? 1 : -1) : 1); // +1: sağ taraf iç
+  // kenarlar
+  r.legs.forEach((L, i) => {
+    const a = w2s(...pts[i]), b = w2s(...pts[i + 1]);
+    const sel = S.sel && S.sel.type === 'leg' && S.sel.room === r.id && S.sel.i === i;
+    ctx.lineWidth = sel ? 6 : 3; ctx.setLineDash(L.measured ? [] : [8, 6]);
+    ctx.strokeStyle = sel ? '#0b7cc1' : (L.measured ? '#1f2a37' : '#d97706');
+    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; const ang = Math.atan2(dy, dx);
+    // ekran koordinatında sağ normal (y aşağı): (-dy, dx)
+    const nx = -dy / l * inSide, ny = dx / l * inSide;
+    const txt = (L.measured ? '' : '~') + fmt(L.len);
+    if (l > 26) label(txt, (a[0] + b[0]) / 2 + nx * 13, (a[1] + b[1]) / 2 + ny * 13, ang, L.measured ? '#111827' : '#b45309', 'rgba(251,251,252,.85)');
+  });
+  // kapanma boşluğu
+  if (r.closed) {
+    const g = roomGap(r);
+    if (g > 0.005) {
+      const a = w2s(...pts[pts.length - 1]), b = w2s(...pts[0]);
+      ctx.strokeStyle = g > SET.closeTol ? '#b91c1c' : '#15803d'; ctx.lineWidth = 2; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+      label('Δ ' + (g * 100).toFixed(1) + ' cm', (a[0] + b[0]) / 2 + 14, (a[1] + b[1]) / 2 - 14, 0, g > SET.closeTol ? '#b91c1c' : '#15803d', 'rgba(255,255,255,.9)');
+    }
+  }
+  // köşeler
+  const n = pts.length;
+  pts.forEach((p, k) => {
+    if (r.closed && k === n - 1) return;
+    const [X, Y] = w2s(...p);
+    const sel = S.sel && S.sel.type === 'pt' && S.sel.room === r.id && S.sel.i === k;
+    ctx.fillStyle = sel ? '#0b7cc1' : (k === 0 ? '#7c3aed' : '#475569');
+    ctx.beginPath(); ctx.arc(X, Y, sel ? 7 : 4.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = '#7c3aed'; ctx.font = '600 11.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(ptName(r, k), X + 6, Y - 4);
+  });
+  if (!r.closed && S.active === r.id && n > 0) { const [X, Y] = w2s(...pts[n - 1]); ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, Y, 10, 0, 2 * Math.PI); ctx.stroke(); }
+  // oda adı / alan
+  if (r.legs.length >= 2) {
+    let cx = 0, cy = 0; const m = r.closed ? n - 1 : n; for (let k = 0; k < m; k++) { cx += pts[k][0]; cy += pts[k][1]; } cx /= m; cy /= m;
+    const [X, Y] = w2s(cx, cy); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#334155'; ctx.font = '700 13px sans-serif'; ctx.fillText(r.name, X, Y - 8);
+    if (r.closed) { ctx.font = '12px sans-serif'; ctx.fillStyle = '#64748b'; ctx.fillText(Math.abs(area).toFixed(2) + ' m²', X, Y + 8); }
+  }
+}
+function dirOptions(r) {
+  // Takip modunda uçtaki seçilebilir yönler (dünya açısı, derece)
+  const { lastHead } = roomPts(r);
+  if (!r.legs.length) return [0, 90, 180, -90].map(h => ({ head: h, turn: null }));
+  const opts = [{ t: 90 }, { t: 0 }, { t: -90 }].map(o => ({ head: lastHead + o.t, turn: o.t }));
+  if (![90, 0, -90].includes(S.pendingTurn)) opts.push({ head: lastHead + S.pendingTurn, turn: S.pendingTurn, custom: true });
+  return opts;
+}
+function currentHead(r) { const { lastHead } = roomPts(r); return r.legs.length ? lastHead + S.pendingTurn : r.h0; }
+function drawGhost() {
+  if (S.tool !== 'takip') return; const r = activeRoom(); if (!r) return;
+  const { pts } = roomPts(r); const p = pts[pts.length - 1]; const [X, Y] = w2s(...p);
+  const cur = norm180(currentHead(r)); const R = 62;
+  dirOptions(r).forEach(o => {
+    const on = Math.abs(norm180(o.head - cur)) < 1e-6; const a = -o.head * deg; // ekran açısı (y aşağı)
+    // yarı saydam dilim
+    ctx.fillStyle = on ? 'rgba(11,124,193,.18)' : 'rgba(100,116,139,.08)';
+    ctx.beginPath(); ctx.moveTo(X, Y); ctx.arc(X, Y, R + 18, a - Math.PI / 4 + .04, a + Math.PI / 4 - .04); ctx.closePath(); ctx.fill();
+    // ok
+    const bx = X + Math.cos(a) * R, by = Y + Math.sin(a) * R;
+    ctx.strokeStyle = on ? '#0b7cc1' : '#94a3b8'; ctx.lineWidth = on ? 3 : 2; ctx.setLineDash(on ? [] : [4, 4]);
+    ctx.beginPath(); ctx.moveTo(X + Math.cos(a) * 12, Y + Math.sin(a) * 12); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = on ? '#0b7cc1' : '#94a3b8'; ctx.beginPath();
+    ctx.moveTo(bx + Math.cos(a) * 9, by + Math.sin(a) * 9); ctx.lineTo(bx + Math.cos(a + 2.5) * 10, by + Math.sin(a + 2.5) * 10); ctx.lineTo(bx + Math.cos(a - 2.5) * 10, by + Math.sin(a - 2.5) * 10); ctx.fill();
+    if (o.turn !== null) {
+      const tx = X + Math.cos(a) * (R + 30), ty = Y + Math.sin(a) * (R + 30);
+      ctx.font = (on ? '700 ' : '') + '11.5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = on ? '#0b7cc1' : '#64748b';
+      ctx.fillText(o.turn === 0 ? 'Düz' : (o.turn > 0 ? 'Sol' : 'Sağ') + (Math.abs(o.turn) === 90 ? '' : ' ' + Math.abs(+o.turn.toFixed(1)) + '°'), tx, ty);
+    }
+  });
+}
+function pickDirection(r, X, Y) {
+  const { pts, lastHead } = roomPts(r); const p = pts[pts.length - 1]; const [px, py] = w2s(...p);
+  const dx = X - px, dy = -(Y - py); if (Math.hypot(dx, dy) < 14) return false;
+  const h = Math.atan2(dy, dx) / deg;
+  if (!r.legs.length) { snap(); r.h0 = Math.round(h / 90) * 90; commit(); return true; }
+  let t = norm180(h - lastHead);
+  const t90 = Math.round(t / 90) * 90;
+  if (Math.abs(t90) === 180) { toast('Geri dönüş seçilemez'); return true; }
+  S.pendingTurn = t90; render(); return true;
+}
+
+/* ============ Kroki modu: yerleştirme + büyüteç ============ */
+let placing = null; // {X,Y (parmak), cand:{x,y,len,turn,heading,snapPt}}
+function candidate(X, Y) {
+  const [wx, wy] = s2w(X, Y);
+  const r = activeRoom();
+  // mevcut köşeye yapış
+  let best = null, bd = 18;
+  P.rooms.forEach(q => roomPts(q).pts.forEach((p, k) => { const [px, py] = w2s(...p); const d = Math.hypot(px - X, py - Y); if (d < bd) { bd = d; best = { x: p[0], y: p[1], room: q, k }; } }));
+  if (!r) return best ? { x: best.x, y: best.y } : { x: wx, y: wy };
+  const { pts, lastHead } = roomPts(r); const last = pts[pts.length - 1];
+  let tx = wx, ty = wy, closing = false;
+  if (best && best.room === r && best.k === 0 && r.legs.length >= 2) { tx = best.x; ty = best.y; closing = true; }
+  else if (best && best.room !== r) { tx = best.x; ty = best.y; }
+  const dx = tx - last[0], dy = ty - last[1]; let head = Math.atan2(dy, dx) / deg; let len = Math.hypot(dx, dy);
+  let turn = r.legs.length ? norm180(head - lastHead) : 0; let snapped = false;
+  if (!closing && !(best && best.room !== r)) {
+    if (r.legs.length) { const t90 = Math.round(turn / 90) * 90; if (Math.abs(turn - t90) <= 10) { turn = t90; head = lastHead + turn; snapped = true; } }
+    else { const h90 = Math.round(head / 90) * 90; if (Math.abs(head - h90) <= 10) { head = h90; snapped = true; } }
+    if (snapped) { len = dx * Math.cos(head * deg) + dy * Math.sin(head * deg); if (len < 0) { len = -len; head += 180; turn = norm180(turn + 180); } }
+  }
+  if (!r.legs.length) turn = 0;
+  return { x: last[0] + Math.cos(head * deg) * len, y: last[1] + Math.sin(head * deg) * len, len, turn, head, closing, snapped, from: last };
+}
+function commitPlace(c) {
+  let r = activeRoom();
+  if (!r) { snap(); createRoom(c.x, c.y); commit(); toast('Başlangıç köşesi kondu, sıradaki köşeye dokun'); return; }
+  if (!c.from || c.len < 0.05) return;
+  snap();
+  if (!r.legs.length) r.h0 = c.head;
+  r.legs.push({ len: Math.abs(c.len), turn: c.turn, measured: false });
+  if (c.closing) { r.closed = true; S.active = null; S.sel = { type: 'leg', room: r.id, i: 0 }; setTool('sec', true); toast('Oda kapandı. Şimdi kenarları lazerle ölç.'); }
+  commit();
+}
+function drawPlacing() {
+  if (!placing) return; const c = placing.cand; const [X, Y] = w2s(c.x, c.y);
+  if (c.from) {
+    const a = w2s(...c.from); ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(X, Y); ctx.stroke(); ctx.setLineDash([]);
+    label('~' + Math.abs(c.len).toFixed(2) + ' m' + (activeRoom() && activeRoom().legs.length ? ' · ' + turnText(c.turn) : '') + (c.closing ? ' · kapat' : ''), (a[0] + X) / 2, (a[1] + Y) / 2 - 16, 0, '#0b7cc1', 'rgba(255,255,255,.92)');
+  }
+  ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X - 14, Y); ctx.lineTo(X + 14, Y); ctx.moveTo(X, Y - 14); ctx.lineTo(X, Y + 14); ctx.stroke();
+  // büyüteç
+  const R = 56, Z = 2.5; let LX = placing.X, LY = placing.Y - 120; if (LY < R + 6) LY = placing.Y + 120;
+  LX = Math.max(R + 4, Math.min(W - R - 4, LX));
+  ctx.save(); ctx.beginPath(); ctx.arc(LX, LY, R, 0, 2 * Math.PI); ctx.clip();
+  ctx.fillStyle = '#fff'; ctx.fillRect(LX - R, LY - R, 2 * R, 2 * R);
+  const sw = (2 * R / Z) * DPR, sx = X * DPR - sw / 2, sy = Y * DPR - sw / 2;
+  try { ctx.drawImage(cv, sx, sy, sw, sw, LX - R, LY - R, 2 * R, 2 * R); } catch (e) {}
+  ctx.restore();
+  ctx.strokeStyle = '#1f2a37'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(LX, LY, R, 0, 2 * Math.PI); ctx.stroke();
+  ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(LX - 10, LY); ctx.lineTo(LX + 10, LY); ctx.moveTo(LX, LY - 10); ctx.lineTo(LX, LY + 10); ctx.stroke();
+}
+
+/* ============ Dokunma ============ */
+const ptrs = new Map(); let gest = null;
+function evXY(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointerdown', e => {
+  const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()]; placing = null;
+    gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; render(); return;
+  }
+  if (ptrs.size === 1) {
+    if (S.tool === 'kroki') { gest = { t: 'place' }; placing = { X, Y, cand: candidate(X, Y) }; render(); }
+    else gest = { t: 'tap', X0: X, Y0: Y, ox0: view.ox, oy0: view.oy, moved: false };
+  }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return; const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]);
+  if (!gest) return;
+  if (gest.t === 'pinch' && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const s = Math.max(2, Math.min(3000, gest.s0 * d / gest.d0));
+    const wx = (gest.m0[0] - gest.ox0) / gest.s0, wy = (gest.oy0 - gest.m0[1]) / gest.s0;
+    view.s = s; view.ox = m[0] - wx * s; view.oy = m[1] + wy * s; render();
+  } else if (gest.t === 'place') { placing = { X, Y, cand: candidate(X, Y) }; render(); }
+  else if (gest.t === 'tap') {
+    if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) > 8) gest.moved = true;
+    if (gest.moved) { view.ox = gest.ox0 + X - gest.X0; view.oy = gest.oy0 + Y - gest.Y0; render(); }
+  }
+});
+function endPtr(e, cancel) {
+  if (!ptrs.has(e.pointerId)) return; const [X, Y] = ptrs.get(e.pointerId); ptrs.delete(e.pointerId);
+  if (!gest) return;
+  if (gest.t === 'place' && !cancel) { const c = placing && placing.cand; placing = null; gest = null; if (c) commitPlace(c); render(); return; }
+  if (gest.t === 'tap' && !gest.moved && !cancel) { gest = null; handleTap(X, Y); return; }
+  if (ptrs.size === 0) { gest = null; placing = null; render(); }
+  else if (gest.t === 'pinch') gest = null;
+}
+cv.addEventListener('pointerup', e => endPtr(e, false));
+cv.addEventListener('pointercancel', e => endPtr(e, true));
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); const [X, Y] = evXY(e); const f = Math.exp(-e.deltaY * 0.0015);
+  const wx = (X - view.ox) / view.s, wy = (view.oy - Y) / view.s; view.s = Math.max(2, Math.min(3000, view.s * f));
+  view.ox = X - wx * view.s; view.oy = Y + wy * view.s; render();
+}, { passive: false });
+
+function hitTest(X, Y) {
+  let best = null, bd = 22;
+  P.rooms.forEach(r => { const { pts } = roomPts(r); const n = pts.length; pts.forEach((p, k) => { if (r.closed && k === n - 1) return; const [px, py] = w2s(...p); const d = Math.hypot(px - X, py - Y); if (d < bd) { bd = d; best = { type: 'pt', room: r.id, i: k }; } }); });
+  if (best && bd < 14) return best;
+  let bl = null, dl = 20;
+  P.rooms.forEach(r => { const { pts } = roomPts(r); r.legs.forEach((L, i) => { const a = w2s(...pts[i]), b = w2s(...pts[i + 1]); const d = segDist(X, Y, a, b); if (d < dl) { dl = d; bl = { type: 'leg', room: r.id, i }; } }); });
+  return bl || best;
+}
+function segDist(X, Y, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1]; const l2 = dx * dx + dy * dy || 1; let t = ((X - a[0]) * dx + (Y - a[1]) * dy) / l2; t = Math.max(0, Math.min(1, t)); return Math.hypot(a[0] + t * dx - X, a[1] + t * dy - Y); }
+function handleTap(X, Y) {
+  const h = hitTest(X, Y);
+  if (S.tool === 'takip') {
+    const ar = activeRoom();
+    if (ar) {
+      const { pts } = roomPts(ar); const [px, py] = w2s(...pts[pts.length - 1]);
+      const near = Math.hypot(X - px, Y - py) < 115;
+      if (near || !(h && h.type === 'leg')) { pickDirection(ar, X, Y); return; }
+    }
+    if (h && h.type === 'leg') { S.sel = h; setTool('sec', true); render(); return; }
+    if (!activeRoom()) { snap(); const [wx, wy] = s2w(X, Y); createRoom(wx, wy); commit(); toast('Başlangıç köşesi kondu. Lazerle ilk duvarı ölç.'); return; }
+    return;
+  }
+  if (S.tool === 'sec') { S.sel = h; render(); }
+}
+
+/* ============ Arayüz ============ */
+function setTool(t, silent) { S.tool = t; if (t !== 'sec' && !silent) S.sel = null; placing = null; render(); }
+function updateNav() {
+  document.querySelectorAll('nav [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === S.tool));
+  $('#bUndo').disabled = !undoStack.length; $('#bRedo').disabled = !redoStack.length;
+  $('#title').textContent = P.name;
+}
+function updateHint() {
+  let s = '';
+  const r = activeRoom();
+  if (S.tool === 'takip') {
+    if (!r) s = 'Takip: Başlangıç köşesine dokun ya da doğrudan lazerle ölç. Her ölçü yeni duvar ekler.';
+    else { const k = r.legs.length; s = r.name + ' · ' + ptName(r, k) + ' köşesi · ' + (k ? 'sonraki duvar: ' + turnText(S.pendingTurn) : 'ilk duvarın yönü') + ' · değiştirmek için ucun soluna, sağına ya da önüne dokun'; }
+  } else if (S.tool === 'kroki') {
+    s = !r ? 'Kroki: Başlangıç köşesine dokun. Parmağını kaydırıp bırakınca köşe konur.' : r.name + ': sıradaki köşeye dokun. Başlangıç köşesine dokunursan oda kapanır. Açılar 90°\'ye yapışır.';
+  } else {
+    if (S.sel && S.sel.type === 'leg') { const q = roomById(S.sel.room); s = q ? 'Lazer ölçüsü ' + legName(q, S.sel.i) + ' kenarına yazılacak' : ''; }
+    else if (S.sel && S.sel.type === 'pt') s = 'Köşe seçili: dönüş açısını değiştirebilirsin';
+    else s = 'Seç: Ölçülecek kenara ya da açısı değişecek köşeye dokun.';
+  }
+  $('#hint').textContent = s;
+}
+function renderPanel() {
+  const el = $('#panel'); let h = '';
+  const r = activeRoom();
+  if (S.tool === 'takip') {
+    const t = S.pendingTurn;
+    h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p" data-act="addNum">Ekle</button><button data-act="angle" class="${r && r.legs.length && ![90, 0, -90].includes(t) ? 'on' : ''}" ${r && r.legs.length ? '' : 'disabled'}>∠ ${r && r.legs.length && ![90, 0, -90].includes(t) ? turnText(t) : 'Açı'}</button></div>`;
+    h += `<div class="row"><button data-act="close" ${r && r.legs.length >= 2 ? '' : 'disabled'}>Odayı kapat</button><button data-act="delLast" ${r && r.legs.length ? '' : 'disabled'}>Son kenarı sil</button><button data-act="newRoom">Yeni oda</button>${SET.demo ? '<button data-act="demo">Demo</button>' : ''}</div>`;
+  } else if (S.tool === 'kroki') {
+    h += `<div class="info">Köşelere sırayla dokun. Kenarlar <b>~tahmini</b> olarak çizilir, sonra <b>Seç</b> modunda lazerle ölçülür.</div>`;
+    h += `<div class="row"><button data-act="close" ${r && r.legs.length >= 2 ? '' : 'disabled'}>Odayı kapat</button><button data-act="delLast" ${r && r.legs.length ? '' : 'disabled'}>Son kenarı sil</button><button data-act="newRoom">Yeni oda</button></div>`;
+  } else {
+    const sel = S.sel; const q = sel && roomById(sel.room);
+    if (sel && q && sel.type === 'leg') {
+      const L = q.legs[sel.i];
+      h += `<div class="info"><b>${q.name} · ${legName(q, sel.i)}</b> &nbsp; ${L.measured ? '<span class="tag ok">ölçüldü</span>' : '<span class="tag warn">tahmini</span>'} &nbsp; <b>${fmt(L.len)} m</b></div>`;
+      h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p" data-act="setNum">Uygula</button>${SET.demo ? '<button data-act="demo">Demo</button>' : ''}</div>`;
+      h += `<div class="row"><button data-act="prev">◀ Önceki</button><button data-act="next">Sonraki ▶</button><button data-act="unsel">Bırak</button></div>`;
+    } else if (sel && q && sel.type === 'pt') {
+      const i = sel.i, has = i > 0 && i < q.legs.length;
+      h += `<div class="info"><b>${q.name} · ${ptName(q, i)}</b> köşesi ${has ? '· dönüş: <b>' + turnText(q.legs[i].turn) + '</b>' : '· başlangıç/bitiş köşesi (açı kapanmadan hesaplanır)'}</div>`;
+      if (has) h += `<div class="row"><button data-pturn="90">↰ Sol 90</button><button data-pturn="0">↑ Düz</button><button data-pturn="-90">↱ Sağ 90</button><button data-act="pangle">∠ Açı</button></div>`;
+      h += `<div class="row"><button data-act="unsel">Bırak</button></div>`;
+    } else {
+      const lastR = P.rooms[P.rooms.length - 1];
+      h += `<div class="info">Kenar seçince lazer ölçüsü ona yazılır ve sıradaki tahmini kenara geçilir.${S.lastMeasure ? ' Son ölçü: <b>' + fmt(S.lastMeasure) + ' m</b>' : ''}</div>`;
+      h += `<div class="row"><button data-act="firstOpen" ${P.rooms.some(x => x.legs.some(L => !L.measured)) ? '' : 'disabled'}>İlk ölçülmemiş kenar</button>${lastR && lastR.closed ? '<button data-act="reopen">Son odayı aç</button>' : ''}</div>`;
+    }
+  }
+  el.innerHTML = h;
+}
+$('#panel').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.turn !== undefined) { S.pendingTurn = +b.dataset.turn; render(); return; }
+  if (b.dataset.pturn !== undefined) { const q = roomById(S.sel.room); setTurn(q, S.sel.i, +b.dataset.pturn); return; }
+  const a = b.dataset.act; const r = activeRoom();
+  if (a === 'angle') { const v = parseNum(prompt('Dönüş açısı (°)\nSağa dönüş için eksi, sola dönüş için artı.\nÖrnek: sağa 95° → -95', String(S.pendingTurn))); if (isFinite(v)) { S.pendingTurn = norm180(v); render(); } }
+  else if (a === 'pangle') { const q = roomById(S.sel.room); const v = parseNum(prompt('Dönüş açısı (°)\nSağa eksi, sola artı.', String(q.legs[S.sel.i].turn))); if (isFinite(v)) setTurn(q, S.sel.i, v); }
+  else if (a === 'addNum') { const v = parseNum($('#num').value); if (!(v > 0)) return toast('Geçerli bir ölçü gir'); addLegTakip(v, true); }
+  else if (a === 'setNum') { const v = parseNum($('#num').value); if (!(v > 0)) return toast('Geçerli bir ölçü gir'); const q = roomById(S.sel.room); setLeg(q, S.sel.i, v); }
+  else if (a === 'close') closeRoom(r);
+  else if (a === 'delLast') deleteLastLeg();
+  else if (a === 'newRoom') { S.active = null; S.sel = null; render(); toast(S.tool === 'takip' ? 'Yeni oda: başlangıç köşesine dokun ya da ölç' : 'Yeni oda: başlangıç köşesine dokun'); }
+  else if (a === 'demo') demoMeasure();
+  else if (a === 'prev' || a === 'next') { const q = roomById(S.sel.room); const n = q.legs.length; S.sel.i = (S.sel.i + (a === 'next' ? 1 : n - 1)) % n; render(); }
+  else if (a === 'unsel') { S.sel = null; render(); }
+  else if (a === 'firstOpen') { for (const q of P.rooms) { const i = q.legs.findIndex(L => !L.measured); if (i >= 0) { S.sel = { type: 'leg', room: q.id, i }; break; } } render(); }
+  else if (a === 'reopen') { reopenRoom(P.rooms[P.rooms.length - 1]); setTool('takip'); }
+});
+$('#panel').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('#panel [data-act="addNum"], #panel [data-act="setNum"]'); if (b) b.click(); } });
+document.querySelectorAll('nav [data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('#bUndo').onclick = undo; $('#bRedo').onclick = redo; $('#bFit').onclick = fit;
+$('#ble').onclick = bleConnect;
+function demoMeasure() {
+  let v;
+  if (S.sel && S.sel.type === 'leg') { const q = roomById(S.sel.room); v = q.legs[S.sel.i].len * (1 + (Math.random() - .5) * 0.04); }
+  else v = 2 + Math.random() * 4;
+  onMeasure(Math.round(v * 1000) / 1000, 'demo');
+}
+
+/* ============ Menü ============ */
+function openSheet(html) { $('#sheetBox').innerHTML = html; $('#sheet').classList.remove('hidden'); }
+function closeSheet() { $('#sheet').classList.add('hidden'); }
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+$('#bMenu').onclick = () => {
+  const r = (S.sel && roomById(S.sel.room)) || activeRoom() || P.rooms[P.rooms.length - 1];
+  openSheet(`<h3>${esc(P.name)}</h3>
+  <div class="row"><button data-m="dxf" class="p">DXF indir</button><button data-m="json">JSON yedek</button></div>
+  <div class="row"><button data-m="new">Yeni proje</button><button data-m="open">Proje aç</button></div>
+  <div class="row"><button data-m="rename">Projeyi adlandır</button><button data-m="import">JSON yükle</button></div>
+  ${r ? `<h3>Oda: ${esc(r.name)}</h3><div class="row"><button data-m="roomName">Odayı adlandır</button><button data-m="roomDel">Odayı sil</button></div>` : ''}
+  <h3>Ayarlar</h3>
+  <label>Çizim ölçeği (yazı boyu) <select id="sScale">${[20, 50, 100, 200, 500].map(v => `<option value="${v}" ${SET.scaleDen == v ? 'selected' : ''}>1/${v}</option>`).join('')}</select></label>
+  <label>Takipte varsayılan dönüş <select id="sTurn"><option value="-90" ${SET.defaultTurn == -90 ? 'selected' : ''}>Sağ 90 (saat yönü)</option><option value="90" ${SET.defaultTurn == 90 ? 'selected' : ''}>Sol 90</option><option value="0" ${SET.defaultTurn == 0 ? 'selected' : ''}>Düz</option></select></label>
+  <label>Ölçüden sonra sıradaki kenara geç <input type="checkbox" id="sAuto" ${SET.autoAdvance ? 'checked' : ''}></label>
+  <label>Lazer ofseti (m, köşe ucu vb.) <input type="text" inputmode="decimal" id="sOff" value="${SET.offset}" style="width:90px"></label>
+  <label>Kapanma toleransı (cm) <input type="text" inputmode="decimal" id="sTol" value="${(SET.closeTol * 100).toFixed(1)}" style="width:90px"></label>
+  <label>Demo lazer düğmesi <input type="checkbox" id="sDemo" ${SET.demo ? 'checked' : ''}></label>
+  <div class="row"><button data-m="saveSet" class="p">Ayarları kaydet</button></div>
+  <h3>Lazer günlüğü</h3><pre>${esc(bleLog.slice(-25).join('\n') || 'Henüz kayıt yok')}</pre>
+  <div class="row"><button data-m="close">Kapat</button></div>`);
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+$('#sheetBox').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return; const m = b.dataset.m; const r = (S.sel && roomById(S.sel.room)) || activeRoom() || P.rooms[P.rooms.length - 1];
+  if (m === 'close') closeSheet();
+  else if (m === 'dxf') { if (!P.rooms.length) return toast('Çizim boş'); await saveFile(safeName(P.name) + '.dxf', toCp1254(buildDXF(P, SET)), 'application/octet-stream'); closeSheet(); }
+  else if (m === 'json') { await saveFile(safeName(P.name) + '.json', JSON.stringify(P, null, 1), 'application/json'); closeSheet(); }
+  else if (m === 'new') { const n = prompt('Yeni proje adı', 'Proje ' + new Date().toLocaleDateString('tr-TR')); if (!n) return; if (allProjects()[n] && !confirm('Bu adda proje var, üzerine yazılsın mı?')) return; saveProject(); P = newProject(n); undoStack = []; redoStack = []; S.active = null; S.sel = null; commit(); fit(); closeSheet(); }
+  else if (m === 'open') {
+    const all = allProjects(); const names = Object.keys(all).sort((a, b) => (all[b].saved || 0) - (all[a].saved || 0));
+    openSheet('<h3>Projeler</h3><div class="list">' + names.map(n => `<button data-open="${esc(n)}">${esc(n)} <span class="tag">${all[n].rooms.length} oda</span></button>`).join('') + '</div><div class="row"><button data-m="close">Kapat</button></div>');
+  }
+  else if (b.dataset.open) { saveProject(); P = allProjects()[b.dataset.open]; undoStack = []; redoStack = []; S.active = null; S.sel = null; commit(); fit(); closeSheet(); }
+  else if (m === 'rename') { const n = prompt('Proje adı', P.name); if (!n || n === P.name) return; const all = allProjects(); delete all[P.name]; writeJSON(LS_PROJ, all); P.name = n; commit(); closeSheet(); }
+  else if (m === 'import') { $('#fileIn').click(); }
+  else if (m === 'roomName') { if (!r) return; const n = prompt('Oda adı', r.name); if (n) { snap(); r.name = n; commit(); } closeSheet(); }
+  else if (m === 'roomDel') { if (r && confirm(r.name + ' silinsin mi?')) { deleteRoom(r); } closeSheet(); }
+  else if (m === 'saveSet') {
+    SET.scaleDen = +$('#sScale').value; SET.defaultTurn = +$('#sTurn').value; SET.autoAdvance = $('#sAuto').checked; SET.demo = $('#sDemo').checked;
+    const off = parseNum($('#sOff').value); SET.offset = isFinite(off) ? off : 0; const tol = parseNum($('#sTol').value); SET.closeTol = isFinite(tol) && tol > 0 ? tol / 100 : 0.02;
+    S.pendingTurn = SET.defaultTurn; writeJSON(LS_SET, SET); closeSheet(); render(); toast('Ayarlar kaydedildi');
+  }
+});
+$('#fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return; try {
+    const d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.rooms)) throw new Error('Geçersiz dosya');
+    saveProject(); P = d; if (allProjects()[P.name] && !confirm('"' + P.name + '" zaten var, üzerine yazılsın mı?')) P.name += ' (yüklendi)';
+    undoStack = []; redoStack = []; S.active = null; S.sel = null; commit(); fit(); closeSheet(); toast('Proje yüklendi');
+  } catch (err) { alert('Dosya okunamadı: ' + err.message); } e.target.value = '';
+});
+const safeName = s => s.replace(/[\\/:*?"<>|]+/g, '_');
+async function saveFile(name, data, mime) {
+  const blob = new Blob([data], { type: mime });
+  try { const file = new File([blob], name, { type: mime }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+
+/* ============ DXF (R12, ANSI_1254) ============ */
+const CP1254 = { 'Ç': 0xC7, 'ç': 0xE7, 'Ğ': 0xD0, 'ğ': 0xF0, 'İ': 0xDD, 'ı': 0xFD, 'Ö': 0xD6, 'ö': 0xF6, 'Ş': 0xDE, 'ş': 0xFE, 'Ü': 0xDC, 'ü': 0xFC, '°': 0xB0, '²': 0xB2, '±': 0xB1, 'Â': 0xC2, 'â': 0xE2, 'Î': 0xCE, 'î': 0xEE, 'Û': 0xDB, 'û': 0xFB, '–': 0x96, 'Δ': 0x3F };
+function toCp1254(str) { const out = new Uint8Array(str.length); for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); out[i] = c < 128 ? c : (CP1254[str[i]] || 0x3F); } return out; }
+function buildDXF(p, set) {
+  const th = set.scaleDen * 0.0025;          // kağıtta 2.5 mm
+  const L = [];
+  const g = (code, val) => { L.push(String(code).padStart(3, ' ')); L.push(String(val)); };
+  const n4 = v => (Math.abs(v) < 5e-5 ? 0 : v).toFixed(4);
+  const layers = [['DUVAR', 7], ['VARSAYIM', 1], ['OLCU', 3], ['NOKTA', 6], ['NOKTA_ADI', 6], ['YAZI', 2], ['KAPANMA', 1]];
+  g(0, 'SECTION'); g(2, 'HEADER');
+  g(9, '$ACADVER'); g(1, 'AC1009'); g(9, '$DWGCODEPAGE'); g(3, 'ANSI_1254');
+  g(9, '$INSBASE'); g(10, '0.0'); g(20, '0.0'); g(30, '0.0');
+  const bb = bboxOf(p) || [0, 0, 10, 10];
+  g(9, '$EXTMIN'); g(10, n4(bb[0])); g(20, n4(bb[1])); g(30, '0.0');
+  g(9, '$EXTMAX'); g(10, n4(bb[2])); g(20, n4(bb[3])); g(30, '0.0');
+  g(9, '$TEXTSIZE'); g(40, n4(th)); g(9, '$PDMODE'); g(70, 34); g(9, '$PDSIZE'); g(40, n4(th * 0.6));
+  g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'TABLES');
+  g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 2);
+  g(0, 'LTYPE'); g(2, 'CONTINUOUS'); g(70, 0); g(3, 'Solid line'); g(72, 65); g(73, 0); g(40, '0.0');
+  g(0, 'LTYPE'); g(2, 'DASHED'); g(70, 0); g(3, '__ __ __'); g(72, 65); g(73, 2); g(40, n4(th * 4)); g(49, n4(th * 2.5)); g(49, n4(-th * 1.5));
+  g(0, 'ENDTAB');
+  g(0, 'TABLE'); g(2, 'LAYER'); g(70, layers.length + 1);
+  g(0, 'LAYER'); g(2, '0'); g(70, 0); g(62, 7); g(6, 'CONTINUOUS');
+  layers.forEach(([n, c]) => { g(0, 'LAYER'); g(2, n); g(70, 0); g(62, c); g(6, n === 'VARSAYIM' || n === 'KAPANMA' ? 'DASHED' : 'CONTINUOUS'); });
+  g(0, 'ENDTAB');
+  g(0, 'TABLE'); g(2, 'STYLE'); g(70, 1); g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, '0.0'); g(41, '1.0'); g(50, '0.0'); g(71, 0); g(42, n4(th)); g(3, 'txt'); g(4, ''); g(0, 'ENDTAB');
+  g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'ENTITIES');
+  const line = (lay, a, b) => { g(0, 'LINE'); g(8, lay); g(10, n4(a[0])); g(20, n4(a[1])); g(30, '0.0'); g(11, n4(b[0])); g(21, n4(b[1])); g(31, '0.0'); };
+  const text = (lay, s, x, y, h, rot, center) => {
+    g(0, 'TEXT'); g(8, lay); g(10, n4(x)); g(20, n4(y)); g(30, '0.0'); g(40, n4(h)); g(1, s); if (rot) g(50, rot.toFixed(3));
+    if (center) { g(72, 1); g(11, n4(x)); g(21, n4(y)); g(31, '0.0'); g(73, 2); }
+  };
+  p.rooms.forEach(r => {
+    const { pts } = roomPts(r); const n = pts.length; const area = polyArea(pts.slice(0, -1));
+    const inSide = r.closed ? (area < 0 ? 1 : -1) : 1;
+    r.legs.forEach((Lg, i) => {
+      const a = pts[i], b = pts[i + 1]; line(Lg.measured ? 'DUVAR' : 'VARSAYIM', a, b);
+      const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+      // dünya koordinatında (y yukarı) sağ normal: (dy,-dx)
+      const nx = dy / l * inSide, ny = -dx / l * inSide;
+      let rot = Math.atan2(dy, dx) / deg; if (rot > 90 || rot <= -90) rot += 180; rot = (rot + 360) % 360;
+      text(Lg.measured ? 'OLCU' : 'VARSAYIM', (Lg.measured ? '' : '~') + Lg.len.toFixed(3), (a[0] + b[0]) / 2 + nx * th * 1.2, (a[1] + b[1]) / 2 + ny * th * 1.2, th, rot, true);
+    });
+    pts.forEach((pt, k) => {
+      if (r.closed && k === n - 1) return;
+      g(0, 'POINT'); g(8, 'NOKTA'); g(10, n4(pt[0])); g(20, n4(pt[1])); g(30, '0.0');
+      text('NOKTA_ADI', ptName(r, k), pt[0] + th * 0.5, pt[1] + th * 0.5, th * 0.8, 0, false);
+    });
+    if (r.closed) { const gp = roomGap(r); if (gp > 0.0005) { line('KAPANMA', pts[n - 1], pts[0]); text('KAPANMA', 'Kapanma ' + (gp * 100).toFixed(1) + ' cm', (pts[n - 1][0] + pts[0][0]) / 2, (pts[n - 1][1] + pts[0][1]) / 2 - th * 1.5, th * 0.8, 0, true); } }
+    if (r.legs.length >= 2) {
+      let cx = 0, cy = 0; const m = r.closed ? n - 1 : n; for (let k = 0; k < m; k++) { cx += pts[k][0]; cy += pts[k][1]; } cx /= m; cy /= m;
+      text('YAZI', r.name, cx, cy + th * 0.8, th * 1.4, 0, true);
+      if (r.closed) text('YAZI', 'A=' + Math.abs(area).toFixed(2) + ' m²', cx, cy - th * 1.2, th, 0, true);
+      const um = r.legs.filter(x => !x.measured).length; if (um) text('VARSAYIM', um + ' kenar ölçülmedi', cx, cy - th * 3, th * 0.8, 0, true);
+    }
+  });
+  g(0, 'ENDSEC'); g(0, 'EOF');
+  return L.join('\r\n') + '\r\n';
+}
+function bboxOf(p) { let b = null; p.rooms.forEach(r => roomPts(r).pts.forEach(([x, y]) => { if (!b) b = [x, y, x, y]; else { b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); } })); return b; }
+
+/* ============ Başlat ============ */
+loadInitial();
+window.addEventListener('resize', resize);
+resize(); fit();
+if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
+window.RK = { get P() { return P; }, S, onMeasure, buildDXF: () => buildDXF(P, SET), parseBosch, setTool, closeRoom: () => closeRoom(activeRoom()), handleTap, commitPlace, candidate, w2s, fit };
+</script>
+</body>
+</html>
