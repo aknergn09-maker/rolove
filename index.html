@@ -188,12 +188,13 @@ function buildObs(weak) {
   });
   P.cons.forEach(c => {
     if (c.type === 'online') O.push({ ids: [c.p, c.a, c.b], f: F.online, v: 0, s: SIG_ON, k: 'on' });
+    else if (c.type === 'radius') { if (weak || c.m) { const sg = c.m ? SET.sigD : 0.05; O.push({ ids: [c.p, c.a], f: F.dist, v: c.r, s: sg, k: c.m ? 'r' : 'est' }); O.push({ ids: [c.p, c.b], f: F.dist, v: c.r, s: sg, k: c.m ? 'r' : 'est' }); } }
     else if (c.type === 'perp' && weak) O.push({ ids: [c.a, c.b, c.c, c.d], f: F.perp, v: 0, s: SET.sigA * deg, k: 'perp' });
   });
   return O.filter(o => o.ids.every(id => ptById(id)));
 }
 function shapeScales() { const k = new Map(); P.shapes.forEach(sh => { if (sh.ring.length < 2) return; const r = []; shapeEdges(sh).forEach(e => { const b = e.est0 || e.est; if (e.len != null && b > 0.05 && e.kind !== 'diag') r.push(e.len / b); }); if (r.length) { r.sort((a, b) => a - b); k.set(sh.id, r[Math.floor((r.length - 1) / 2)]); } }); return k; }
-function estScaled(e, KS) { const b = e.est0 || e.est; if (!KS) return b; const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); const k = sh && KS.get(sh.id); return k ? b * Math.max(0.2, Math.min(5, k)) : b; }
+function estScaled(e, KS) { const b = e.est0 || e.est; if (!KS || e.kind === 'door') return b; const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); const k = sh && KS.get(sh.id); return k ? b * Math.max(0.2, Math.min(5, k)) : b; }
 function obsGrad(o, X, idx) {
   const cols = []; o.ids.forEach(id => { const j = idx.get(id); cols.push(2 * j, 2 * j + 1); });
   const c = cols.map(k => X[k]); const f0 = o.f(c);
@@ -239,7 +240,7 @@ function analyze() {
   const idxAll = new Map(P.pts.map((p, i) => [p.id, i]));
   const XA = new Float64Array(P.pts.length * 2); P.pts.forEach((p, i) => { XA[2 * i] = p.x; XA[2 * i + 1] = p.y; });
   const O = buildObs(false);
-  O.forEach(o => { if (o.k === 'd') { const { r } = obsGrad(o, XA, idxAll); const lim = Math.max(3 * SET.sigD, 0.005); if (Math.abs(r) > lim) res.conflicts.push({ e: o.e, r }); } });
+  O.forEach(o => { if (o.k === 'd' && o.e) { const { r } = obsGrad(o, XA, idxAll); const lim = Math.max(3 * SET.sigD, 0.005); if (Math.abs(r) > lim) res.conflicts.push({ e: o.e, r }); } });
   // ölçüyle bağlı bileşenler
   const par = new Map(P.pts.map(p => [p.id, p.id])); const find = x => { while (par.get(x) !== x) { par.set(x, par.get(par.get(x))); x = par.get(x); } return x; };
   O.forEach(o => o.ids.slice(1).forEach(id => { const ra = find(o.ids[0]), rb = find(id); if (ra !== rb) par.set(ra, rb); }));
@@ -287,7 +288,7 @@ function analyze() {
     });
     const need = 2 * n0 - 3; const ringSet = new Set(sh.ring);
     const mRoom = P.edges.filter(e => e.len != null && ringSet.has(e.a) && ringSet.has(e.b)).length;
-    const unmeasured = shapeEdges(sh).filter(e => e.len == null);
+    const unmeasured = shapeEdges(sh).filter(e => e.len == null && !(e.kind === 'arc' && radiusCons(e) && radiusCons(e).m));
     const info = { sh, corners, unfixed: unf, area: Math.abs(area), missing: Math.max(0, need - mRoom), control: unf.length ? 0 : mRoom - need, unmeasured };
     res.shapes.push(info);
     // çapraz önerisi
@@ -353,7 +354,7 @@ function onMeasure(raw, manual) {
   const v = manual ? raw : raw + (SET.offset || 0); S.lastMeasure = v; beep(); flash(fmt(v) + ' m');
   if (S.sel && S.sel.type === 'edge') { const e = edgeById(S.sel.id); if (e) { setEdgeLen(e, v); return; } }
   if (S.sel && S.sel.type === 'circle') { const c = shapeById(S.sel.id); if (c) { snap(); c.r = SET.circleDia ? v / 2 : v; c.measured = true; commit(); toast((SET.circleDia ? 'Çap ' : 'Yarıçap ') + fmt(v) + ' m'); return; } }
-  if (S.sel && S.sel.type === 'door') { const d = P.doors.find(x => x.id === S.sel.id); if (d) { snap(); if (S.dpart === 't') { d.t = v; d.tM = true; } else { const g = doorGeom(d); const c = g.t0 + g.w / 2; d.w = v; d.wM = true; if (!d.tM) d.t = c - v / 2; } commit(); toast(S.dpart === 't' ? 'Kapı konumu ' + fmt(v) : 'Kapı genişliği ' + fmt(v)); return; } }
+  if (S.sel && S.sel.type === 'door') { const d = P.doors.find(x => x.id === S.sel.id); const e = d && edgeById(d.e); if (e) { setEdgeLen(e, v); return; } }
   if (S.sel && S.sel.type === 'fillet') { const f = P.fillets[S.sel.id]; if (f) { snap(); f.r = v; f.m = true; commit(); toast('Fillet R=' + fmt(v)); return; } }
   if (S.sel && S.sel.type === 'offset') { const o = P.offsets.find(x => x.id === S.sel.id); if (o) { snap(); o.d = v; o.m = true; commit(); toast('Ofset ' + fmt(v)); return; } }
   if (S.sel && S.sel.type === 'sug') { snap(); const e = addEdge(S.sel.a, S.sel.b, 'diag', v); S.sel = null; commit(); reportAfterDiag(e); return; }
@@ -361,6 +362,7 @@ function onMeasure(raw, manual) {
   toast('Ölçü: ' + fmt(v) + ' m · Ölç sekmesinde bir kenar seç'); render();
 }
 function setEdgeLen(e, v) {
+  if (e.kind === 'arc') { const rc = radiusCons(e); if (rc) { snap(); rc.r = SET.circleDia ? v / 2 : v; rc.m = true; commit(); toast('Yay R=' + fmt(rc.r)); } return; }
   snap(); e.len = v; commit();
   if (e.kind === 'diag') { S.sel = null; reportAfterDiag(e); render(); return; }
   const sh = P.shapes.find(s => shapeEdges(s).includes(e));
@@ -460,7 +462,7 @@ new ResizeObserver(() => resize()).observe(wrap);
 const w2s = (x, y) => [view.ox + x * view.s, view.oy - y * view.s];
 const s2w = (X, Y) => [(X - view.ox) / view.s, (view.oy - Y) / view.s];
 const ps = id => { const p = ptById(id); return w2s(p.x, p.y); };
-function bbox() { let b = null; P.pts.forEach(p => { if (!b) b = [p.x, p.y, p.x, p.y]; else { b[0] = Math.min(b[0], p.x); b[1] = Math.min(b[1], p.y); b[2] = Math.max(b[2], p.x); b[3] = Math.max(b[3], p.y); } }); P.shapes.forEach(s => { if (s.kind === 'circle' && b) { const c = ptById(s.center); if (c) { b[0] = Math.min(b[0], c.x - s.r); b[1] = Math.min(b[1], c.y - s.r); b[2] = Math.max(b[2], c.x + s.r); b[3] = Math.max(b[3], c.y + s.r); } } }); return b; }
+function bbox() { let b = null; P.pts.forEach(p => { if (!b) b = [p.x, p.y, p.x, p.y]; else { b[0] = Math.min(b[0], p.x); b[1] = Math.min(b[1], p.y); b[2] = Math.max(b[2], p.x); b[3] = Math.max(b[3], p.y); } }); P.edges.forEach(e => { if (e.kind === 'arc' && b && ptById(e.c)) { const c = ptById(e.c); const r = plen(e.c, e.a); b[0] = Math.min(b[0], c.x - r); b[1] = Math.min(b[1], c.y - r); b[2] = Math.max(b[2], c.x + r); b[3] = Math.max(b[3], c.y + r); } }); P.shapes.forEach(s => { if (s.kind === 'circle' && b) { const c = ptById(s.center); if (c) { b[0] = Math.min(b[0], c.x - s.r); b[1] = Math.min(b[1], c.y - s.r); b[2] = Math.max(b[2], c.x + s.r); b[3] = Math.max(b[3], c.y + s.r); } } }); return b; }
 function fit() { const b = bbox(); if (!b) { view.s = 40; view.ox = W / 2; view.oy = H / 2; return draw(); } const w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1); view.s = Math.min((W - 70) / w, (H - 80) / h, 400); view.ox = W / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = H / 2 + 15 + (b[1] + b[3]) / 2 * view.s; draw(); }
 function label(text, X, Y, ang, color, bg, size) {
   ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a);
@@ -471,7 +473,7 @@ function label(text, X, Y, ang, color, bg, size) {
 function render() { draw(); updateHint(); renderPanel(); updateTabs(); }
 function draw() {
   if (!W) return; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
-  drawGrid(); drawShapesFill(); drawCircles(); drawEdges(); drawCad(); if (S.tab === 'olc') drawSuggestions(); drawPoints(); drawCornerFlags(); drawTakip(); drawPlacing(); drawStroke();
+  drawGrid(); drawShapesFill(); drawCircles(); drawEdges(); drawCad(); if (S.tab === 'olc') drawSuggestions(); drawPoints(); drawCornerFlags(); drawTakip(); drawChainDirs(); drawPlacing(); drawStroke();
 }
 function drawGrid() {
   let step = 1; while (step * view.s < 22) step *= 5; while (step * view.s > 160) step /= 5;
@@ -485,9 +487,9 @@ function drawShapesFill() {
   P.shapes.forEach(sh => {
     if (sh.kind === 'circle' || !sh.closed || sh.ring.length < 3) return;
     ctx.fillStyle = sh.kind === 'room' ? 'rgba(14,116,144,.05)' : 'rgba(100,116,139,.13)';
-    ctx.beginPath(); sh.ring.forEach((id, i) => { const [X, Y] = ps(id); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ringPoly(sh).forEach((q, i) => { const [X, Y] = w2s(q[0], q[1]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.fill();
     if (sh.kind === 'room') { let cx = 0, cy = 0; sh.ring.forEach(id => { const p = ptById(id); cx += p.x; cy += p.y; }); cx /= sh.ring.length; cy /= sh.ring.length; const [X, Y] = w2s(cx, cy);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#94a3b8'; ctx.font = '600 11px sans-serif'; ctx.fillText(sh.name + ' · ' + Math.abs(polyArea(sh.ring)).toFixed(1) + ' m²', X, Y); }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#94a3b8'; ctx.font = '600 11px sans-serif'; ctx.fillText(sh.name + ' · ' + Math.abs(ringArea(sh)).toFixed(1) + ' m²', X, Y); }
   });
 }
 function drawCircles() {
@@ -502,6 +504,11 @@ function edgeSide(e) { const sh = P.shapes.find(s => s.closed && s.ring.length >
 function drawEdges() {
   const conf = new Set((A ? A.conflicts : []).map(c => c.e.id)); const showDiag = S.tab === 'olc';
   P.edges.forEach(e => {
+    if (e.hidden) return;
+    if (e.kind === 'door') { const a = ps(e.a), b = ps(e.b); const sel = S.sel && S.sel.type === 'edge' && S.sel.id === e.id; ctx.strokeStyle = sel ? '#0b7cc1' : 'rgba(124,45,18,.35)'; ctx.lineWidth = sel ? 4 : 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]); return; }
+    if (e.kind === 'arc' && ptById(e.c)) { const g = arcInfo(e); const rc = radiusCons(e); const m = rc && rc.m; const sel = S.sel && S.sel.type === 'edge' && S.sel.id === e.id; const [CX, CY] = w2sv(g.C);
+      ctx.strokeStyle = sel ? '#0b7cc1' : (m ? '#1f2a37' : '#d97706'); ctx.lineWidth = sel ? 6 : 2.5; ctx.setLineDash(m ? [] : [8, 6]); ctx.beginPath(); ctx.arc(CX, CY, g.r * view.s, -g.a1, -(g.a1 + g.sw), g.sw > 0); ctx.stroke(); ctx.setLineDash([]);
+      const am = g.a1 + g.sw / 2; const M = w2sv([g.C[0] + Math.cos(am) * g.r, g.C[1] + Math.sin(am) * g.r]); if (SET.showLen) label((m ? 'R' : 'R~') + g.r.toFixed(m ? 3 : 2), M[0], M[1] - 10, 0, m ? '#111827' : '#b45309', 'rgba(251,251,252,.85)', 11); return; }
     if (e.kind === 'diag' && !showDiag && !(S.sel && S.sel.id === e.id)) { const a = ps(e.a), b = ps(e.b); ctx.strokeStyle = 'rgba(22,163,74,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); return; }
     const [ea, eb] = edgeEnds(e); const a = w2sv(ea), b = w2sv(eb); const sel = S.sel && S.sel.type === 'edge' && S.sel.id === e.id; const m = e.len != null;
     let col, wd, dash = [];
@@ -698,7 +705,7 @@ function processStroke(st) {
 }
 
 /* =================== CAD araçları =================== */
-function ensureCad() { P.doors = P.doors || []; P.fillets = P.fillets || {}; P.offsets = P.offsets || []; }
+function ensureCad() { P.doors = P.doors || []; P.fillets = P.fillets || {}; P.offsets = P.offsets || []; if (P.doors.some(d => d.t !== undefined)) migrateDoors(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null; // cm → m
 const V = { sub: (a, b) => [a[0] - b[0], a[1] - b[1]], add: (a, b) => [a[0] + b[0], a[1] + b[1]], mul: (a, k) => [a[0] * k, a[1] * k], len: a => Math.hypot(a[0], a[1]), unit: a => { const l = Math.hypot(a[0], a[1]) || 1; return [a[0] / l, a[1] / l]; }, dist: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) };
 const pw = id => { const p = ptById(id); return [p.x, p.y]; };
@@ -773,26 +780,36 @@ function drawCad() {
     const am = g.a1 + g.sw / 2; const M = [g.O[0] + Math.cos(am) * g.r, g.O[1] + Math.sin(am) * g.r]; const [MX, MY] = w2sv(M);
     label((g.m ? 'R' : 'R~') + g.r.toFixed(g.m ? 3 : 2), MX, MY - 10, 0, g.m ? '#111827' : '#b45309', 'rgba(251,251,252,.85)', 10.5); });
   // ofsetler
-  P.offsets.forEach(o => { const g = offsetGeom(o); if (!g) return; const sel = S.sel && S.sel.type === 'offset' && S.sel.id === o.id;
+  P.offsets.forEach(o => { if (o.band) return; const g = offsetGeom(o); if (!g) return; const sel = S.sel && S.sel.type === 'offset' && S.sel.id === o.id;
     ctx.strokeStyle = sel ? '#0b7cc1' : (o.m ? '#475569' : '#f59e0b'); ctx.lineWidth = sel ? 4 : 1.8; ctx.setLineDash(o.m ? [] : [7, 5]);
     g.segs.forEach(([a, b]) => { ctx.beginPath(); ctx.moveTo(...w2sv(a)); ctx.lineTo(...w2sv(b)); ctx.stroke(); }); ctx.setLineDash([]);
     const [a, b] = g.segs[0]; const m = w2sv([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]); label((o.m ? '' : '~') + Math.round(o.d * 100) + ' cm', m[0], m[1] - 9, 0, o.m ? '#334155' : '#b45309', 'rgba(251,251,252,.85)', 10.5); });
   // kapılar
   P.doors.forEach(d => { const g = doorGeom(d); if (!g) return; const sel = S.sel && S.sel.type === 'door' && S.sel.id === d.id;
     const J1 = w2sv(g.J1), J2 = w2sv(g.J2), H = w2sv(g.H), Lf = w2sv(g.Leaf);
-    ctx.strokeStyle = '#fbfbfc'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(...J1); ctx.lineTo(...J2); ctx.stroke();
-    const col = sel ? '#0b7cc1' : (d.wM ? '#7c2d12' : '#d97706');
+    const col = sel ? '#0b7cc1' : (g.m ? '#7c2d12' : '#d97706');
     ctx.strokeStyle = col; ctx.lineWidth = sel ? 3 : 2; ctx.beginPath(); ctx.moveTo(...H); ctx.lineTo(...Lf); ctx.stroke();
     ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(H[0], H[1], g.w * view.s, -g.aL, -(g.aL + g.sw), g.sw > 0); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = col; [J1, J2].forEach(p => { ctx.fillRect(p[0] - 2, p[1] - 2, 4, 4); });
-    const mid = [(J1[0] + J2[0]) / 2, (J1[1] + J2[1]) / 2]; label((d.wM ? 'K' : 'K~') + Math.round(g.w * 100), mid[0], mid[1] + 11, 0, col, 'rgba(251,251,252,.85)', 10.5); });
+    const mid = [(J1[0] + J2[0]) / 2, (J1[1] + J2[1]) / 2]; label((g.m ? 'K' : 'K~') + Math.round(g.w * 100), mid[0], mid[1] + 11, 0, col, 'rgba(251,251,252,.85)', 10.5); });
+  // duvar bantları
+  P.offsets.forEach(o => { if (!o.band) return; const g = bandGeom(o); if (!g) return; const sel = S.sel && S.sel.type === 'offset' && S.sel.id === o.id; const col = sel ? '#0b7cc1' : (o.m ? '#334155' : '#d97706');
+    g.quads.forEach(q => { const pts = [q.P1, q.P2, q.Q2, q.Q1].map(w2sv);
+      if (q.arc) { const ag = arcInfo(q.arc); const sh2 = shapeById(o.sh); const outR = ag.r + o.d * o.side * (pointInPolyW([ag.C[0] + Math.cos(ag.a1 + ag.sw / 2) * ag.r * 1.01, ag.C[1] + Math.sin(ag.a1 + ag.sw / 2) * ag.r * 1.01], ringPoly(sh2)) ? -1 : 1); const [CX, CY] = w2sv(ag.C); ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.setLineDash(o.m ? [] : [6, 4]); ctx.beginPath(); ctx.arc(CX, CY, Math.max(1, outR * view.s), -ag.a1, -(ag.a1 + ag.sw), ag.sw > 0); ctx.stroke(); ctx.setLineDash([]); return; }
+      if (!q.door) { ctx.save(); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fillStyle = o.m ? 'rgba(71,85,105,.18)' : 'rgba(245,158,11,.14)'; ctx.fill(); ctx.clip();
+        ctx.strokeStyle = o.m ? 'rgba(51,65,85,.55)' : 'rgba(217,119,6,.5)'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs) - 40, x1 = Math.max(...xs) + 40, y0 = Math.min(...ys), y1 = Math.max(...ys);
+        for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.beginPath(); ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); ctx.stroke(); } ctx.restore();
+        ctx.strokeStyle = col; ctx.lineWidth = sel ? 3 : 1.6; ctx.setLineDash(o.m ? [] : [6, 4]); ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); ctx.stroke(); ctx.setLineDash([]); }
+      else { ctx.strokeStyle = col; ctx.lineWidth = 1.6; [[pts[0], pts[3]], [pts[1], pts[2]]].forEach(([a, b]) => { ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }); } });
+    if (!g.closed && g.quads.length) { const f = g.quads[0], l = g.quads[g.quads.length - 1]; ctx.strokeStyle = col; ctx.lineWidth = 1.6; [[f.P1, f.Q1], [l.P2, l.Q2]].forEach(([a, b]) => { ctx.beginPath(); ctx.moveTo(...w2sv(a)); ctx.lineTo(...w2sv(b)); ctx.stroke(); }); }
+    const q0 = g.quads.find(q => !q.door) || g.quads[0]; const m = w2sv([(q0.Q1[0] + q0.Q2[0]) / 2, (q0.Q1[1] + q0.Q2[1]) / 2]); label((o.m ? '' : '~') + Math.round(o.d * 100) + ' cm', m[0], m[1] - 8, 0, o.m ? '#334155' : '#b45309', 'rgba(251,251,252,.85)', 10.5); });
 }
 /* ---- Dokunma: araçlar ---- */
 function cadHit(X, Y) {
   let best = null, bd = 20; const cons = (o, d) => { if (d < bd) { bd = d; best = o; } };
   P.doors.forEach(d => { const g = doorGeom(d); if (!g) return; cons({ type: 'door', id: d.id, part: 'w' }, segDistPt([X, Y], w2sv(g.J1), w2sv(g.J2)) - 4); cons({ type: 'door', id: d.id, part: 'w' }, segDistPt([X, Y], w2sv(g.H), w2sv(g.Leaf))); });
   Object.keys(P.fillets).forEach(pid => { const g = filletGeom(pid); if (!g) return; const am = g.a1 + g.sw / 2; const M = w2sv([g.O[0] + Math.cos(am) * g.r, g.O[1] + Math.sin(am) * g.r]); cons({ type: 'fillet', id: pid }, Math.hypot(X - M[0], Y - M[1]) - 2); });
-  P.offsets.forEach(o => { const g = offsetGeom(o); if (!g) return; g.segs.forEach(([a, b]) => cons({ type: 'offset', id: o.id }, segDistPt([X, Y], w2sv(a), w2sv(b)))); });
+  P.offsets.forEach(o => { if (o.band) { const g = bandGeom(o); if (!g) return; g.quads.forEach(q => { if (!q.door) cons({ type: 'offset', id: o.id }, segDistPt([X, Y], w2sv(q.Q1), w2sv(q.Q2))); }); return; } const g = offsetGeom(o); if (!g) return; g.segs.forEach(([a, b]) => cons({ type: 'offset', id: o.id }, segDistPt([X, Y], w2sv(a), w2sv(b)))); });
   return best;
 }
 function pointInPoly(pt, ids) { let c = false; for (let i = 0, j = ids.length - 1; i < ids.length; j = i++) { const a = pw(ids[i]), b = pw(ids[j]); if (((a[1] > pt[1]) !== (b[1] > pt[1])) && (pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0])) c = !c; } return c; }
@@ -812,10 +829,10 @@ function cadTap(X, Y) {
     const [wx, wy] = s2w(X, Y); const p = ptById(S.circC); const r = Math.hypot(wx - p.x, wy - p.y); if (r < 0.02) return; makeCircle(S.circC, r); return;
   }
   if (tool === 'kapi') {
-    const h = hitTest(X, Y, { noCad: true }); if (!h || h.type !== 'edge') return toast('Kapı için bir duvara dokun'); const e = edgeById(h.id); if (e.kind === 'diag') return toast('Duvara dokun');
+    const h = hitTest(X, Y, { noCad: true }); if (!h || h.type !== 'edge') return toast('Kapı için bir duvara dokun'); const e = edgeById(h.id); if (!['wall', 'detail'].includes(e.kind)) return toast('Duvara dokun');
     const A = pw(e.a), B = pw(e.b); const [wx, wy] = s2w(X, Y); const u = V.unit(V.sub(B, A)); const tp = (wx - A[0]) * u[0] + (wy - A[1]) * u[1];
-    const w = L != null ? L : (SET.doorW || 0.9); snap(); const d = { id: uid('d'), e: e.id, t: tp - w / 2, w, wM: false, tM: false, hinge: 0, side: 1 }; P.doors.push(d); S.kbuf = '';
-    S.sel = { type: 'door', id: d.id, part: 'w' }; commit(); toast('Kapı ' + Math.round(w * 100) + ' cm (tahmini). ⇄ menteşe, ⇅ yön.'); return;
+    const w = L != null ? L : (SET.doorW || 0.9); snap(); const d = addDoorOnEdge(e, tp, w); S.kbuf = '';
+    S.sel = { type: 'door', id: d.id }; commit(); toast('Kapı ' + Math.round(w * 100) + ' cm. Söveler köşe oldu, adlandırıp ölçebilirsin.'); return;
   }
   if (tool === 'ofset') {
     const h = hitTest(X, Y, { noCad: true }); const d = L != null ? L : (SET.wallT || 0.2);
@@ -829,7 +846,7 @@ function makeCircle(cid, r) { snap(); const sh = { id: uid('s'), kind: 'circle',
 function applyKbuf() {
   const L = kval(); const sel = S.sel; if (L == null) return toast('Önce cm yaz'); if (!sel) return toast('Önce bir nesne seç');
   snap();
-  if (sel.type === 'door') { const d = P.doors.find(x => x.id === sel.id); const g = doorGeom(d); const c = g.t0 + g.w / 2; d.w = L; d.t = c - L / 2; SET.doorW = L; }
+  if (sel.type === 'door') { const d = P.doors.find(x => x.id === sel.id); const e = edgeById(d.e); const J1 = pw(e.a), J2 = pw(e.b); const u = V.unit(V.sub(J2, J1)); const p = ptById(e.b); p.x = J1[0] + u[0] * L; p.y = J1[1] + u[1] * L; P.edges.forEach(q => { if ((q.a === e.b || q.b === e.b) && q.len == null) q.est = q.est0 = plen(q.a, q.b); }); SET.doorW = L; }
   else if (sel.type === 'fillet') { P.fillets[sel.id].r = L; SET.lastR = L; }
   else if (sel.type === 'offset') { P.offsets.find(x => x.id === sel.id).d = L; SET.wallT = L; }
   else if (sel.type === 'circle') { shapeById(sel.id).r = L; }
@@ -841,6 +858,285 @@ function numpadHTML(unitTxt) {
   <div class="kp6">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '⌫', 'C'].map(k => `<button data-k="${k}">${k}</button>`).join('')}</div>`;
 }
 
+/* =================== v5: pline, kırma, trim/extend, duvar bandı, kapı-köşe, daire birleşimi =================== */
+const wrap2PI = a => { a = a % (2 * Math.PI); return a < 0 ? a + 2 * Math.PI : a; };
+function edgeDeg(id) { return P.edges.filter(e => e.kind !== 'diag' && (e.a === id || e.b === id)).length; }
+function ringPos(sh, a, b) { const n = sh.ring.length; const m = sh.closed ? n : n - 1; for (let i = 0; i < m; i++) { const x = sh.ring[i], y = sh.ring[(i + 1) % n]; if ((x === a && y === b) || (x === b && y === a)) return i; } return -1; }
+function arcInfo(e) { // yay kenarı: merkez, yarıçap, başlangıç açısı (a'dan), süpürme (a→b)
+  const C = pw(e.c), A = pw(e.a), B = pw(e.b); const r = (V.dist(C, A) + V.dist(C, B)) / 2;
+  const a1 = Math.atan2(A[1] - C[1], A[0] - C[0]), a2 = Math.atan2(B[1] - C[1], B[0] - C[0]);
+  const sw = e.ccw ? wrap2PI(a2 - a1) : -wrap2PI(a1 - a2); return { C, r, a1, a2, sw };
+}
+function radiusCons(e) { return P.cons.find(c => c.type === 'radius' && c.p === e.c && ((c.a === e.a && c.b === e.b) || (c.a === e.b && c.b === e.a))); }
+function ringPoly(sh) { // yaylar örneklenmiş halka
+  const n = sh.ring.length; const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = sh.ring[i], b = sh.ring[(i + 1) % n]; out.push(pw(a)); if (!sh.closed && i === n - 1) break;
+    const e = findEdge(a, b); if (e && e.kind === 'arc' && ptById(e.c)) { const g = arcInfo(e); const fwd = e.a === a; for (let k = 1; k < 16; k++) { const t = k / 16; const ang = fwd ? g.a1 + g.sw * t : g.a1 + g.sw * (1 - t); out.push([g.C[0] + Math.cos(ang) * g.r, g.C[1] + Math.sin(ang) * g.r]); } }
+  }
+  return out;
+}
+function ringArea(sh) { const p = ringPoly(sh); let s = 0; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; s += a[0] * b[1] - b[0] * a[1]; } return s / 2; }
+function splitEdgeAt(e, x, y) {
+  const id = addPt(x, y); const a = e.a, b = e.b; const L0 = e.len; const kind = e.kind;
+  P.edges = P.edges.filter(q => q !== e);
+  const e1 = addEdge(a, id, kind), e2 = addEdge(id, b, kind);
+  if (L0 != null) { const t = addEdge(a, b, 'diag', L0); t.hidden = true; }
+  P.shapes.forEach(sh => { const i = ringPos(sh, a, b); if (i < 0) return; sh.ring.splice(i + 1, 0, id); sh.turn.splice(i + 1, 0, 0); });
+  P.offsets.forEach(o => { if (o.e === e.id) o.e = e1.id; });
+  P.doors.forEach(d => { if (d.e === e.id) d.e = e1.id; });
+  return { id, e1, e2 };
+}
+function removeEdgeFromShapes(e) {
+  P.shapes.slice().forEach(sh => {
+    const i = ringPos(sh, e.a, e.b); if (i < 0) return; const n = sh.ring.length;
+    if (sh.closed) { const k = (i + 1) % n; sh.ring = sh.ring.slice(k).concat(sh.ring.slice(0, k)); sh.turn = sh.turn.slice(k).concat(sh.turn.slice(0, k)); sh.closed = false; sh.turn[0] = null; sh.turn[sh.turn.length - 1] = null; if (sh.kind === 'room') sh.name = 'Pline'; return; }
+    const r1 = sh.ring.slice(0, i + 1), r2 = sh.ring.slice(i + 1); const t1 = sh.turn.slice(0, i + 1), t2 = sh.turn.slice(i + 1);
+    if (r1.length) { t1[t1.length - 1] = null; } if (t2.length) t2[0] = null;
+    sh.ring = r1; sh.turn = t1;
+    if (r2.length >= 2) P.shapes.push({ id: uid('s'), kind: sh.kind, name: sh.name, ring: r2, closed: false, turn: t2 });
+    if (sh.ring.length < 2) P.shapes = P.shapes.filter(s => s !== sh);
+  });
+}
+function deletePointMerge(pid) {
+  snap();
+  P.shapes.forEach(sh => {
+    const i = sh.ring.indexOf(pid); if (i < 0) return; const n = sh.ring.length;
+    const hasPrev = sh.closed || i > 0, hasNext = sh.closed || i < n - 1;
+    if (hasPrev && hasNext && n > (sh.closed ? 3 : 2)) { const pr = sh.ring[(i - 1 + n) % n], nx = sh.ring[(i + 1) % n]; if (!findEdge(pr, nx)) addEdge(pr, nx, 'wall'); }
+    sh.ring.splice(i, 1); sh.turn.splice(i, 1);
+  });
+  P.edges = P.edges.filter(e => e.a !== pid && e.b !== pid); delete P.fillets[pid]; P.pts = P.pts.filter(p => p.id !== pid);
+  P.shapes = P.shapes.filter(s => s.kind === 'circle' || s.ring.length >= 2); cleanupPts(); S.sel = null; commit();
+}
+/* ---- Pline: başlat / devam / birleştir ---- */
+function chainPlace(c) {
+  const sh = S.chain && shapeById(S.chain);
+  if (!sh) {
+    if (c.type === 'end') {
+      const os = P.shapes.find(s => (s.kind === 'room' || s.kind === 'detail') && !s.closed && s.ring.length >= 2 && (s.ring[0] === c.pid || s.ring[s.ring.length - 1] === c.pid));
+      if (os) { snap(); if (os.ring[0] === c.pid) { os.ring.reverse(); os.turn.reverse(); } S.chain = os.id; S.cdir = null; commit(); toast(os.name + ' devam ediyor'); return; }
+    }
+    snap(); const id = realizeSnap(c); const nsh = { id: uid('s'), kind: 'room', name: 'Pline', ring: [id], closed: false, turn: [null] }; P.shapes.push(nsh); S.chain = nsh.id; S.cdir = null; commit(); return;
+  }
+  const last = sh.ring[sh.ring.length - 1];
+  if (c.type === 'end' && c.pid === sh.ring[0] && sh.ring.length >= 3) { finishChain(true); return; }
+  if (c.type === 'end' && c.pid === last) return;
+  if (c.type === 'end') { // başka açık pline'ın ucuna denk geldi → birleştir
+    const os = P.shapes.find(s => s !== sh && (s.kind === 'room' || s.kind === 'detail') && !s.closed && s.ring.length >= 2 && (s.ring[0] === c.pid || s.ring[s.ring.length - 1] === c.pid));
+    if (os) { snap(); if (os.ring[os.ring.length - 1] === c.pid) { os.ring.reverse(); os.turn.reverse(); } addEdge(last, c.pid, 'wall'); const n = sh.ring.length;
+      if (n >= 2) sh.turn[n - 1] = snapTurn(norm180(headOf(last, c.pid) - headOf(sh.ring[n - 2], last)));
+      const t0 = os.ring.length >= 2 ? snapTurn(norm180(headOf(c.pid, os.ring[1]) - headOf(last, c.pid))) : null;
+      sh.ring = sh.ring.concat(os.ring); sh.turn = sh.turn.concat([t0].concat(os.turn.slice(1))); P.shapes = P.shapes.filter(s => s !== os);
+      S.chain = null; commit(); toast('Pline\'lar birleştirildi'); return; }
+  }
+  snap(); const id = realizeSnap(c); if (plen(id, last) < 0.01) { P.pts = P.pts.filter(p => p.id !== id); undoStack.pop(); return; }
+  addEdge(last, id, 'wall'); const n = sh.ring.length;
+  if (n >= 2) sh.turn[n - 1] = snapTurn(norm180(headOf(last, id) - headOf(sh.ring[n - 2], last)));
+  if (c.type === 'perp') { const te = edgeById(c.e); P.cons.push({ id: uid('c'), type: 'perp', a: last, b: id, c: te.a, d: te.b }); }
+  sh.ring.push(id); sh.turn.push(null); S.cdir = null; commit();
+}
+function finishChain(close) {
+  const sh = S.chain && shapeById(S.chain); S.chain = null; S.cdir = null; if (!sh) return render();
+  if (sh.ring.length < 2) { snap(); P.shapes = P.shapes.filter(s => s !== sh); cleanupPts(); commit(); return; }
+  if (close && sh.ring.length >= 3) { const big = Math.abs(polyArea(sh.ring)) > 1.5; sh.kind = big ? 'room' : 'detail'; sh.name = big ? 'Oda ' + (P.roomSeq = (P.roomSeq || 0) + 1) : 'Detay'; closeShape(sh); if (!big) shapeEdges(sh).forEach(e => { if (e.kind === 'wall') e.kind = 'detail'; }); commit(); }
+  else { sh.name = sh.name === 'Pline' || !sh.name ? 'Pline' : sh.name; commit(); toast('Pline açık bırakıldı. Ucuna dokunup devam edebilirsin.'); }
+}
+/* ---- Çizgi: yön diskleri + ✓ ---- */
+const CD_R = 58, CD_S = 17;
+function chainDirOptions() {
+  const sh = S.chain && shapeById(S.chain); if (!sh) return [];
+  const n = sh.ring.length; const b = chainBase();
+  if (n < 2) return [0, 90, 180, -90].map(k => ({ head: norm180(b + k), lab: '' }));
+  const h = headOf(sh.ring[n - 2], sh.ring[n - 1]);
+  return [{ t: 90, lab: 'Sol' }, { t: 0, lab: 'Düz' }, { t: -90, lab: 'Sağ' }].map(o => ({ head: norm180(h + o.t), lab: o.lab }));
+}
+function curDir() {
+  const sh = S.chain && shapeById(S.chain); if (!sh) return null; if (S.cdir != null) return S.cdir;
+  const n = sh.ring.length; if (n < 2) return norm180(chainBase()); return norm180(headOf(sh.ring[n - 2], sh.ring[n - 1]) + SET.defaultTurn);
+}
+function drawChainDirs() {
+  if (S.tab !== 'kroki' || S.kmode !== 'cizgi' || !S.chain || placing) return; const sh = shapeById(S.chain); if (!sh) return;
+  const [X, Y] = ps(sh.ring[sh.ring.length - 1]); const cur = curDir();
+  chainDirOptions().forEach(o => { const on = Math.abs(norm180(o.head - cur)) < 0.01; const a = -o.head * deg; const bx = X + Math.cos(a) * CD_R, by = Y + Math.sin(a) * CD_R;
+    ctx.strokeStyle = on ? '#0b7cc1' : '#cbd5e1'; ctx.lineWidth = on ? 2.5 : 1.5; ctx.setLineDash(on ? [] : [3, 4]); ctx.beginPath(); ctx.moveTo(X + Math.cos(a) * 9, Y + Math.sin(a) * 9); ctx.lineTo(bx - Math.cos(a) * CD_S, by - Math.sin(a) * CD_S); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = on ? '#0b7cc1' : 'rgba(255,255,255,.95)'; ctx.strokeStyle = on ? '#0b7cc1' : '#94a3b8'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, CD_S, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = on ? '#fff' : '#475569'; ctx.beginPath(); ctx.moveTo(bx + Math.cos(a) * 8, by + Math.sin(a) * 8); ctx.lineTo(bx + Math.cos(a + 2.4) * 7, by + Math.sin(a + 2.4) * 7); ctx.lineTo(bx + Math.cos(a - 2.4) * 7, by + Math.sin(a - 2.4) * 7); ctx.fill();
+    if (o.lab) { ctx.font = '700 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = on ? '#0b7cc1' : '#64748b'; ctx.fillText(o.lab, bx + Math.cos(a) * 27, by + Math.sin(a) * 27); }
+    if (on && S.kbuf) label((parseInt(S.kbuf, 10) / 100).toFixed(2) + ' m', bx, by - CD_S - 9, 0, '#0b7cc1', 'rgba(255,255,255,.92)', 11); });
+}
+function chainDirHit(X, Y) {
+  const sh = S.chain && shapeById(S.chain); if (!sh || S.kmode !== 'cizgi') return null; const [px, py] = ps(sh.ring[sh.ring.length - 1]);
+  for (const o of chainDirOptions()) { const a = -o.head * deg; if (Math.hypot(X - (px + Math.cos(a) * CD_R), Y - (py + Math.sin(a) * CD_R)) < CD_S + 10) return o; } return null;
+}
+function addSegmentDir() {
+  const L = kval(); if (L == null) return toast('Önce uzunluğu cm yaz'); const sh = S.chain && shapeById(S.chain); if (!sh) return toast('Önce başlangıç noktasına dokun');
+  const h = curDir() * deg; const f = ps(sh.ring[sh.ring.length - 1]);
+  chainPlace({ type: 'len', X: f[0] + Math.cos(h) * L * view.s, Y: f[1] - Math.sin(h) * L * view.s, L }); S.kbuf = ''; render();
+}
+/* ---- aks yakalama (izleme) ---- */
+function trackSnap(fromId, Q, dirU) { // Q: dünya, dirU: hareket yönü birim (dünya) → hizalanan nokta
+  let best = null; const fx = pw(fromId); const sh = S.chain && shapeById(S.chain);
+  const cand = new Set(sh ? sh.ring : []); P.pts.forEach(p => { const [x, y] = w2s(p.x, p.y); if (x > -40 && x < W + 40 && y > -40 && y < H + 40) cand.add(p.id); });
+  const d0 = (Q[0] - fx[0]) * dirU[0] + (Q[1] - fx[1]) * dirU[1];
+  cand.forEach(id => { if (id === fromId) return; const T = pw(id); const s = (T[0] - fx[0]) * dirU[0] + (T[1] - fx[1]) * dirU[1]; if (s <= 0.01) return; const px = Math.abs(s - d0) * view.s; const pri = (sh && id === sh.ring[0]) ? -4 : 0; if (px < 14 && (!best || px + pri < best.sc)) best = { sc: px + pri, s, id }; });
+  return best;
+}
+function cadCand(X, Y) {
+  const from = chainLast(); const L = kval();
+  if (!from) return snapCandidate(X, Y, null);
+  const f = ps(from); const sh = shapeById(S.chain);
+  if (L == null) { const R = sh && sh.ring.length >= 3 ? 34 : 20; const st = sh && ptById(sh.ring[0]) ? ps(sh.ring[0]) : null; if (st && sh.ring.length >= 3 && Math.hypot(X - st[0], Y - st[1]) < R) return { type: 'end', pid: sh.ring[0], X: st[0], Y: st[1] }; const s = osnap(X, Y, from); if (s) return s; }
+  const dx = X - f[0], dy = -(Y - f[1]); if (Math.hypot(dx, dy) < 2) return { type: 'free', X, Y };
+  let h = Math.atan2(dy, dx) / deg; let ortho = false;
+  if (SET.ortho) { const b = chainBase(); h = b + Math.round((h - b) / 90) * 90; ortho = true; }
+  else if (L == null) { const o = orthoSnap(from, X, Y); if (o) return o; }
+  let d = L != null ? L * view.s : (ortho ? dx * Math.cos(h * deg) + dy * Math.sin(h * deg) : Math.hypot(dx, dy));
+  if (d < 0) { d = -d; h += 180; }
+  if (L == null && ortho) { const u = [Math.cos(h * deg), Math.sin(h * deg)]; const fw = pw(from); const Qw = [fw[0] + u[0] * d / view.s, fw[1] + u[1] * d / view.s]; const t = trackSnap(from, Qw, u); if (t) { const P2 = [fw[0] + u[0] * t.s, fw[1] + u[1] * t.s]; const [X2, Y2] = w2s(P2[0], P2[1]); return { type: 'track', X: X2, Y: Y2, T: t.id }; } }
+  return { type: L != null ? 'len' : (ortho ? 'ortho' : 'free'), X: f[0] + Math.cos(h * deg) * d, Y: f[1] - Math.sin(h * deg) * d, L };
+}
+/* ---- Kapı: duvarı böler, söveler köşe olur ---- */
+function addDoorOnEdge(e, tp, w) {
+  const A = pw(e.a), B = pw(e.b); const L = V.dist(A, B); const u = V.unit(V.sub(B, A)); w = Math.min(w, L * 0.9);
+  const t0 = Math.max(0.02 * L, Math.min(L - w - 0.02 * L, tp - w / 2));
+  const s1 = splitEdgeAt(e, A[0] + u[0] * t0, A[1] + u[1] * t0);
+  const s2 = splitEdgeAt(s1.e2, A[0] + u[0] * (t0 + w), A[1] + u[1] * (t0 + w));
+  const op = s2.e1; op.kind = 'door'; op.est = op.est0 = w;
+  const d = { id: uid('d'), e: op.id, hinge: 0, side: 1 }; P.doors.push(d); return d;
+}
+function doorGeom(d) {
+  const e = edgeById(d.e); if (!e || e.kind !== 'door') return null; const J1 = pw(e.a), J2 = pw(e.b); const w = V.dist(J1, J2);
+  const H = d.hinge ? J2 : J1, O = d.hinge ? J1 : J2; const nn = V.mul(inNormal(e), d.side); const Leaf = V.add(H, V.mul(nn, w));
+  const aL = Math.atan2(Leaf[1] - H[1], Leaf[0] - H[0]), aO = Math.atan2(O[1] - H[1], O[0] - H[0]);
+  return { e, J1, J2, H, O, Leaf, w, aL, aO, nn, sw: wrapPI(aO - aL), m: e.len != null };
+}
+function migrateDoors() {
+  const old = P.doors.filter(d => d.t !== undefined); if (!old.length) return;
+  P.doors = P.doors.filter(d => d.t === undefined);
+  old.forEach(d => { const e = edgeById(d.e); if (!e || e.kind === 'door') return; const nd = addDoorOnEdge(e, d.t + d.w / 2, d.w); nd.hinge = d.hinge || 0; nd.side = d.side || 1; });
+}
+/* ---- Duvar bandı (pline ofset + tarama) ---- */
+function bandGeom(o) {
+  const sh = shapeById(o.sh); if (!sh || sh.ring.length < 2) return null; const n = sh.ring.length; const m = sh.closed ? n : n - 1;
+  const ccw = sh.closed ? ringArea(sh) > 0 : true; const lines = [];
+  for (let i = 0; i < m; i++) { const a = sh.ring[i], b = sh.ring[(i + 1) % n]; const A = pw(a), B = pw(b); const u = V.unit(V.sub(B, A)); const nl = [-u[1], u[0]]; const out = sh.closed ? (ccw ? [-nl[0], -nl[1]] : nl) : nl; lines.push({ p: V.add(A, V.mul(out, o.side * o.d)), d: u, A, B, e: findEdge(a, b) }); }
+  const Q = [];
+  for (let i = 0; i < n; i++) {
+    if (!sh.closed && i === 0) { Q.push(lines[0].p); continue; }
+    if (!sh.closed && i === n - 1) { const Ln = lines[m - 1]; Q.push(V.add(Ln.p, V.mul(Ln.d, V.dist(Ln.A, Ln.B)))); continue; }
+    const L1 = lines[(i - 1 + m) % m], L2 = lines[i % m]; Q.push(lineInter(L1, L2) || L2.p);
+  }
+  const quads = []; for (let i = 0; i < m; i++) { const ib = (i + 1) % n; quads.push({ P1: lines[i].A, P2: lines[i].B, Q1: Q[i], Q2: Q[ib], door: !!(lines[i].e && lines[i].e.kind === 'door'), arc: lines[i].e && lines[i].e.kind === 'arc' && ptById(lines[i].e.c) ? lines[i].e : null }); }
+  return { quads, closed: sh.closed };
+}
+function hatchSegs(poly, ang, sp) {
+  const c = Math.cos(-ang), s = Math.sin(-ang); const R = p => [p[0] * c - p[1] * s, p[0] * s + p[1] * c]; const RI = p => [p[0] * c + p[1] * s, -p[0] * s + p[1] * c];
+  const q = poly.map(R); const ys = q.map(p => p[1]); const out = [];
+  for (let y = Math.ceil(Math.min(...ys) / sp) * sp; y <= Math.max(...ys); y += sp) {
+    const xs = []; for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length]; if ((a[1] > y) !== (b[1] > y)) xs.push(a[0] + (y - a[1]) * (b[0] - a[0]) / (b[1] - a[1])); }
+    xs.sort((x1, x2) => x1 - x2); for (let k = 0; k + 1 < xs.length; k += 2) out.push([RI([xs[k], y]), RI([xs[k + 1], y])]);
+  }
+  return out;
+}
+/* ---- Daire ↔ pline birleşimi ---- */
+function tryCircleUnion(cid, r) {
+  const C = pw(cid);
+  for (const sh of P.shapes) {
+    if (sh.kind !== 'room' || !sh.closed || sh.ring.length < 3) continue; const n = sh.ring.length; const hits = [];
+    for (let i = 0; i < n; i++) { const a = sh.ring[i], b = sh.ring[(i + 1) % n]; const e = findEdge(a, b); if (!e || e.kind === 'arc' || e.kind === 'door') continue; const A = pw(a), B = pw(b); const d = V.sub(B, A), f = V.sub(A, C);
+      const aa = d[0] * d[0] + d[1] * d[1], bb = 2 * (f[0] * d[0] + f[1] * d[1]), cc = f[0] * f[0] + f[1] * f[1] - r * r; const disc = bb * bb - 4 * aa * cc; if (disc <= 0) continue; const sq = Math.sqrt(disc);
+      [(-bb - sq) / (2 * aa), (-bb + sq) / (2 * aa)].forEach(t => { if (t > 0.002 && t < 0.998) hits.push({ i, t, pt: V.add(A, V.mul(d, t)) }); }); }
+    if (hits.length !== 2) continue;
+    hits.sort((x, y) => x.i - y.i || x.t - y.t); const [h1, h2] = hits;
+    const seg = (from, to) => { const r2 = []; for (let k = from; k <= to; k++) r2.push(sh.ring[((k % n) + n) % n]); return r2; };
+    const inA = h2.i >= h1.i + 1 ? seg(h1.i + 1, h2.i) : []; const inB = seg(h2.i + 1, h1.i + n);
+    const allIn = ids => ids.length && ids.every(id => V.dist(pw(id), C) < r);
+    let keep, I1pt, I2pt, eFirst, eLast;
+    const poly0 = sh.ring.slice();
+    if (allIn(inA) || (h1.i === h2.i && !inA.length)) { keep = inB; I1pt = h1.pt; I2pt = h2.pt; }
+    else if (allIn(inB)) { keep = inA.length ? inA : []; I1pt = h2.pt; I2pt = h1.pt; }
+    else continue;
+    if (!keep.length) continue;
+    snap();
+    const k0 = keep[0], kL = keep[keep.length - 1];
+    const oldEdgeEnd = findEdge(kL, sh.ring[(sh.ring.indexOf(kL) + 1) % n]), oldEdgeStart = findEdge(sh.ring[(sh.ring.indexOf(k0) - 1 + n) % n], k0);
+    const kindE = 'wall';
+    const I1 = addPt(I1pt[0], I1pt[1]), I2 = addPt(I2pt[0], I2pt[1]);
+    // halkadan çıkan noktaların kenarlarını sil
+    const removed = sh.ring.filter(id => !keep.includes(id));
+    P.edges = P.edges.filter(e => !(removed.includes(e.a) || removed.includes(e.b)));
+    if (oldEdgeEnd) P.edges = P.edges.filter(e => e !== oldEdgeEnd); if (oldEdgeStart) P.edges = P.edges.filter(e => e !== oldEdgeStart);
+    addEdge(kL, I1, kindE); addEdge(I2, k0, kindE);
+    const arcE = addEdge(I1, I2, 'arc'); arcE.c = cid;
+    // dış yay yönü: orta noktası eski poligonun dışında olmalı
+    const a1 = Math.atan2(I1pt[1] - C[1], I1pt[0] - C[0]), a2 = Math.atan2(I2pt[1] - C[1], I2pt[0] - C[0]);
+    const mid = a1 + wrap2PI(a2 - a1) / 2; const Mp = [C[0] + Math.cos(mid) * r, C[1] + Math.sin(mid) * r];
+    arcE.ccw = !pointInPolyW(Mp, poly0.map(pw));
+    P.cons.push({ id: uid('c'), type: 'radius', p: cid, a: I1, b: I2, r, m: false });
+    const turnOf = id => sh.turn[sh.ring.indexOf(id)];
+    const newRing = keep.concat([I1, I2]); const newTurn = keep.map(turnOf).concat([null, null]); newTurn[0] = null; newTurn[keep.length - 1] = null;
+    sh.ring = newRing; sh.turn = newTurn; cleanupPts();
+    S.sel = { type: 'edge', id: arcE.id }; S.kbuf = ''; commit(); toast('Daire ' + sh.name + ' ile birleşti (yay). Ölç sekmesinde yarıçapı ölç.'); return true;
+  }
+  return false;
+}
+function pointInPolyW(pt, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if (((a[1] > pt[1]) !== (b[1] > pt[1])) && (pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0])) c = !c; } return c; }
+function makeCircle(cid, r) {
+  if (tryCircleUnion(cid, r)) { S.circC = null; return; }
+  snap(); const sh = { id: uid('s'), kind: 'circle', name: 'Daire', center: cid, r, measured: false, ring: [], turn: [] }; P.shapes.push(sh); S.circC = null; S.kbuf = ''; S.sel = { type: 'circle', id: sh.id }; commit(); toast('Daire R=' + Math.round(r * 100) + ' cm (tahmini)');
+}
+/* ---- Trim / Extend ---- */
+function segInterW(A, B, C, D) { const r = V.sub(B, A), s = V.sub(D, C); const den = r[0] * s[1] - r[1] * s[0]; if (Math.abs(den) < 1e-12) return null; const t = ((C[0] - A[0]) * s[1] - (C[1] - A[1]) * s[0]) / den, u = ((C[0] - A[0]) * r[1] - (C[1] - A[1]) * r[0]) / den; return { t, u }; }
+function trimAt(X, Y) {
+  const h = hitTest(X, Y, { noCad: true }); if (!h || h.type !== 'edge') return toast('Kırpılacak çizgiye dokun'); const e = edgeById(h.id); if (['diag', 'arc', 'door'].includes(e.kind)) return toast('Bu çizgi kırpılamaz');
+  const A = pw(e.a), B = pw(e.b); const [wx, wy] = s2w(X, Y); const u = V.sub(B, A); const tt = ((wx - A[0]) * u[0] + (wy - A[1]) * u[1]) / (u[0] * u[0] + u[1] * u[1]);
+  const ts = []; P.edges.forEach(o => { if (o === e || o.kind === 'diag' || o.hidden) return; if ([o.a, o.b].includes(e.a) || [o.a, o.b].includes(e.b)) return; const q = segInterW(A, B, pw(o.a), pw(o.b)); if (q && q.t > 0.001 && q.t < 0.999 && q.u > -0.001 && q.u < 1.001) ts.push({ t: q.t, o }); });
+  const lo = ts.filter(x => x.t < tt).sort((a, b) => b.t - a.t)[0], hi = ts.filter(x => x.t > tt).sort((a, b) => a.t - b.t)[0];
+  if (!lo && !hi) return toast('Kesişen çizgi yok');
+  snap(); let target = e; const at = t => [A[0] + u[0] * t, A[1] + u[1] * t];
+  if (hi) { const p = at(hi.t); const s = splitEdgeAt(target, p[0], p[1]); P.cons.push({ id: uid('c'), type: 'online', p: s.id, a: hi.o.a, b: hi.o.b }); target = s.e1; }
+  if (lo) { const p = at(lo.t); const s = splitEdgeAt(target, p[0], p[1]); P.cons.push({ id: uid('c'), type: 'online', p: s.id, a: lo.o.a, b: lo.o.b }); target = s.e2; }
+  P.edges = P.edges.filter(x => !(x.hidden && ((x.a === e.a && x.b === e.b) || (x.a === e.b && x.b === e.a))));
+  removeEdgeFromShapes(target); P.edges = P.edges.filter(x => x !== target); cleanupPts(); S.sel = null; commit(); toast('Kırpıldı');
+}
+function extendAt(X, Y) {
+  const h = hitTest(X, Y, { noCad: true }); if (!h || h.type !== 'edge') return toast('Uzatılacak çizginin ucuna yakın dokun'); const e = edgeById(h.id); if (['diag', 'arc', 'door'].includes(e.kind)) return toast('Bu çizgi uzatılamaz');
+  const pa = ps(e.a), pb = ps(e.b); const endId = Math.hypot(X - pa[0], Y - pa[1]) < Math.hypot(X - pb[0], Y - pb[1]) ? e.a : e.b; const othId = endId === e.a ? e.b : e.a;
+  const E = pw(endId), O = pw(othId); const d = V.unit(V.sub(E, O)); const far = V.add(E, V.mul(d, 1e4)); let best = null;
+  P.edges.forEach(o => { if (o === e || o.kind === 'diag' || o.hidden) return; if ([o.a, o.b].includes(endId) || [o.a, o.b].includes(othId)) return; const q = segInterW(E, far, pw(o.a), pw(o.b)); if (q && q.t > 1e-7 && q.u > -0.001 && q.u < 1.001 && (!best || q.t < best.t)) best = { t: q.t, o }; });
+  if (!best) return toast('Uzatılacak bir çizgi bulunamadı');
+  snap(); const P2 = V.add(E, V.mul(V.sub(far, E), best.t));
+  const sh = P.shapes.find(s => s.ring.includes(endId)); const isEnd = edgeDeg(endId) === 1;
+  if (isEnd) { const p = ptById(endId); p.x = P2[0]; p.y = P2[1]; if (e.len == null) e.est = e.est0 = plen(e.a, e.b); P.cons.push({ id: uid('c'), type: 'online', p: endId, a: best.o.a, b: best.o.b }); }
+  else { const nid = addPt(P2[0], P2[1]); addEdge(endId, nid, e.kind); P.cons.push({ id: uid('c'), type: 'online', p: nid, a: best.o.a, b: best.o.b }); }
+  commit(); toast('Uzatıldı');
+}
+/* ---- Düzenle: noktayı sürükle / kenara kırık ekle ---- */
+function editFinishMove(pid) {
+  const p = ptById(pid); if (!p) return;
+  P.edges.forEach(e => { if ((e.a === pid || e.b === pid) && e.len == null) e.est = e.est0 = plen(e.a, e.b); });
+  P.shapes.forEach(sh => { const n = sh.ring.length; const i = sh.ring.indexOf(pid); if (i < 0) return; [i - 1, i, i + 1].forEach(k => { const j = ((k % n) + n) % n; if (!sh.closed && (j === 0 || j === n - 1)) return; if (n < 3) return; const pr = sh.ring[(j - 1 + n) % n], nx = sh.ring[(j + 1) % n]; sh.turn[j] = snapTurn(norm180(headOf(sh.ring[j], nx) - headOf(pr, sh.ring[j]))); }); });
+  commit();
+}
+function editTap(X, Y) {
+  const h = hitTest(X, Y, { noCad: true });
+  if (h && h.type === 'pt') { S.sel = h; render(); return; }
+  if (h && h.type === 'edge') { const e = edgeById(h.id); if (['diag', 'arc', 'door'].includes(e.kind)) { S.sel = h; render(); return; }
+    const A = pw(e.a), B = pw(e.b); const [wx, wy] = s2w(X, Y); const u = V.sub(B, A); let t = ((wx - A[0]) * u[0] + (wy - A[1]) * u[1]) / (u[0] * u[0] + u[1] * u[1]); t = Math.max(0.05, Math.min(0.95, t));
+    snap(); const s = splitEdgeAt(e, A[0] + u[0] * t, A[1] + u[1] * t); S.sel = { type: 'pt', id: s.id }; commit(); toast('Kırık noktası eklendi. Sürükleyerek taşı.'); return; }
+  S.sel = null; render();
+}
+/* ---- Nokta No: hat üstüne basılı tut ---- */
+function noHold(X, Y) {
+  const h = hitTest(X, Y, { noCad: true }); if (!h || h.type !== 'edge') return toast('Basılı tutarak bir hattın üstüne nokta koy');
+  const e = edgeById(h.id); if (['diag', 'arc'].includes(e.kind)) return toast('Bu hatta nokta konamaz');
+  const name = S.noBuf.trim(); if (!name) return toast('Önce numara yaz');
+  const A = pw(e.a), B = pw(e.b); const [wx, wy] = s2w(X, Y); const u = V.sub(B, A); let t = ((wx - A[0]) * u[0] + (wy - A[1]) * u[1]) / (u[0] * u[0] + u[1] * u[1]); t = Math.max(0.02, Math.min(0.98, t));
+  snap(); const s = splitEdgeAt(e, A[0] + u[0] * t, A[1] + u[1] * t); const dup = P.pts.find(q => q.name === name && q.id !== s.id); if (dup) dup.name = ptById(s.id).name;
+  ptById(s.id).name = name; S.sel = { type: 'pt', id: s.id }; S.noBuf = incName(name); tick(); commit(); toast('Hat üstüne ' + name + ' noktası kondu');
+}
+
 /* =================== Dokunma =================== */
 const ptrs = new Map(); let gest = null; let holdT = null;
 function evXY(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
@@ -848,6 +1144,8 @@ cv.addEventListener('pointerdown', e => {
   const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   if (ptrs.size === 2) { clearTimeout(holdT); const [a, b] = [...ptrs.values()]; placing = null; stroke = null; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; draw(); return; }
   if (ptrs.size !== 1) return;
+  if (S.tab === 'kroki' && S.kmode === 'duzenle') { let best = null, bd = 22; P.pts.forEach(p => { const [px, py] = w2s(p.x, p.y); const d = Math.hypot(px - X, py - Y); if (d < bd) { bd = d; best = p; } }); if (best) { gest = { t: 'drag', pid: best.id, X0: X, Y0: Y, moved: false }; return; } }
+  if (S.tab === 'no') { gest = { t: 'tap', X0: X, Y0: Y, ox0: view.ox, oy0: view.oy, moved: false }; holdT = setTimeout(() => { if (gest && gest.t === 'tap' && !gest.moved) { gest.held = true; noHold(X, Y); } }, 480); return; }
   if (S.tab === 'kroki' && S.kmode === 'cizgi') { gest = { t: 'k', X0: X, Y0: Y, mode: 'place' }; placing = { X, Y, from: chainLast(), cand: cadCand(X, Y) }; draw(); return; }
   if (S.tab === 'kroki' && S.kmode === 'serbest') {
     gest = { t: 'k', X0: X, Y0: Y, mode: 'pending' };
@@ -863,16 +1161,19 @@ cv.addEventListener('pointermove', e => {
     else if (gest.mode === 'place') placing = { X, Y, from: placing.from, cand: S.kmode === 'cizgi' ? cadCand(X, Y) : snapCandidate(X, Y, placing.from) };
     draw(); return;
   }
-  if (gest.t === 'tap') { if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) > 12) gest.moved = true; if (gest.moved) { view.ox = gest.ox0 + X - gest.X0; view.oy = gest.oy0 + Y - gest.Y0; draw(); } }
+  if (gest.t === 'drag') { if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) > 6) { gest.moved = true; snap(); } if (gest.moved) { const s = osnap(X, Y, gest.pid, { pointsOnly: true }); const [wx, wy] = s ? s2w(s.X, s.Y) : s2w(X, Y); const p = ptById(gest.pid); p.x = wx; p.y = wy; placing = { X, Y, from: null, cand: s || { type: 'free', X, Y } }; draw(); } return; }
+  if (gest.t === 'tap') { if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) > 12) { gest.moved = true; clearTimeout(holdT); } if (gest.moved) { view.ox = gest.ox0 + X - gest.X0; view.oy = gest.oy0 + Y - gest.Y0; draw(); } }
 });
 function endPtr(e, cancel) {
   if (!ptrs.has(e.pointerId)) return; const [X, Y] = ptrs.get(e.pointerId); ptrs.delete(e.pointerId); clearTimeout(holdT); if (!gest) return; const g = gest;
   if (g.t === 'k') { gest = null;
     if (cancel) { placing = null; stroke = null; draw(); return; }
     if (g.mode === 'pending') kTap(X, Y);
-    else if (g.mode === 'place') { const c = placing.cand; placing = null; chainPlace(c); if (S.kmode === 'cizgi') { S.kbuf = ''; render(); } }
+    else if (g.mode === 'place') { const c = placing.cand; placing = null; const dh = S.kmode === 'cizgi' && Math.hypot(X - g.X0, Y - g.Y0) < 12 ? chainDirHit(g.X0, g.Y0) : null; if (dh) { tick(); S.cdir = dh.head; if (S.kbuf) addSegmentDir(); } else { chainPlace(c); if (S.kmode === 'cizgi') S.kbuf = ''; } }
     else if (g.mode === 'stroke') { const st = stroke; stroke = null; processStroke(st); }
     render(); return; }
+  if (g.t === 'drag') { gest = null; placing = null; if (g.moved && !cancel) { editFinishMove(g.pid); toast('Nokta taşındı'); } else if (!cancel) editTap(X, Y); return; }
+  if (g.t === 'tap' && g.held) { gest = null; return; }
   if (g.t === 'tap' && !g.moved && !cancel) { gest = null; handleTap(X, Y); return; }
   if (ptrs.size === 0) { gest = null; placing = null; stroke = null; draw(); } else if (g.t === 'pinch') gest = null;
 }
@@ -881,12 +1182,12 @@ cv.addEventListener('pointercancel', e => endPtr(e, true));
 cv.addEventListener('wheel', e => { e.preventDefault(); const [X, Y] = evXY(e); const f = Math.exp(-e.deltaY * 0.0015); const wx = (X - view.ox) / view.s, wy = (view.oy - Y) / view.s; view.s = Math.max(2, Math.min(3000, view.s * f)); view.ox = X - wx * view.s; view.oy = Y + wy * view.s; draw(); }, { passive: false });
 
 function hitTest(X, Y, opts) {
-  opts = opts || {}; if (!opts.noCad && !opts.pointsFirst) { const c = cadHit(X, Y); if (c) { const ep = (() => { let bb = null, dd = 14; P.pts.forEach(p => { const [px, py] = w2s(p.x, p.y); const d = Math.hypot(px - X, py - Y); if (d < dd) { dd = d; bb = { type: 'pt', id: p.id }; } }); return bb; })(); if (!ep || c.type === 'fillet') return c; } }
+  opts = opts || {}; if (!opts.noCad && !opts.pointsFirst) { const c = cadHit(X, Y); if (c) { const ep = (() => { let bb = null, dd = 14; P.pts.forEach(p => { const [px, py] = w2s(p.x, p.y); const d = Math.hypot(px - X, py - Y); if (d < dd) { dd = d; bb = { type: 'pt', id: p.id }; } }); return bb; })(); if (!ep || c.type === 'fillet') { if (c.type === 'door' && S.tab === 'olc') { const d = P.doors.find(x => x.id === c.id); return { type: 'edge', id: d.e }; } return c; } } }
   let best = null, bd = 22;
   P.pts.forEach(p => { const [px, py] = w2s(p.x, p.y); const d = Math.hypot(px - X, py - Y); if (d < bd) { bd = d; best = { type: 'pt', id: p.id }; } });
   if (best && (opts.pointsFirst || bd < 14)) return best;
   let bl = null, dl = 20;
-  P.edges.forEach(e => { if (e.kind === 'diag' && S.tab !== 'olc') return; const d = segDistPt([X, Y], ps(e.a), ps(e.b)); if (d < dl) { dl = d; bl = { type: 'edge', id: e.id }; } });
+  P.edges.forEach(e => { if (e.hidden || (e.kind === 'diag' && S.tab !== 'olc')) return; let d; if (e.kind === 'arc' && ptById(e.c)) { const g = arcInfo(e); const [CX, CY] = w2sv(g.C); const ang = Math.atan2(-(Y - CY), X - CX); const rel = g.sw > 0 ? wrap2PI(ang - g.a1) : wrap2PI(g.a1 - ang); d = rel <= Math.abs(g.sw) ? Math.abs(Math.hypot(X - CX, Y - CY) - g.r * view.s) : 99; } else d = segDistPt([X, Y], ps(e.a), ps(e.b)); if (d < dl) { dl = d; bl = { type: 'edge', id: e.id }; } });
   P.shapes.forEach(s => { if (s.kind !== 'circle') return; const c = ptById(s.center); const [cx, cy] = w2s(c.x, c.y); const d = Math.abs(Math.hypot(X - cx, Y - cy) - s.r * view.s); if (d < dl) { dl = d; bl = { type: 'circle', id: s.id }; } });
   if (A && S.tab === 'olc') A.sug.forEach(s => { const d = segDistPt([X, Y], ps(s.a), ps(s.b)); if (d < dl) { dl = d; bl = { type: 'sug', a: s.a, b: s.b, why: s.why }; } });
   return bl || best;
@@ -897,6 +1198,10 @@ function kTap(X, Y) {
 }
 function handleTap(X, Y) {
   if (S.tab === 'kroki' && ['fillet', 'daire', 'kapi', 'ofset'].includes(S.kmode)) { cadTap(X, Y); return; }
+  if (S.tab === 'kroki' && S.kmode === 'trim') { trimAt(X, Y); return; }
+  if (S.tab === 'kroki' && S.kmode === 'extend') { extendAt(X, Y); return; }
+  if (S.tab === 'kroki' && S.kmode === 'duzenle') { editTap(X, Y); return; }
+  if (S.tab === 'kroki' && S.kmode === 'duvar') { const h = hitTest(X, Y, { noCad: true }); const c = cadHit(X, Y); if (c && c.type === 'offset') { S.sel = c; render(); return; } if (!h || h.type !== 'edge') return toast('Pline\'a dokun'); const sh = P.shapes.find(s => s.ring.length > 1 && s.kind !== 'circle' && shapeEdges(s).some(e => e.id === h.id)); if (!sh) return toast('Bu çizgi bir pline değil'); const ex = P.offsets.find(o => o.band && o.sh === sh.id); if (ex) { S.sel = { type: 'offset', id: ex.id }; render(); return; } const L = kval(); snap(); const o = { id: uid('o'), band: true, sh: sh.id, d: L != null ? L : (SET.wallT || 0.2), side: 1, m: false }; P.offsets.push(o); S.kbuf = ''; S.sel = { type: 'offset', id: o.id }; commit(); toast('Duvar ' + Math.round(o.d * 100) + ' cm. ⇅ ile taraf değiştir.'); return; }
   if (S.tab === 'kroki' && S.kmode === 'takip') {
     const sh = activeShape(); if (sh) { takipTap(sh, X, Y); return; }
     snap(); const [wx, wy] = s2w(X, Y); newRoomShape(wx, wy); commit(); toast('Başlangıç kondu. Yöne dokun, lazerle ölç.'); return;
@@ -934,7 +1239,11 @@ function updateHint() {
   let s = '';
   if (S.tab === 'kroki') {
     if (S.kmode === 'takip') { const sh = activeShape(); s = !sh ? 'Takip: başlangıç köşesine dokun ya da lazerle ölç.' : `<b>${esc(pname(sh.ring[sh.ring.length - 1]))}</b> · sıradaki: <b>${sh.ring.length < 2 ? 'yön seç' : turnText(S.pendingTurn)}</b>`; }
-    else if (S.kmode === 'cizgi') s = !S.chain ? 'Başlangıç noktasına dokun (köşe/çizgi yakalanır)' : (S.kbuf ? `<b>${(parseInt(S.kbuf, 10) / 100).toFixed(2)} m</b> → gideceği yöne dokun` : 'cm yaz ve yöne dokun · ya da noktaya dokun') + (SET.ortho ? ' · <span class="g">⊥ kilit</span>' : '');
+    else if (S.kmode === 'trim') s = 'Trim: silinecek parçaya dokun';
+    else if (S.kmode === 'extend') s = 'Extend: uzatılacak ucun yakınına dokun';
+    else if (S.kmode === 'duzenle') s = 'Noktayı sürükle · çizgiye dokun = kırık ekle';
+    else if (S.kmode === 'duvar') s = 'Kalınlığı cm yaz (boşsa ' + Math.round((SET.wallT || 0.2) * 100) + '), pline\'a dokun';
+    else if (S.kmode === 'cizgi') s = !S.chain ? 'Başlangıca ya da açık pline ucuna dokun (devam eder)' : (S.kbuf ? `<b>${(parseInt(S.kbuf, 10) / 100).toFixed(2)} m</b> → yön okuna dokun ya da ✓` : 'cm yaz → yön oku/✓ · ya da noktaya dokun') + (SET.ortho ? ' · <span class="g">⊥ kilit</span>' : '');
     else if (S.kmode === 'fillet') s = 'Yarıçapı cm yaz, sonra köşeye dokun';
     else if (S.kmode === 'daire') s = S.circC ? 'Yarıçap: ikinci noktaya dokun' : 'cm yaz (yarıçap), merkeze dokun';
     else if (S.kmode === 'kapi') s = 'Genişliği cm yaz (boşsa ' + Math.round((SET.doorW || 0.9) * 100) + '), duvara dokun';
@@ -950,17 +1259,26 @@ function updateHint() {
     else if (S.sel && S.sel.type === 'offset') s = 'Ölçü → ofset (duvar kalınlığı)';
     else s = 'Kenara dokun = seç · iki noktaya dokun = çapraz';
     const f = focusShape(); const info = f && A && A.shapes.find(x => x.sh.id === f.id); if (info && f.kind === 'room') s += '<br>' + shapeSummary(info);
-  } else s = `Köşeye dokun → <b>${esc(S.noBuf || '…')}</b> adı verilir, numara kendiliğinden artar`;
+  } else s = `Köşeye dokun → <b>${esc(S.noBuf || '…')}</b> · hatta basılı tut → yeni nokta`;
   $('#hint').innerHTML = s;
 }
 function renderPanel() {
   const el = $('#panel'); let h = ''; const demo = SET.demo ? '<button class="sq" data-act="demo" data-tip="Demo ölçü üret (test)">D</button>' : '';
   if (S.tab === 'kroki') {
-    const T = [['serbest', '✎', 'Serbest el çizimi: çiz → 90° kırıklı şekil, basılı tut → yakala'], ['cizgi', '╱', 'Çizgi: başlangıca dokun, cm yaz, yöne dokun (eksen kilidiyle 90°)'], ['fillet', '⌒', 'Fillet: köşeye dokun, yarıçap cm'], ['daire', '◯', 'Daire: merkez + yarıçap (cm ya da ikinci dokunuş)'], ['kapi', '🚪', 'Kapı: duvara dokun, genişlik cm'], ['ofset', '∥', 'Ofset: duvara ya da oda içine dokun, kalınlık cm'], ['takip', '⟲', 'Takip: lazerle ölçtükçe duvar ekler']];
-    h += `<div class="tools">${T.map(([k, ic, tip]) => `<button data-tool="${k}" class="${S.kmode === k ? 'on' : ''}" data-tip="${tip}">${ic}</button>`).join('')}<button data-act="ortho" class="${SET.ortho ? 'on' : ''}" data-tip="Eksen kilidi (ortho): çizgiler hep 90° kırar">⊥</button></div>`;
+    const T1 = [['cizgi', '╱', 'Pline: noktaya dokun; cm yaz + yön oku ya da ✓; ucuna dokununca devam eder'], ['serbest', '✎', 'Serbest el çizimi'], ['duzenle', '✥', 'Düzenle: noktayı sürükle, çizgiye dokun = kırık ekle'], ['trim', '✂', 'Trim: kesişimler arasındaki parçaya dokun, silinir'], ['extend', '⇥', 'Extend: çizginin ucuna yakın dokun, ilk çizgiye kadar uzar']];
+    const T2 = [['fillet', '⌒', 'Fillet: yarıçap cm yaz, köşeye dokun'], ['daire', '◯', 'Daire: yarıçap cm yaz, merkeze dokun; pline ile kesişirse birleşir'], ['kapi', '🚪', 'Kapı: genişlik cm, duvara dokun; söveler köşe olur'], ['duvar', '▥', 'Duvar: kalınlık cm, pline\'a dokun; ofset + tarama'], ['ofset', '∥', 'Ofset: tek duvar ya da oda dış çizgisi'], ['takip', '⟲', 'Takip: lazerle ölçtükçe duvar ekler']];
+    const tb = arr => arr.map(([k, ic, tip]) => `<button data-tool="${k}" class="${S.kmode === k ? 'on' : ''}" data-tip="${tip}">${ic}</button>`).join('');
+    h += `<div class="tools">${tb(T1)}<button data-act="ortho" class="${SET.ortho ? 'on' : ''}" data-tip="Eksen kilidi (ortho): çizgiler hep 90° kırar">⊥</button></div><div class="tools">${tb(T2)}</div>`;
     const sel = S.sel; const k = S.kmode;
     if (k === 'takip') { const sh = activeShape(); const custom = sh && sh.ring.length >= 2 && ![90, 0, -90].includes(S.pendingTurn);
       h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p sq" data-act="addNum" data-tip="Elle girilen ölçüyle duvar ekle">↵</button><button class="sq ${custom ? 'on' : ''}" data-act="angle" ${sh && sh.ring.length >= 2 ? '' : 'disabled'} data-tip="90° dışı dönüş açısı">∠</button><button class="sq" data-act="delLast" ${sh && sh.ring.length >= 2 ? '' : 'disabled'} data-tip="Son duvarı sil">⌫</button><button data-act="close" ${sh && sh.ring.length >= 3 ? '' : 'disabled'} data-tip="Odayı kapat">Kapat</button><button class="sq" data-act="newRoom" data-tip="Yeni oda">+</button>${demo}</div>`; }
+    else if (k === 'duzenle' || k === 'trim' || k === 'extend') {
+      let r = ''; if (k === 'duzenle' && sel && sel.type === 'pt') { const shp = shapeOfPoint(sel.id); const i = shp ? shp.ring.indexOf(sel.id) : -1; const corner = shp && shp.ring.length >= 3 && (shp.closed || (i > 0 && i < shp.ring.length - 1));
+        if (corner) r += `<button class="${shp.turn[i] != null ? 'on' : ''}" data-act="as90" data-tip="Köşe açı varsayımı (90° ya da düz)">${shp.turn[i] === 0 ? 'Düz' : '90°'}</button><button class="${shp.turn[i] == null ? 'on' : ''}" data-act="asFree" data-tip="Açı varsayımı yok">Serbest</button>`;
+        r += `<button data-act="delPt" data-tip="Noktayı sil, komşu kenarları birleştir">Noktayı sil</button><button class="sq" data-act="unsel" data-tip="Seçimi bırak">✕</button>`; }
+      if (k === 'duzenle' && sel && sel.type === 'edge') r += `<button class="sq" data-act="delSel" data-tip="Çizgiyi sil">🗑</button><button class="sq" data-act="unsel">✕</button>`;
+      h += `<div class="row">${r || '<span class="info">' + { duzenle: 'Noktayı sürükle · çizgiye dokun = kırık ekle · noktaya dokun = seç', trim: 'Silinecek parçaya dokun (iki kesişim arası)', extend: 'Uzatılacak çizginin ucuna yakın dokun' }[k] + '</span>'}</div>`;
+    }
     else if (k === 'serbest') {
       let r = '';
       if (S.chain) r += `<button data-act="endChain" data-tip="Çizgiyi bitir">Bitir</button><button data-act="closeChain" data-tip="Kapat">Kapat</button>`;
@@ -970,10 +1288,10 @@ function renderPanel() {
       if (sel) r += `<button class="sq" data-act="unsel" data-tip="Seçimi bırak">✕</button>`;
       h += `<div class="row">${r || '<span class="info">Çiz: şekil · basılı tut: yakala · dokun: seç</span>'}</div>`;
     } else {
-      const unit = { cizgi: 'Uzunluk', fillet: 'Yarıçap', daire: 'Yarıçap', kapi: 'Genişlik', ofset: 'Kalınlık' }[k];
+      const unit = { cizgi: 'Uzunluk', fillet: 'Yarıçap', daire: 'Yarıçap', kapi: 'Genişlik', ofset: 'Kalınlık', duvar: 'Kalınlık' }[k];
       h += numpadHTML(unit);
       let r = '';
-      if (k === 'cizgi') r += `<button data-act="endChain" ${S.chain ? '' : 'disabled'} data-tip="Çizgiyi bitir">Bitir</button><button data-act="closeChain" ${S.chain && shapeById(S.chain) && shapeById(S.chain).ring.length >= 3 ? '' : 'disabled'} data-tip="İlk noktaya bağla">Kapat</button><button class="sq" data-act="chainBack" ${S.chain ? '' : 'disabled'} data-tip="Son noktayı geri al">↶</button>`;
+      if (k === 'cizgi') r += `<button class="p" data-act="segOk" ${S.chain && S.kbuf ? '' : 'disabled'} data-tip="Yazılan uzunlukta, seçili yön okuna doğru çiz">✓</button><button data-act="endChain" ${S.chain ? '' : 'disabled'} data-tip="Çizgiyi bitir">Bitir</button><button data-act="closeChain" ${S.chain && shapeById(S.chain) && shapeById(S.chain).ring.length >= 3 ? '' : 'disabled'} data-tip="İlk noktaya bağla">Kapat</button><button class="sq" data-act="chainBack" ${S.chain ? '' : 'disabled'} data-tip="Son noktayı geri al">↶</button>`;
       else {
         r += `<button class="p" data-act="applyK" ${sel && S.kbuf ? '' : 'disabled'} data-tip="Yazılan cm değerini seçili nesneye uygula">✓ Uygula</button>`;
         if (sel && sel.type === 'door') r += `<button class="sq" data-act="dHinge" data-tip="Menteşe tarafını değiştir">⇄</button><button class="sq" data-act="dSide" data-tip="Açılış yönünü değiştir">⇅</button>`;
@@ -986,7 +1304,7 @@ function renderPanel() {
     const sel = S.sel; let info = '';
     if (sel && sel.type === 'edge' && edgeById(sel.id)) { const e = edgeById(sel.id); info = `<b>${esc(edgeName(e))}</b> · ${{ wall: 'duvar', detail: 'detay', diag: 'çapraz' }[e.kind]} · ${e.len != null ? '<span class="tag ok">' + fmt(e.len) + '</span>' : '<span class="tag warn">~' + plen(e.a, e.b).toFixed(2) + '</span>'}`; }
     else if (sel && sel.type === 'sug') info = `<b>${esc(pname(sel.a))}–${esc(pname(sel.b))}</b> · <span class="tag warn">${sel.why === 'eksik' ? 'gerekli çapraz' : 'kontrol çaprazı'}</span>`;
-    else if (sel && sel.type === 'door') { const d = P.doors.find(x => x.id === sel.id); const g = d && doorGeom(d); info = g ? `Kapı · genişlik <b>${d.wM ? fmt(g.w) : '~' + g.w.toFixed(2)}</b> · köşeden <b>${d.tM ? fmt(g.t0) : '~' + g.t0.toFixed(2)}</b> <button class="${S.dpart === 'w' ? 'on' : ''}" data-act="dpW" style="min-height:24px;padding:1px 6px">genişlik</button> <button class="${S.dpart === 't' ? 'on' : ''}" data-act="dpT" style="min-height:24px;padding:1px 6px">köşe→kapı</button>` : ''; }
+    else if (sel && sel.type === 'door') { const d = P.doors.find(x => x.id === sel.id); const g = d && doorGeom(d); info = g ? `Kapı · genişlik <b>${g.m ? fmt(g.w) : '~' + g.w.toFixed(2)}</b>` : ''; }
     else if (sel && sel.type === 'fillet') { const f = P.fillets[sel.id]; info = f ? `Fillet · R <b>${f.m ? fmt(f.r) : '~' + f.r.toFixed(2)}</b>` : ''; }
     else if (sel && sel.type === 'offset') { const o = P.offsets.find(x => x.id === sel.id); info = o ? `Ofset · <b>${o.m ? fmt(o.d) : '~' + o.d.toFixed(2)}</b>` : ''; }
     else if (sel && sel.type === 'circle') { const c = shapeById(sel.id); info = `Daire · Ø <b>${(2 * c.r).toFixed(3)}</b> ${c.measured ? '<span class="tag ok">ölçüldü</span>' : '<span class="tag warn">tahmini</span>'}`; }
@@ -1006,6 +1324,8 @@ $('#panel').addEventListener('click', e => {
   if (b.dataset.k) { const k = b.dataset.k; if (k === '⌫') S.kbuf = S.kbuf.slice(0, -1); else if (k === 'C') S.kbuf = ''; else if (S.kbuf.length < 5) S.kbuf = (S.kbuf + k).replace(/^0+/, ''); render(); if (placing) draw(); return; }
   if (b.dataset.key) { const k = b.dataset.key; if (k === '⌫') S.noBuf = S.noBuf.slice(0, -1); else S.noBuf += k; render(); return; }
   const a = b.dataset.act; const sh = activeShape();
+  if (a === 'segOk') { addSegmentDir(); return; }
+  if (a === 'delPt') { deletePointMerge(S.sel.id); return; }
   if (a === 'ortho') { SET.ortho = !SET.ortho; writeJSON(LS_SET, SET); toast('Eksen kilidi ' + (SET.ortho ? 'açık' : 'kapalı')); render(); }
   else if (a === 'applyK') applyKbuf();
   else if (a === 'dHinge' || a === 'dSide') { const d = P.doors.find(x => x.id === S.sel.id); snap(); if (a === 'dHinge') d.hinge = d.hinge ? 0 : 1; else d.side = -d.side; commit(); }
@@ -1026,21 +1346,21 @@ $('#panel').addEventListener('click', e => {
   else if (a === 'unsel') { S.sel = null; render(); }
   else if (a === 'clearLen') { const ed = edgeById(S.sel.id); snap(); ed.len = null; ed.est = plen(ed.a, ed.b); commit(); }
   else if (a === 'delSel') { snap(); const t = S.sel.type; if (t === 'circle') deleteShape(shapeById(S.sel.id)); else if (t === 'door') P.doors = P.doors.filter(x => x.id !== S.sel.id); else if (t === 'offset') P.offsets = P.offsets.filter(x => x.id !== S.sel.id); else if (t === 'fillet') delete P.fillets[S.sel.id]; else deleteEdge(edgeById(S.sel.id)); S.sel = null; commit(); }
-  else if (a === 'as90' || a === 'asFree') { const p = ptById(S.sel.id); const shp = shapeOfPoint(p.id); const i = shp.ring.indexOf(p.id); const n = shp.ring.length; snap(); if (a === 'asFree') shp.turn[i] = null; else { const t = norm180(headOf(p.id, shp.ring[(i + 1) % n]) - headOf(shp.ring[(i - 1 + n) % n], p.id)); shp.turn[i] = t >= 0 ? 90 : -90; } commit(); }
+  else if (a === 'as90' || a === 'asFree') { const p = ptById(S.sel.id); const shp = shapeOfPoint(p.id); const i = shp.ring.indexOf(p.id); const n = shp.ring.length; snap(); if (a === 'asFree') shp.turn[i] = null; else { const t = norm180(headOf(p.id, shp.ring[(i + 1) % n]) - headOf(shp.ring[(i - 1 + n) % n], p.id)); shp.turn[i] = Math.abs(t) < 45 ? 0 : (t >= 0 ? 90 : -90); } commit(); }
   else if (a === 'noAbc') { const v = prompt('Nokta adı (harf kullanılabilir)', S.noBuf); if (v !== null) { S.noBuf = v.trim(); render(); } }
   else if (a === 'noC') { S.noBuf = ''; render(); }
 });
 $('#panel').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('#panel [data-act="addNum"], #panel [data-act="setNum"]'); if (b) b.click(); } });
 document.querySelectorAll('#tabs [data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 $('#bUndo').onclick = undo; $('#bRedo').onclick = redo; $('#bFit').onclick = fit; $('#bCheck').onclick = openReport; $('#ble').onclick = bleConnect;
-function measurables() { const out = []; P.shapes.forEach(s => { if (s.kind === 'circle') out.push({ type: 'circle', id: s.id }); else shapeEdges(s).forEach(e => out.push({ type: 'edge', id: e.id })); }); P.edges.forEach(e => { if (!out.some(o => o.id === e.id)) out.push({ type: 'edge', id: e.id }); }); P.doors.forEach(d => out.push({ type: 'door', id: d.id, part: 'w' })); Object.keys(P.fillets).forEach(k => out.push({ type: 'fillet', id: k })); P.offsets.forEach(o => out.push({ type: 'offset', id: o.id })); return out; }
+function measurables() { const out = []; P.shapes.forEach(s => { if (s.kind === 'circle') out.push({ type: 'circle', id: s.id }); else shapeEdges(s).forEach(e => out.push({ type: 'edge', id: e.id })); }); P.edges.forEach(e => { if (!e.hidden && !out.some(o => o.id === e.id)) out.push({ type: 'edge', id: e.id }); }); Object.keys(P.fillets).forEach(k => out.push({ type: 'fillet', id: k })); P.offsets.forEach(o => out.push({ type: 'offset', id: o.id })); return out; }
 function stepEdge(d) {
   const L = measurables(); if (!L.length) return; let i = S.sel ? L.findIndex(o => o.id === S.sel.id) : -1;
   if (i < 0) { i = L.findIndex(o => o.type === 'edge' && edgeById(o.id).len == null); if (i < 0) i = 0; } else i = (i + d + L.length) % L.length;
   S.sel = L[i]; S.mfrom = null; render();
 }
 function deleteEdge(e) { if (!e) return; P.edges = P.edges.filter(x => x !== e); P.shapes.forEach(sh => { const i = sh.ring.indexOf(e.a), j = sh.ring.indexOf(e.b); if (i >= 0 && j >= 0 && sh.kind !== 'circle') { if (sh.closed && (Math.abs(i - j) === 1 || Math.abs(i - j) === sh.ring.length - 1)) { const k = (i + 1) % sh.ring.length === j ? j : i; sh.ring = sh.ring.slice(k).concat(sh.ring.slice(0, k)); sh.turn = sh.turn.slice(k).concat(sh.turn.slice(0, k)); sh.closed = false; sh.turn[0] = null; sh.turn[sh.turn.length - 1] = null; } } }); cleanupPts(); }
-function cleanupPts() { const used = new Set(); P.edges.forEach(e => { used.add(e.a); used.add(e.b); }); P.shapes.forEach(s => { if (s.center) used.add(s.center); }); P.pts = P.pts.filter(p => used.has(p.id)); const ids = new Set(P.pts.map(p => p.id)); P.cons = P.cons.filter(c => [c.p, c.a, c.b, c.c, c.d].filter(Boolean).every(x => ids.has(x))); P.shapes = P.shapes.filter(s => s.kind === 'circle' ? ids.has(s.center) : s.ring.every(x => ids.has(x)) && s.ring.length > 0); ensureCad(); const eids = new Set(P.edges.map(e => e.id)); P.doors = P.doors.filter(d => eids.has(d.e)); Object.keys(P.fillets).forEach(k => { if (!ids.has(k)) delete P.fillets[k]; }); const sids = new Set(P.shapes.map(s => s.id)); P.offsets = P.offsets.filter(o => o.e ? eids.has(o.e) : sids.has(o.sh)); }
+function cleanupPts() { const used = new Set(); P.edges.forEach(e => { used.add(e.a); used.add(e.b); if (e.c) used.add(e.c); }); P.shapes.forEach(s => { if (s.center) used.add(s.center); }); P.pts = P.pts.filter(p => used.has(p.id)); const ids = new Set(P.pts.map(p => p.id)); P.cons = P.cons.filter(c => [c.p, c.a, c.b, c.c, c.d].filter(Boolean).every(x => ids.has(x))); P.shapes = P.shapes.filter(s => s.kind === 'circle' ? ids.has(s.center) : s.ring.every(x => ids.has(x)) && s.ring.length > 0); ensureCad(); const eids = new Set(P.edges.map(e => e.id)); P.doors = P.doors.filter(d => eids.has(d.e)); Object.keys(P.fillets).forEach(k => { if (!ids.has(k)) delete P.fillets[k]; }); const sids = new Set(P.shapes.map(s => s.id)); P.offsets = P.offsets.filter(o => o.e ? eids.has(o.e) : sids.has(o.sh)); }
 function deleteLast() { const sh = activeShape(); if (!sh || sh.ring.length < 2) return; snap(); const last = sh.ring.pop(); sh.turn.pop(); sh.turn[sh.ring.length - 1] = null; P.edges = P.edges.filter(e => e.a !== last && e.b !== last); cleanupPts(); commit(); }
 function deleteShape(sh) { if (!sh) return; if (sh.kind === 'circle') { P.shapes = P.shapes.filter(s => s !== sh); cleanupPts(); return; } const ring = new Set(sh.ring); P.edges = P.edges.filter(e => !(ring.has(e.a) && ring.has(e.b))); P.shapes = P.shapes.filter(s => s !== sh); cleanupPts(); }
 function demoMeasure() { let v; const sel = S.sel; if (sel && sel.type === 'edge') { const e = edgeById(sel.id); v = plen(e.a, e.b) * (1 + (Math.random() - .5) * 0.02); } else if (sel && sel.type === 'sug') v = plen(sel.a, sel.b); else if (sel && sel.type === 'circle') v = shapeById(sel.id).r * 2; else v = 2 + Math.random() * 4; onMeasure(Math.round(v * 1000) / 1000); }
@@ -1129,7 +1449,7 @@ function buildDXF(p, set) {
   const th = set.scaleDen * 0.0025; const L = [];
   const g = (code, val) => { L.push(String(code).padStart(3, ' ')); L.push(String(val)); };
   const n4 = v => (Math.abs(v) < 5e-5 ? 0 : v).toFixed(4);
-  const layers = [['DUVAR', 7], ['DETAY', 4], ['CAPRAZ', 3], ['TAHMINI', 30], ['OLCU', 7], ['NOKTA', 6], ['NOKTA_ADI', 6], ['YAZI', 2], ['ACI', 1], ['KAPI', 5], ['OFSET', 8]];
+  const layers = [['DUVAR', 7], ['DETAY', 4], ['CAPRAZ', 3], ['TAHMINI', 30], ['OLCU', 7], ['NOKTA', 6], ['NOKTA_ADI', 6], ['YAZI', 2], ['ACI', 1], ['KAPI', 5], ['OFSET', 8], ['DUVAR_DIS', 7], ['TARAMA', 8]];
   g(0, 'SECTION'); g(2, 'HEADER'); g(9, '$ACADVER'); g(1, 'AC1009'); g(9, '$DWGCODEPAGE'); g(3, 'ANSI_1254');
   g(9, '$INSBASE'); g(10, '0.0'); g(20, '0.0'); g(30, '0.0'); const bb = bbox() || [0, 0, 10, 10];
   g(9, '$EXTMIN'); g(10, n4(bb[0])); g(20, n4(bb[1])); g(30, '0.0'); g(9, '$EXTMAX'); g(10, n4(bb[2])); g(20, n4(bb[3])); g(30, '0.0');
@@ -1148,6 +1468,8 @@ function buildDXF(p, set) {
   const lineA = (lay, a, b) => line(lay, { x: a[0], y: a[1] }, { x: b[0], y: b[1] });
   const text = (lay, s, x, y, h, rot, center) => { g(0, 'TEXT'); g(8, lay); g(10, n4(x)); g(20, n4(y)); g(30, '0.0'); g(40, n4(h)); g(1, s); if (rot) g(50, rot.toFixed(3)); if (center) { g(72, 1); g(11, n4(x)); g(21, n4(y)); g(31, '0.0'); g(73, 2); } };
   p.edges.forEach(e => {
+    if (e.hidden || e.kind === 'door') return;
+    if (e.kind === 'arc') { if (!ptById(e.c)) return; const ag = arcInfo(e); const rc = radiusCons(e); const mm = rc && rc.m; arcSw(mm ? 'DUVAR' : 'TAHMINI', ag.C, ag.r, ag.a1, ag.sw); const am = ag.a1 + ag.sw / 2; text(mm ? 'OLCU' : 'TAHMINI', (mm ? 'R' : 'R~') + ag.r.toFixed(3), ag.C[0] + Math.cos(am) * (ag.r - th * 1.3), ag.C[1] + Math.sin(am) * (ag.r - th * 1.3), th * 0.9, 0, true); return; }
     const a = ptById(e.a), b = ptById(e.b); const m = e.len != null;
     const lay = !m ? 'TAHMINI' : (e.kind === 'wall' ? 'DUVAR' : e.kind === 'detail' ? 'DETAY' : 'CAPRAZ');
     { const [ea, eb] = edgeEnds(e); const Lt = V.dist(pw(e.a), pw(e.b)) || 1; const u = V.unit(V.sub(pw(e.b), pw(e.a)));
@@ -1165,14 +1487,18 @@ function buildDXF(p, set) {
   p.shapes.forEach(sh => { if (sh.kind !== 'circle') return; const c = ptById(sh.center); if (!c) return; g(0, 'CIRCLE'); g(8, sh.measured ? 'DETAY' : 'TAHMINI'); g(10, n4(c.x)); g(20, n4(c.y)); g(30, '0.0'); g(40, n4(sh.r)); text(sh.measured ? 'OLCU' : 'TAHMINI', (sh.measured ? '' : '~') + 'Ø' + (2 * sh.r).toFixed(3), c.x, c.y - sh.r - th * 1.2, th, 0, true); });
   p.shapes.forEach(sh => {
     if (sh.kind !== 'room' || sh.ring.length < 3) return; let cx = 0, cy = 0; sh.ring.forEach(id => { const q = ptById(id); cx += q.x; cy += q.y; }); cx /= sh.ring.length; cy /= sh.ring.length;
-    text('YAZI', sh.name, cx, cy + th * 0.8, th * 1.4, 0, true); if (sh.closed) text('YAZI', 'A=' + Math.abs(polyArea(sh.ring)).toFixed(2) + ' m²', cx, cy - th * 1.2, th, 0, true);
+    text('YAZI', sh.name, cx, cy + th * 0.8, th * 1.4, 0, true); if (sh.closed) text('YAZI', 'A=' + Math.abs(ringArea(sh)).toFixed(2) + ' m²', cx, cy - th * 1.2, th, 0, true);
     const info = A && A.shapes.find(x => x.sh.id === sh.id);
     if (info) info.corners.forEach(c => { if (c.st === 'gonyesiz' || c.st === 'olcu') { const q = ptById(c.id); text('ACI', c.inner.toFixed(2) + '°', q.x - th * 0.5, q.y - th * 1.5, th * 0.8, 0, false); } else if (c.st === 'varsayim') { const q = ptById(c.id); text('TAHMINI', '90° varsayım', q.x - th * 0.5, q.y - th * 1.5, th * 0.7, 0, false); } });
     if (info && info.unfixed.length) text('TAHMINI', 'Gönye belirsiz: çapraz ölçülmeli', cx, cy - th * 3, th * 0.8, 0, true);
   });
   Object.keys(p.fillets || {}).forEach(pid => { const fg = filletGeom(pid); if (!fg) return; arcSw(fg.m ? 'DUVAR' : 'TAHMINI', fg.O, fg.r, fg.a1, fg.sw); const am = fg.a1 + fg.sw / 2; text(fg.m ? 'OLCU' : 'TAHMINI', (fg.m ? 'R' : 'R~') + fg.r.toFixed(3), fg.O[0] + Math.cos(am) * (fg.r + th * 1.2), fg.O[1] + Math.sin(am) * (fg.r + th * 1.2), th * 0.9, 0, true); });
-  (p.doors || []).forEach(d => { const dg = doorGeom(d); if (!dg) return; const lay = d.wM ? 'KAPI' : 'TAHMINI'; lineA(lay, dg.H, dg.Leaf); arcSw(lay, dg.H, dg.w, dg.aL, dg.sw); const mid = V.mul(V.add(dg.J1, dg.J2), 0.5); text(d.wM ? 'KAPI' : 'TAHMINI', (d.wM ? 'K' : 'K~') + dg.w.toFixed(d.wM ? 3 : 2), mid[0] - dg.nn[0] * th * 1.2, mid[1] - dg.nn[1] * th * 1.2, th * 0.9, 0, true); });
-  (p.offsets || []).forEach(o => { const og = offsetGeom(o); if (!og) return; og.segs.forEach(([a, b]) => lineA(o.m ? 'OFSET' : 'TAHMINI', a, b)); const [a, b] = og.segs[0]; text(o.m ? 'OFSET' : 'TAHMINI', (o.m ? '' : '~') + (o.d * 100).toFixed(o.m ? 1 : 0) + ' cm', (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + th, th * 0.8, 0, true); });
+  (p.doors || []).forEach(d => { const dg = doorGeom(d); if (!dg) return; const lay = dg.m ? 'KAPI' : 'TAHMINI'; lineA(lay, dg.H, dg.Leaf); arcSw(lay, dg.H, dg.w, dg.aL, dg.sw); const mid = V.mul(V.add(dg.J1, dg.J2), 0.5); text(dg.m ? 'KAPI' : 'TAHMINI', (dg.m ? 'K' : 'K~') + dg.w.toFixed(dg.m ? 3 : 2), mid[0] - dg.nn[0] * th * 1.2, mid[1] - dg.nn[1] * th * 1.2, th * 0.9, 0, true); });
+  (p.offsets || []).forEach(o => { if (!o.band) return; const bg = bandGeom(o); if (!bg) return; const lay = o.m ? 'DUVAR_DIS' : 'TAHMINI';
+    bg.quads.forEach(q => { if (q.arc) { const ag = arcInfo(q.arc); const outR = ag.r + o.d * o.side * (pointInPolyW([ag.C[0] + Math.cos(ag.a1 + ag.sw / 2) * ag.r * 1.01, ag.C[1] + Math.sin(ag.a1 + ag.sw / 2) * ag.r * 1.01], ringPoly(shapeById(o.sh))) ? -1 : 1); arcSw(lay, ag.C, Math.max(0.001, outR), ag.a1, ag.sw); return; } if (q.door) { lineA(lay, q.P1, q.Q1); lineA(lay, q.P2, q.Q2); return; } lineA(lay, q.Q1, q.Q2); hatchSegs([q.P1, q.P2, q.Q2, q.Q1], Math.PI / 4, Math.max(th * 1.6, 0.04)).forEach(([a, b]) => lineA('TARAMA', a, b)); });
+    if (!bg.closed && bg.quads.length) { const f = bg.quads[0], l = bg.quads[bg.quads.length - 1]; lineA(lay, f.P1, f.Q1); lineA(lay, l.P2, l.Q2); }
+    const q0 = bg.quads.find(q => !q.door) || bg.quads[0]; text(lay, (o.m ? '' : '~') + (o.d * 100).toFixed(o.m ? 1 : 0) + ' cm', (q0.Q1[0] + q0.Q2[0]) / 2, (q0.Q1[1] + q0.Q2[1]) / 2, th * 0.8, 0, true); });
+  (p.offsets || []).forEach(o => { if (o.band) return; const og = offsetGeom(o); if (!og) return; og.segs.forEach(([a, b]) => lineA(o.m ? 'OFSET' : 'TAHMINI', a, b)); const [a, b] = og.segs[0]; text(o.m ? 'OFSET' : 'TAHMINI', (o.m ? '' : '~') + (o.d * 100).toFixed(o.m ? 1 : 0) + ' cm', (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + th, th * 0.8, 0, true); });
   { const b2 = bbox() || [0, 0, 0, 0]; text('TAHMINI', '~ ve TAHMINI katmanı: ölçülmemiş, tahmini değer', b2[0], b2[1] - th * 4, th, 0, false); }
   g(0, 'ENDSEC'); g(0, 'EOF'); return L.join('\r\n') + '\r\n';
 }

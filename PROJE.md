@@ -214,6 +214,18 @@ Programda:
 - Ofset: tek duvar ya da odanın tamamı (dışa, köşeler kesişimle), kalınlık ölçülebilir.
 - DXF: ölçülmemiş her şey **TAHMINI** katmanında (renk 30, kesikli) ve ~ ile. Ayrıca KAPI ve OFSET katmanları, açıklama yazısı.
 
+**v5 – Pline ve düzenleme araçları**
+- Pline: Bitir ile açık kalır. Açık bir pline'ın ucuna dokununca o pline'a devam edilir, başka bir pline'ın ucuna değince ikisi birleşir.
+- Çizgi aracında yön okları (ilk segmentte 4 yön, sonra Sol/Düz/Sağ) ve ✓ (yazılan cm'yi seçili yönde çiz). Yön okuna cm yazılıyken dokunmak doğrudan çizer.
+- Aks yakalama: eksen kilidiyle giderken noktaların (öncelikle başlangıcın) hizası yakalanır. Başlangıç noktasında yakalama yarıçapı 34 px.
+- Düzenle ✥: noktayı sürükle (ölçülmemiş kenar tahminleri güncellenir, açı varsayımları yeniden belirlenir), çizgiye dokun = kırık noktası ekle, noktayı sil = komşu kenarları birleştir.
+- Trim ✂ / Extend ⇥: kesişim noktaları "çizgi üstünde" kısıtıyla bağlanır.
+- Kapı: duvarı üçe böler (duvar – kapı açıklığı – duvar). Söveler köşe noktası olur, adlandırılır ve ölçülür. Kapı açıklığı ayrı kenar türüdür, ölçek katsayısından etkilenmez.
+- Duvar ▥: pline'ın tamamına kalınlık bandı (köşeler kesişimle), tarama, kapıda kesilir. DXF'te DUVAR_DIS ve TARAMA katmanları.
+- Daire + kapalı pline kesişirse birleşir: yay kenarı (merkez noktası + yarıçap kısıtı) oluşur. Alan yayla hesaplanır. Ölç'te yay seçilip yarıçap (ya da çap) ölçülür.
+- Nokta No: hattın üstüne basılı tutunca hat bölünür, sıradaki adla nokta konur.
+- Ölçülen bir kenar bölünürse toplam ölçüsü gizli bir kenar olarak korunur.
+
 ## 9. Açık sorular
 
 - [ ] 3° TM dilimi
