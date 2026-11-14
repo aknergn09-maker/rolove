@@ -170,7 +170,27 @@ Programda:
 **Aşama 7 – Opsiyonel donanım**
 - ESP32 açı istasyonu: AS5048A enkoder ve DFRobot SEN0366 lazer modülü, klavye köprüsü, kalibrasyon
 
-## 8. Açık sorular
+## 8. Durum (14.11.2026)
+
+**Yayın:** https://aknergn09-maker.github.io/rolove/ (depo: aknergn09-maker/rolove)
+
+**v1 – Aşama 1 tamam:** Bosch BLE, takip modu, DXF, JSON, geri al.
+
+**v2 – Aşama 2 başladı**
+- Veri modeli: noktalar (kullanıcı adlı), kenarlar (duvar / detay / çapraz), şekiller (oda / detay), kısıtlar (çizgi üstünde, dik).
+- Dengeleme: en küçük kareler. σ mesafe 2 mm, tahmini kenar 0,5 m, 90° varsayım 2°, çizgi üstünde 1 mm.
+- Belirlilik analizi: ölçüyle bağlı bileşen başına RREF ve sıfır uzayı → sabitlenmemiş noktalar, eksik ölçü, kontrol sayısı.
+- Gönye raporu: köşe iç açısı, varsayım, durum (gönyeli / gönyesiz / varsayım). Çelişen ölçü > 5 mm.
+- Çapraz önerisi: eksikse "gerekli", belirliyse "kontrol". Mor çizgi, lazer ölçüsü doğrudan ona yazılır.
+- Araçlar:
+  - Takip: büyük yön diskleri
+  - El çizimi: RDP sadeleştirme, 22° içindeki açılar 90°'ye
+  - Çizgi: yakalama (köşe, kesişim, orta, dik, üzerinde, 90°)
+  - Çapraz: iki nokta arası mesafe
+  - Seç: ad değiştirme, köşe varsayımı
+- Nokta adlandırma: ön ek + sıradaki numara (menüden). Her nokta elle yeniden adlandırılabilir.
+
+## 9. Açık sorular
 
 - [ ] 3° TM dilimi
 - [ ] Katman adları ve renkleri, yazı boyları
