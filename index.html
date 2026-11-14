@@ -11,79 +11,82 @@
 <style>
 :root{--bg:#f4f5f7;--ink:#1f2a37;--mut:#6b7280;--acc:#0b7cc1;--ok:#15803d;--warn:#c2410c;--bad:#b91c1c;--card:#fff;--line:#e5e7eb}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #app{position:fixed;inset:0;display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:8px;padding:calc(6px + env(safe-area-inset-top)) 8px 6px;background:var(--ink);color:#fff}
-header .t{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-button{font:inherit;border:0;border-radius:10px;padding:9px 12px;background:#e8ebf0;color:var(--ink);cursor:pointer}
-button:active{filter:brightness(.92)}
+header{display:flex;align-items:center;gap:6px;padding:calc(4px + env(safe-area-inset-top)) 6px 4px;background:var(--ink);color:#fff}
+header .t{flex:1;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;border:0;border-radius:8px;padding:6px 9px;background:#e8ebf0;color:var(--ink);cursor:pointer;min-height:34px}
+button:active{filter:brightness(.9)}
 button.p{background:var(--acc);color:#fff}
 button.on{background:var(--ink);color:#fff}
-button:disabled{opacity:.45}
-header button{background:#334155;color:#fff;padding:7px 10px}
+button:disabled{opacity:.4}
+header button{background:#334155;color:#fff;min-height:30px;padding:4px 9px}
 #ble.ok{background:var(--ok)}#ble.busy{background:#a16207}#ble.bad{background:var(--bad)}
-#wrap{position:relative;flex:1;min-height:0}
-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#fbfbfc}
-#hint{position:absolute;left:8px;right:56px;top:8px;background:rgba(31,42,55,.9);color:#fff;border-radius:10px;padding:7px 10px;font-size:13.5px;pointer-events:none}
+#tabs{display:flex;background:var(--ink);padding:0 4px 4px;gap:4px}
+#tabs button{flex:1;background:#334155;color:#cbd5e1;min-height:32px;font-weight:600}
+#tabs button.on{background:#f4f5f7;color:var(--ink)}
+#wrap{position:relative;flex:1;min-height:0;overflow:hidden}
+canvas{position:absolute;left:0;top:0;display:block;background:#fbfbfc}
+#hint{position:absolute;left:6px;right:48px;top:6px;background:rgba(31,42,55,.88);color:#fff;border-radius:8px;padding:5px 8px;font-size:12.5px;pointer-events:none}
 #hint:empty{display:none}
 #hint .g{color:#86efac}#hint .w{color:#fdba74}#hint .b{color:#fca5a5}
-#fab{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
-#fab button{width:42px;height:42px;padding:0;border-radius:21px;background:rgba(255,255,255,.95);box-shadow:0 1px 4px rgba(0,0,0,.18);font-size:18px}
-#fab #bCheck{font-size:13px;font-weight:700}
-#toast{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:92%;text-align:center}
+#fab{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:5px}
+#fab button{width:36px;height:36px;min-height:36px;padding:0;border-radius:18px;background:rgba(255,255,255,.95);box-shadow:0 1px 3px rgba(0,0,0,.2);font-size:16px}
+#fab #bCheck{font-size:12px;font-weight:700}
+#toast{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:7px 12px;border-radius:16px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:92%;text-align:center}
 #toast.show{opacity:.95}
-#flash{position:absolute;right:10px;bottom:12px;background:var(--ok);color:#fff;font-weight:700;font-size:20px;padding:6px 12px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none}
+#flash{position:absolute;right:8px;bottom:8px;background:var(--ok);color:#fff;font-weight:700;font-size:18px;padding:4px 10px;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none}
 #flash.show{opacity:1}
-#panel{background:var(--card);border-top:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:7px}
-.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.row>button{flex:1;min-width:0;padding:10px 6px}
-.info{font-size:13.5px;color:var(--mut)}
+#panel{background:var(--card);border-top:1px solid var(--line);padding:5px 6px calc(5px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px}
+.row{display:flex;gap:5px;align-items:center}
+.row>button{flex:1;min-width:0;padding:6px 3px}
+.row>button.sq{flex:0 0 40px}
+.info{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .info b{color:var(--ink)}
-input[type=text],select{font:inherit;padding:9px 10px;border:1px solid #cbd5e1;border-radius:10px;min-width:0;background:#fff;color:var(--ink)}
-.num{flex:1}
-nav{display:flex;gap:5px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
-nav button{flex:1;padding:9px 2px;font-size:13.5px}
+input[type=text],select{font:inherit;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;min-width:0;background:#fff;color:var(--ink);min-height:34px}
+.num{flex:1;min-width:60px}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.kp button{font-size:17px;font-weight:600;min-height:38px}
+.buf{font-size:20px;font-weight:700;color:var(--acc);padding:0 6px;min-width:70px}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;z-index:10}
 .sheet.hidden{display:none}
-.sheet .box{background:var(--card);width:100%;max-height:85%;overflow:auto;border-radius:16px 16px 0 0;padding:12px 12px calc(12px + env(safe-area-inset-bottom));touch-action:pan-y;user-select:text;-webkit-user-select:text}
-.box h3{margin:6px 0 8px;font-size:16px}
-.box .row>button{flex:1 1 45%}
-.box label{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.sheet .box{background:var(--card);width:100%;max-height:85%;overflow:auto;border-radius:14px 14px 0 0;padding:10px 10px calc(10px + env(safe-area-inset-bottom));touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.box h3{margin:6px 0 6px;font-size:15px}
+.box .row{flex-wrap:wrap;margin:4px 0}.box .row>button{flex:1 1 45%;min-height:38px}
+.box label{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
 .list button{display:block;width:100%;text-align:left;margin:4px 0}
-pre{font-size:12px;background:#f1f5f9;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto}
-.tag{display:inline-block;padding:1px 7px;border-radius:8px;font-size:12px;background:#e2e8f0;color:var(--ink)}
+pre{font-size:11.5px;background:#f1f5f9;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto}
+.tag{display:inline-block;padding:1px 6px;border-radius:7px;font-size:11.5px;background:#e2e8f0;color:var(--ink)}
 .tag.ok{background:#dcfce7;color:var(--ok)}.tag.warn{background:#ffedd5;color:var(--warn)}.tag.bad{background:#fee2e2;color:var(--bad)}
-table{border-collapse:collapse;width:100%;font-size:13.5px;margin:4px 0 10px}
-td,th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:4px 0 10px}
+td,th{padding:4px 5px;border-bottom:1px solid var(--line);text-align:left}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <button id="bMenu" aria-label="Menü">☰</button>
+    <button id="bMenu" data-tip="Menü: DXF, proje, ayarlar, lazer günlüğü">☰</button>
     <div class="t" id="title">Rölöve Kroki</div>
-    <button id="ble">Lazer bağla</button>
+    <button id="ble" data-tip="Bosch lazer metreye Bluetooth ile bağlan">Lazer bağla</button>
   </header>
+  <div id="tabs">
+    <button data-tab="kroki" data-tip="Çizim: elle çiz, basılı tutup yakala, takip">Kroki</button>
+    <button data-tab="olc" data-tip="Ölçü: kenar/çapraz seç, lazerle ya da elle ölç">Ölç</button>
+    <button data-tab="no" data-tip="Köşelere nokta numarası ver">Nokta No</button>
+  </div>
   <div id="wrap">
     <canvas id="cv"></canvas>
     <div id="hint"></div>
     <div id="fab">
-      <button id="bUndo" aria-label="Geri al">↶</button>
-      <button id="bRedo" aria-label="Yinele">↷</button>
-      <button id="bFit" aria-label="Sığdır">⤢</button>
-      <button id="bCheck" aria-label="Kontrol">✓?</button>
+      <button id="bUndo" data-tip="Geri al">↶</button>
+      <button id="bRedo" data-tip="Yinele">↷</button>
+      <button id="bFit" data-tip="Çizimi ekrana sığdır">⤢</button>
+      <button id="bCheck" data-tip="Gönye ve kontrol raporu">✓?</button>
     </div>
     <div id="toast"></div>
     <div id="flash"></div>
   </div>
   <div id="panel"></div>
-  <nav>
-    <button data-tool="takip">Takip</button>
-    <button data-tool="ciz">El çizimi</button>
-    <button data-tool="cizgi">Çizgi</button>
-    <button data-tool="mesafe">Çapraz</button>
-    <button data-tool="sec">Seç</button>
-  </nav>
 </div>
 <div class="sheet hidden" id="sheet"><div class="box" id="sheetBox"></div></div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
@@ -96,15 +99,14 @@ const CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
 const AUTOSYNC = [0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A];
 const LS_PROJ = 'rk2_projects', LS_CUR = 'rk2_current', LS_SET = 'rk2_settings';
 const deg = Math.PI / 180;
-const SIG_EST = 0.5;     // ölçülmemiş kenar tahmini (m)
-const SIG_ON = 0.001;    // çizgi üstünde nokta (m)
+const SIG_EST = 0.5, SIG_ON = 0.001;
 
 /* =================== Durum =================== */
-const defSet = { scaleDen: 50, defaultTurn: -90, autoAdvance: true, offset: 0, demo: false, closeTol: 0.02, sigD: 0.002, sigA: 2, gonyeTol: 0.3, autoDiag: true };
+const defSet = { scaleDen: 50, defaultTurn: -90, autoAdvance: true, offset: 0, demo: false, sigD: 0.002, sigA: 2, gonyeTol: 0.3, autoDiag: true, orthoTol: 35, circleDia: true, showLen: true, ignoreAfterSet: 3 };
 let SET = Object.assign({}, defSet, readJSON(LS_SET, {}));
 let P = null;
-let S = { tool: 'takip', active: null, sel: null, pendingTurn: SET.defaultTurn, lastMeasure: null, chain: null };
-let A = null;   // son analiz
+let S = { tab: 'kroki', kmode: 'serbest', active: null, chain: null, sel: null, mfrom: null, pendingTurn: SET.defaultTurn, lastMeasure: null, noBuf: '1', ignoreUntil: 0 };
+let A = null;
 let undoStack = [], redoStack = [];
 let view = { s: 40, ox: 0, oy: 0 };
 const bleLog = [];
@@ -112,33 +114,10 @@ const bleLog = [];
 function readJSON(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-function newProject(name) { return { v: 2, name: name || ('Proje ' + new Date().toLocaleDateString('tr-TR')), pts: [], edges: [], shapes: [], cons: [], naming: { prefix: '', num: 1 }, roomSeq: 0, created: Date.now() }; }
+function newProject(name) { return { v: 3, name: name || ('Proje ' + new Date().toLocaleDateString('tr-TR')), pts: [], edges: [], shapes: [], cons: [], naming: { prefix: '', num: 1 }, roomSeq: 0, created: Date.now() }; }
 function allProjects() { return readJSON(LS_PROJ, {}); }
 function saveProject() { const all = allProjects(); P.saved = Date.now(); all[P.name] = P; writeJSON(LS_PROJ, all); localStorage.setItem(LS_CUR, P.name); }
-
-/* ---------- v1 → v2 dönüştürme ---------- */
-function migrateV1() {
-  const old = readJSON('rk_projects', null); if (!old) return;
-  const all = allProjects(); let changed = false;
-  Object.values(old).forEach(op => {
-    if (all[op.name]) return;
-    const np = newProject(op.name); np.naming.prefix = '';
-    (op.rooms || []).forEach(r => {
-      let x = r.x0, y = r.y0, h = r.h0; const pts = [[x, y]];
-      r.legs.forEach((L, i) => { if (i) h += L.turn; x += L.len * Math.cos(h * deg); y += L.len * Math.sin(h * deg); pts.push([x, y]); });
-      const sh = { id: uid('s'), kind: 'room', name: r.name, ring: [], closed: !!r.closed, turn: [] };
-      let n = pts.length; let closeMerge = r.closed && Math.hypot(pts[n - 1][0] - pts[0][0], pts[n - 1][1] - pts[0][1]) < 0.05;
-      const m = closeMerge ? n - 1 : n;
-      for (let k = 0; k < m; k++) { const id = uid('p'); np.pts.push({ id, name: r.prefix + (k + 1), x: pts[k][0], y: pts[k][1] }); sh.ring.push(id); }
-      r.legs.forEach((L, i) => { const a = sh.ring[i], b = sh.ring[(i + 1) % m]; if (!b) return; np.edges.push({ id: uid('e'), a, b, kind: 'wall', len: L.measured ? L.len : null, est: L.len }); });
-      sh.turn = sh.ring.map((_, k) => (k > 0 && k < r.legs.length) ? r.legs[k].turn : null);
-      np.shapes.push(sh); np.roomSeq++;
-    });
-    all[np.name] = np; changed = true;
-  });
-  if (changed) writeJSON(LS_PROJ, all);
-}
-function loadInitial() { migrateV1(); const all = allProjects(); const cur = localStorage.getItem(LS_CUR); P = (cur && all[cur]) ? all[cur] : newProject(); }
+function loadInitial() { const all = allProjects(); const cur = localStorage.getItem(LS_CUR); P = (cur && all[cur]) ? all[cur] : newProject(); P.shapes.forEach(s => { if (!s.ring) s.ring = []; if (!s.turn) s.turn = []; }); }
 
 /* =================== Yardımcılar =================== */
 const $ = q => document.querySelector(q);
@@ -154,11 +133,7 @@ const shapeById = id => P.shapes.find(s => s.id === id);
 const pname = id => { const p = ptById(id); return p ? p.name : '?'; };
 const plen = (a, b) => { const p = ptById(a), q = ptById(b); return Math.hypot(q.x - p.x, q.y - p.y); };
 const edgeName = e => pname(e.a) + '–' + pname(e.b);
-function nextName() {
-  const used = new Set(P.pts.map(p => p.name)); let n;
-  do { n = (P.naming.prefix || '') + P.naming.num; P.naming.num++; } while (used.has(n));
-  return n;
-}
+function nextName() { const used = new Set(P.pts.map(p => p.name)); let n; do { n = (P.naming.prefix || '') + P.naming.num; P.naming.num++; } while (used.has(n)); return n; }
 function addPt(x, y, name) { const id = uid('p'); P.pts.push({ id, name: name || nextName(), x, y }); return id; }
 function addEdge(a, b, kind, len) { const e = { id: uid('e'), a, b, kind, len: len === undefined ? null : len, est: plen(a, b) }; P.edges.push(e); return e; }
 function findEdge(a, b) { return P.edges.find(e => (e.a === a && e.b === b) || (e.a === b && e.b === a)); }
@@ -166,16 +141,19 @@ function shapeEdges(sh) { const out = []; const n = sh.ring.length; const m = sh
 function shapeOfPoint(id) { return P.shapes.find(s => s.ring.includes(id)); }
 function polyArea(ids) { let s = 0; for (let i = 0; i < ids.length; i++) { const a = ptById(ids[i]), b = ptById(ids[(i + 1) % ids.length]); s += a.x * b.y - b.x * a.y; } return s / 2; }
 function headOf(a, b) { const p = ptById(a), q = ptById(b); return Math.atan2(q.y - p.y, q.x - p.x) / deg; }
+const snapTurn = (t, tol) => { const t90 = Math.round(t / 90) * 90; return Math.abs(t - t90) <= (tol || 10) ? norm180(t90) : null; };
 
-/* =================== Geri al / yinele =================== */
+/* =================== Geri al =================== */
 function snap() { undoStack.push(JSON.stringify(P)); if (undoStack.length > 150) undoStack.shift(); redoStack = []; }
 function undo() { if (!undoStack.length) return toast('Geri alınacak işlem yok'); redoStack.push(JSON.stringify(P)); P = JSON.parse(undoStack.pop()); fixSel(); commit(); }
 function redo() { if (!redoStack.length) return toast('Yinelenecek işlem yok'); undoStack.push(JSON.stringify(P)); P = JSON.parse(redoStack.pop()); fixSel(); commit(); }
 function fixSel() {
   if (S.sel && S.sel.type === 'edge' && !edgeById(S.sel.id)) S.sel = null;
   if (S.sel && S.sel.type === 'pt' && !ptById(S.sel.id)) S.sel = null;
+  if (S.sel && S.sel.type === 'circle' && !shapeById(S.sel.id)) S.sel = null;
   if (S.active && !shapeById(S.active)) S.active = null;
   if (S.chain && !shapeById(S.chain)) S.chain = null;
+  if (S.mfrom && !ptById(S.mfrom)) S.mfrom = null;
 }
 function commit() { solve(); A = analyze(); saveProject(); render(); }
 
@@ -316,110 +294,93 @@ function analyze() {
   });
   return res;
 }
+
 function shapeSummary(info) {
-  if (!info) return '';
-  const sh = info.sh; const gs = info.corners.filter(c => c.st === 'gonyesiz');
+  if (!info) return ''; const sh = info.sh; const gs = info.corners.filter(c => c.st === 'gonyesiz');
   if (info.unmeasured.length) return `${esc(sh.name)}: <span class="w">${info.unmeasured.length} kenar ölçülmedi</span>`;
-  if (info.unfixed.length) { const s = A.sug.find(q => q.sh === sh.id); return `${esc(sh.name)}: <span class="w">şekil belirsiz (${info.unfixed.map(pname).join(', ')})</span>` + (s ? ` → <b>${esc(pname(s.a))}–${esc(pname(s.b))}</b> çaprazını ölç` : ''); }
-  let s = `${esc(sh.name)}: <span class="g">✓ belirli</span>`;
-  if (gs.length) s += ` · <span class="b">⚠ gönyesiz: ${gs.map(c => esc(pname(c.id)) + ' ' + c.inner.toFixed(2) + '°').join(', ')}</span>`;
-  else if (info.corners.some(c => c.t != null)) { const mx = Math.max(0, ...info.corners.filter(c => c.dev != null).map(c => Math.abs(c.dev))); s += ` · <span class="g">gönyeli (en büyük sapma ${mx.toFixed(2)}°)</span>`; }
-  s += info.control > 0 ? ` · kontrol +${info.control}` : ' · <span class="w">kontrol ölçüsü yok</span>';
+  if (info.unfixed.length) { const s = A.sug.find(q => q.sh === sh.id); return `${esc(sh.name)}: <span class="w">gönye belirsiz</span>` + (s ? ` → <b>${esc(pname(s.a))}–${esc(pname(s.b))}</b> ölç` : ''); }
+  let s = `${esc(sh.name)}: <span class="g">✓</span>`;
+  if (gs.length) s += ` <span class="b">⚠ ${gs.map(c => esc(pname(c.id)) + ' ' + c.inner.toFixed(2) + '°').join(', ')}</span>`;
+  else s += ' <span class="g">gönyeli</span>';
+  s += info.control > 0 ? ` · kontrol +${info.control}` : ' · <span class="w">kontrol yok</span>';
   return s;
 }
 
-/* =================== Takip modu =================== */
+/* =================== Takip =================== */
 function activeShape() { const s = S.active && shapeById(S.active); return s && !s.closed ? s : null; }
-function newRoomShape(x, y) {
-  P.roomSeq = (P.roomSeq || 0) + 1;
-  const id0 = addPt(x, y);
-  const sh = { id: uid('s'), kind: 'room', name: 'Oda ' + P.roomSeq, ring: [id0], closed: false, turn: [null], h0: 0 };
-  P.shapes.push(sh); S.active = sh.id; return sh;
-}
+function newRoomShape(x, y) { P.roomSeq = (P.roomSeq || 0) + 1; const id0 = addPt(x, y); const sh = { id: uid('s'), kind: 'room', name: 'Oda ' + P.roomSeq, ring: [id0], closed: false, turn: [null], h0: 0 }; P.shapes.push(sh); S.active = sh.id; return sh; }
 function shapeHead(sh) { const n = sh.ring.length; return n >= 2 ? headOf(sh.ring[n - 2], sh.ring[n - 1]) : (sh.h0 || 0); }
 function nextHead(sh) { return sh.ring.length >= 2 ? shapeHead(sh) + S.pendingTurn : (sh.h0 || 0); }
 function freeSpot() { const b = bbox(); return b ? [b[2] + 2, b[1]] : [0, 0]; }
 function takipAdd(len) {
-  snap(); let sh = activeShape();
-  if (!sh) { const [x, y] = freeSpot(); sh = newRoomShape(x, y); }
+  snap(); let sh = activeShape(); if (!sh) { const [x, y] = freeSpot(); sh = newRoomShape(x, y); }
   const n = sh.ring.length; const last = ptById(sh.ring[n - 1]); const h = nextHead(sh) * deg;
   if (n >= 2) sh.turn[n - 1] = norm180(S.pendingTurn);
   const id = addPt(last.x + len * Math.cos(h), last.y + len * Math.sin(h));
   addEdge(sh.ring[n - 1], id, 'wall', len); sh.ring.push(id); sh.turn.push(null);
-  S.pendingTurn = SET.defaultTurn; S.sel = null;
-  commit(); follow(ptById(id));
+  S.pendingTurn = SET.defaultTurn; S.sel = null; commit(); follow(ptById(id));
   const p0 = ptById(sh.ring[0]); const g = Math.hypot(p0.x - ptById(id).x, p0.y - ptById(id).y);
-  if (sh.ring.length >= 4 && g < 0.15) toast('Başlangıca ' + (g * 100).toFixed(1) + ' cm yaklaştın. Odayı kapat.');
+  if (sh.ring.length >= 4 && g < 0.15) toast('Başlangıca ' + (g * 100).toFixed(1) + ' cm. Odayı kapat.');
 }
-function snapTurn(t) { const t90 = Math.round(t / 90) * 90; return Math.abs(t - t90) <= 10 ? norm180(t90) : null; }
 function closeShape(sh) {
   if (!sh || sh.ring.length < 3) return toast('Kapatmak için en az 3 köşe gerekli');
-  snap();
-  const n = sh.ring.length; const first = sh.ring[0], last = sh.ring[n - 1]; const g = plen(first, last);
+  snap(); const n = sh.ring.length; const first = sh.ring[0], last = sh.ring[n - 1]; const g = plen(first, last);
   if (g < 0.05 && n >= 4) {
-    // son noktayı ilk noktaya birleştir
     const prev = sh.ring[n - 2]; const e = findEdge(prev, last); if (e) { if (e.a === last) e.a = first; else e.b = first; }
     P.pts = P.pts.filter(p => p.id !== last); sh.ring.pop(); sh.turn.pop();
     const li = sh.ring.length - 1; if (sh.turn[li] == null) sh.turn[li] = snapTurn(norm180(headOf(prev, first) - headOf(sh.ring[li - 1], prev)));
   } else {
-    const e = addEdge(last, first, sh.kind === 'room' ? 'wall' : 'detail');
-    sh.turn[n - 1] = sh.turn[n - 1] != null ? sh.turn[n - 1] : snapTurn(norm180(headOf(last, first) - headOf(sh.ring[n - 2], last)));
-    if (g > 0.05 && sh.kind === 'room') toast('Kapanış kenarı tahmini eklendi, lazerle ölç');
+    addEdge(last, first, sh.kind === 'room' ? 'wall' : 'detail');
+    if (sh.turn[n - 1] == null) sh.turn[n - 1] = snapTurn(norm180(headOf(last, first) - headOf(sh.ring[n - 2], last)));
   }
-  const m = sh.ring.length; const lp = sh.ring[m - 1];
-  sh.turn[0] = snapTurn(norm180(headOf(first, sh.ring[1]) - headOf(lp, first)));
+  const m = sh.ring.length; sh.turn[0] = snapTurn(norm180(headOf(first, sh.ring[1]) - headOf(sh.ring[m - 1], first)));
   sh.closed = true; if (S.active === sh.id) S.active = null; if (S.chain === sh.id) S.chain = null;
-  const ue = shapeEdges(sh).find(e => e.len == null);
-  S.sel = ue ? { type: 'edge', id: ue.id } : null;
-  commit();
-  if (ue && S.tool !== 'sec') setTool('sec', true);
-  afterChangeAdvice(sh);
+  const ue = shapeEdges(sh).find(e => e.len == null); S.sel = ue ? { type: 'edge', id: ue.id } : null;
+  commit(); if (sh.kind === 'room') afterChangeAdvice(sh);
 }
 function follow(p) { const [X, Y] = w2s(p.x, p.y); if (X < W * 0.2 || X > W * 0.8 || Y < H * 0.25 || Y > H * 0.8) { view.ox += W / 2 - X; view.oy += H / 2 - Y; render(); } }
 
-/* =================== Lazer ölçüsü yönlendirme =================== */
-function onMeasure(raw) {
-  const v = raw + (SET.offset || 0); S.lastMeasure = v; beep(); flash(fmt(v) + ' m');
+/* =================== Ölçü yönlendirme =================== */
+function onMeasure(raw, manual) {
+  const v = manual ? raw : raw + (SET.offset || 0); S.lastMeasure = v; beep(); flash(fmt(v) + ' m');
   if (S.sel && S.sel.type === 'edge') { const e = edgeById(S.sel.id); if (e) { setEdgeLen(e, v); return; } }
+  if (S.sel && S.sel.type === 'circle') { const c = shapeById(S.sel.id); if (c) { snap(); c.r = SET.circleDia ? v / 2 : v; c.measured = true; commit(); toast((SET.circleDia ? 'Çap ' : 'Yarıçap ') + fmt(v) + ' m'); return; } }
   if (S.sel && S.sel.type === 'sug') { snap(); const e = addEdge(S.sel.a, S.sel.b, 'diag', v); S.sel = null; commit(); reportAfterDiag(e); return; }
-  if (S.tool === 'takip') { takipAdd(v); return; }
-  toast('Ölçü alındı: ' + fmt(v) + ' m · bir kenar seç'); render();
+  if (S.tab === 'kroki' && S.kmode === 'takip') { takipAdd(v); return; }
+  toast('Ölçü: ' + fmt(v) + ' m · Ölç sekmesinde bir kenar seç'); render();
 }
 function setEdgeLen(e, v) {
   snap(); e.len = v; commit();
-  const sh = P.shapes.find(s => shapeEdges(s).includes(e));
   if (e.kind === 'diag') { S.sel = null; reportAfterDiag(e); render(); return; }
+  const sh = P.shapes.find(s => shapeEdges(s).includes(e));
   if (SET.autoAdvance && sh) {
     const es = shapeEdges(sh); const i = es.indexOf(e); let nx = null;
     for (let k = 1; k <= es.length; k++) { const q = es[(i + k) % es.length]; if (q.len == null) { nx = q; break; } }
-    if (nx) S.sel = { type: 'edge', id: nx.id };
-    else { S.sel = null; afterChangeAdvice(sh); }
+    if (nx) S.sel = { type: 'edge', id: nx.id }; else { S.sel = null; afterChangeAdvice(sh); }
   }
   render();
 }
 function afterChangeAdvice(sh) {
   if (!A || !sh) return; const info = A.shapes.find(x => x.sh.id === sh.id); if (!info || info.unmeasured.length) return;
   const s = A.sug.find(q => q.sh === sh.id);
-  if (s && SET.autoDiag) { S.sel = { type: 'sug', a: s.a, b: s.b, why: s.why }; toast((s.why === 'eksik' ? 'Gönye için çapraz gerekli: ' : 'Kontrol için: ') + pname(s.a) + '–' + pname(s.b) + ' ölç'); render(); }
-  else toast(info.corners.some(c => c.st === 'gonyesiz') ? '⚠ Gönyesiz köşe var, ✓? ile raporu aç' : 'Oda tamamlandı ✓');
+  if (s && SET.autoDiag) { S.sel = { type: 'sug', a: s.a, b: s.b, why: s.why }; toast((s.why === 'eksik' ? 'Gönye için çapraz: ' : 'Kontrol çaprazı: ') + pname(s.a) + '–' + pname(s.b)); render(); }
+  else toast(info.corners.some(c => c.st === 'gonyesiz') ? '⚠ Gönyesiz köşe var (✓? rapor)' : 'Oda tamam ✓');
 }
 function reportAfterDiag(e) {
-  const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b));
-  const info = sh && A.shapes.find(x => x.sh.id === sh.id); if (!info) return;
-  if (A.conflicts.length) { const c = A.conflicts.slice().sort((a, b) => Math.abs(b.r) - Math.abs(a.r))[0]; toast('❌ Ölçüler çelişiyor: ' + edgeName(c.e) + ' ' + (c.r * 1000).toFixed(0) + ' mm. Tekrar ölç.'); return; }
-  const gs = info.corners.filter(c => c.st === 'gonyesiz');
+  const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); const info = sh && A.shapes.find(x => x.sh.id === sh.id); if (!info) return;
+  if (A.conflicts.length) { const c = A.conflicts.slice().sort((a, b) => Math.abs(b.r) - Math.abs(a.r))[0]; toast('❌ Çelişki: ' + edgeName(c.e) + ' ' + (c.r * 1000).toFixed(0) + ' mm. Tekrar ölç.'); return; }
   if (info.unfixed.length) { afterChangeAdvice(sh); return; }
-  if (gs.length) toast('⚠ Gönyesiz: ' + gs.map(c => pname(c.id) + ' ' + c.inner.toFixed(2) + '°').join(', '));
-  else toast('✓ Gönyeli' + (info.control > 0 ? ' · kontrol tamam' : ''));
-  if (info.control <= 0) setTimeout(() => afterChangeAdvice(sh), 2700);
+  const gs = info.corners.filter(c => c.st === 'gonyesiz');
+  toast(gs.length ? '⚠ Gönyesiz: ' + gs.map(c => pname(c.id) + ' ' + c.inner.toFixed(2) + '°').join(', ') : '✓ Gönyeli' + (info.control > 0 ? ' · kontrol tamam' : ''));
+  if (info.control <= 0) setTimeout(() => afterChangeAdvice(sh), 2800);
 }
 
-/* =================== Bluetooth (Bosch GLM) =================== */
+/* =================== Bluetooth =================== */
 let bleDev = null, bleChr = null, bleWanted = false;
 function setBle(state, text) { const b = $('#ble'); b.className = state; b.textContent = text; }
 async function bleConnect() {
   if (bleDev && bleDev.gatt.connected) { if (confirm('Lazer bağlantısı kesilsin mi?')) { bleWanted = false; bleDev.gatt.disconnect(); } return; }
-  if (!navigator.bluetooth) { alert('Bu tarayıcı Bluetooth desteklemiyor.\n\niPhone: Bluefy tarayıcısını kullan.\nAndroid: Chrome kullan.\n\nLazer olmadan ölçüleri elle girebilirsin.'); return; }
+  if (!navigator.bluetooth) { alert('Bu tarayıcı Bluetooth desteklemiyor.\niPhone: Bluefy, Android: Chrome kullan.'); return; }
   try { setBle('busy', 'Seçiliyor…'); bleDev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SVC] }); bleDev.addEventListener('gattserverdisconnected', onBleDisc); bleWanted = true; await bleSetup(); }
   catch (e) { logBle('HATA ' + e.message); setBle('', 'Lazer bağla'); if (e.name !== 'NotFoundError') toast('Bağlanamadı: ' + e.message); }
 }
@@ -427,21 +388,33 @@ async function bleSetup() {
   setBle('busy', 'Bağlanıyor…'); const srv = await bleDev.gatt.connect(); const svc = await srv.getPrimaryService(SVC);
   bleChr = await svc.getCharacteristic(CHR); bleChr.addEventListener('characteristicvaluechanged', onBleVal);
   await bleChr.startNotifications(); await bleChr.writeValue(new Uint8Array(AUTOSYNC));
-  logBle('Bağlandı: ' + (bleDev.name || 'isimsiz cihaz')); setBle('ok', 'Lazer ✓'); keepAwake(); toast('Lazer bağlandı');
+  logBle('Bağlandı: ' + (bleDev.name || 'isimsiz')); setBle('ok', 'Lazer ✓'); keepAwake(); S.ignoreUntil = Date.now() + 1500; toast('Lazer bağlandı');
 }
 async function onBleDisc() {
   logBle('Bağlantı koptu'); if (!bleWanted) { setBle('', 'Lazer bağla'); return; } setBle('bad', 'Yeniden…');
   for (let i = 0; i < 6; i++) { await sleep(800 * (i + 1)); try { await bleSetup(); return; } catch (e) { logBle('Deneme ' + (i + 1) + ': ' + e.message); } }
-  setBle('bad', 'Lazer koptu'); toast('Lazer bağlantısı koptu, tekrar bağla');
+  setBle('bad', 'Lazer koptu'); toast('Lazer bağlantısı koptu');
 }
-function onBleVal(ev) { const dv = ev.target.value; logBle('← ' + hex(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength))); const v = parseBosch(dv); if (v !== null) onMeasure(v); }
-function parseBosch(dv) {
-  if (dv.byteLength < 11) return null;
-  if (dv.getUint8(0) !== 0xC0 || dv.getUint8(1) !== 0x55 || dv.getUint8(2) < 0x08) return null;
-  const v = dv.getFloat32(7, true); return (isFinite(v) && v > 0 && v < 250) ? v : null;
+function onBleVal(ev) {
+  const dv = ev.target.value; const b = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength); const h = hex(b);
+  const r = classifyBosch(dv);
+  if (r.type === 'setting') { S.ignoreUntil = Date.now() + SET.ignoreAfterSet * 1000; logBle('← ' + h + '  (ayar/mod değişikliği)'); return; }
+  if (r.type !== 'measure') { logBle('← ' + h); return; }
+  if (Date.now() < S.ignoreUntil) { logBle('← ' + h + '  (yok sayıldı: ' + fmt(r.v) + ')'); S.lastMeasure = r.v; toast('Ayar değişikliği sonrası gelen ' + fmt(r.v) + ' m yok sayıldı'); render(); return; }
+  logBle('← ' + h + '  = ' + fmt(r.v) + ' m'); onMeasure(r.v);
 }
+function classifyBosch(dv) {
+  if (dv.byteLength < 4 || dv.getUint8(0) !== 0xC0) return { type: 'other' };
+  if (dv.getUint8(1) !== 0x55) return { type: 'other' };
+  if (dv.byteLength < 11) return { type: 'other' };
+  const mode = dv.getUint8(3);
+  if (mode !== 0x06) return { type: 'setting', mode };
+  const v = dv.getFloat32(7, true);
+  return (isFinite(v) && v > 0.01 && v < 250) ? { type: 'measure', v } : { type: 'other' };
+}
+function parseBosch(dv) { const r = classifyBosch(dv); return r.type === 'measure' ? r.v : null; }
 const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-function logBle(s) { bleLog.push(new Date().toLocaleTimeString('tr-TR') + '  ' + s); if (bleLog.length > 60) bleLog.shift(); }
+function logBle(s) { bleLog.push(new Date().toLocaleTimeString('tr-TR') + '  ' + s); if (bleLog.length > 80) bleLog.shift(); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let wakeLock = null;
 async function keepAwake() { try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {} }
@@ -454,186 +427,161 @@ function tick() { try { if (navigator.vibrate) navigator.vibrate(15); } catch (e
 document.addEventListener('pointerdown', () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} }, { once: true });
 let toastT; function toast(s) { const t = $('#toast'); t.textContent = s; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3000); }
 let flashT; function flash(s) { const f = $('#flash'); f.textContent = s; f.classList.add('show'); clearTimeout(flashT); flashT = setTimeout(() => f.classList.remove('show'), 1200); }
+// Düğmeye basılı tut → açıklama
+(function () {
+  let t = null, suppress = false;
+  document.addEventListener('pointerdown', e => { const b = e.target.closest('button[data-tip]'); if (!b) return; suppress = false; clearTimeout(t); t = setTimeout(() => { suppress = true; tick(); toast(b.dataset.tip); }, 500); }, true);
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => document.addEventListener(ev, () => clearTimeout(t), true));
+  document.addEventListener('click', e => { if (suppress && e.target.closest('button[data-tip]')) { e.stopPropagation(); e.preventDefault(); suppress = false; } }, true);
+  document.addEventListener('contextmenu', e => e.preventDefault());
+})();
 
-/* =================== Çizim =================== */
-const cv = $('#cv'), ctx = cv.getContext('2d');
+/* =================== Tuval =================== */
+const cv = $('#cv'), ctx = cv.getContext('2d'), wrap = $('#wrap');
 let W = 0, H = 0, DPR = 1;
-function resize() { const r = cv.getBoundingClientRect(); DPR = window.devicePixelRatio || 1; W = r.width; H = r.height; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); render(); }
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight; DPR = window.devicePixelRatio || 1;
+  if (w === W && h === H && cv.width === Math.round(w * DPR)) return;
+  const dy = h - H; W = w; H = h; cv.style.width = w + 'px'; cv.style.height = h + 'px'; cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+  if (dy && H) view.oy += dy / 2; draw();
+}
+new ResizeObserver(() => resize()).observe(wrap);
 const w2s = (x, y) => [view.ox + x * view.s, view.oy - y * view.s];
 const s2w = (X, Y) => [(X - view.ox) / view.s, (view.oy - Y) / view.s];
 const ps = id => { const p = ptById(id); return w2s(p.x, p.y); };
-function bbox() { let b = null; P.pts.forEach(p => { if (!b) b = [p.x, p.y, p.x, p.y]; else { b[0] = Math.min(b[0], p.x); b[1] = Math.min(b[1], p.y); b[2] = Math.max(b[2], p.x); b[3] = Math.max(b[3], p.y); } }); return b; }
-function fit() {
-  const b = bbox(); if (!b) { view.s = 40; view.ox = W / 2; view.oy = H / 2; return render(); }
-  const w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1);
-  view.s = Math.min((W - 90) / w, (H - 120) / h, 400); view.ox = W / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = H / 2 + 25 + (b[1] + b[3]) / 2 * view.s; render();
-}
-function label(text, X, Y, ang, color, bg, bold) {
+function bbox() { let b = null; P.pts.forEach(p => { if (!b) b = [p.x, p.y, p.x, p.y]; else { b[0] = Math.min(b[0], p.x); b[1] = Math.min(b[1], p.y); b[2] = Math.max(b[2], p.x); b[3] = Math.max(b[3], p.y); } }); P.shapes.forEach(s => { if (s.kind === 'circle' && b) { const c = ptById(s.center); if (c) { b[0] = Math.min(b[0], c.x - s.r); b[1] = Math.min(b[1], c.y - s.r); b[2] = Math.max(b[2], c.x + s.r); b[3] = Math.max(b[3], c.y + s.r); } } }); return b; }
+function fit() { const b = bbox(); if (!b) { view.s = 40; view.ox = W / 2; view.oy = H / 2; return draw(); } const w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1); view.s = Math.min((W - 70) / w, (H - 80) / h, 400); view.ox = W / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = H / 2 + 15 + (b[1] + b[3]) / 2 * view.s; draw(); }
+function label(text, X, Y, ang, color, bg, size) {
   ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a);
-  ctx.font = (bold === false ? '' : '600 ') + '12.5px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if (bg) { const w = ctx.measureText(text).width + 6; ctx.fillStyle = bg; ctx.fillRect(-w / 2, -8, w, 16); }
+  ctx.font = '600 ' + (size || 11.5) + 'px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (bg) { const w = ctx.measureText(text).width + 4; ctx.fillStyle = bg; ctx.fillRect(-w / 2, -7, w, 14); }
   ctx.fillStyle = color; ctx.fillText(text, 0, 0); ctx.restore();
 }
-function render() {
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
-  drawGrid(); drawShapesFill(); drawEdges(); drawSuggestions(); drawPoints(); drawCornerFlags(); drawTakip(); drawPlacing(); drawStroke();
-  updateHint(); renderPanel(); updateNav();
+function render() { draw(); updateHint(); renderPanel(); updateTabs(); }
+function draw() {
+  if (!W) return; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  drawGrid(); drawShapesFill(); drawCircles(); drawEdges(); if (S.tab === 'olc') drawSuggestions(); drawPoints(); drawCornerFlags(); drawTakip(); drawPlacing(); drawStroke();
 }
 function drawGrid() {
   let step = 1; while (step * view.s < 22) step *= 5; while (step * view.s > 160) step /= 5;
-  const [x0, y1] = s2w(0, 0), [x1, y0] = s2w(W, H); ctx.lineWidth = 1;
-  const major = v => Math.abs(v / (step * 5) - Math.round(v / (step * 5))) < 1e-6;
-  for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) { const [X] = w2s(x, 0); ctx.strokeStyle = major(x) ? '#e3e6ea' : '#f0f1f3'; ctx.beginPath(); ctx.moveTo(X, 0); ctx.lineTo(X, H); ctx.stroke(); }
-  for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) { const [, Y] = w2s(0, y); ctx.strokeStyle = major(y) ? '#e3e6ea' : '#f0f1f3'; ctx.beginPath(); ctx.moveTo(0, Y); ctx.lineTo(W, Y); ctx.stroke(); }
-  const len = step * view.s; ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(12, H - 14); ctx.lineTo(12 + len, H - 14); ctx.stroke();
-  ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left'; ctx.fillText((+step.toFixed(3)) + ' m', 14 + len, H - 10);
+  const [x0, y1] = s2w(0, 0), [x1, y0] = s2w(W, H); ctx.lineWidth = 1; const major = v => Math.abs(v / (step * 5) - Math.round(v / (step * 5))) < 1e-6;
+  for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) { const [X] = w2s(x, 0); ctx.strokeStyle = major(x) ? '#e3e6ea' : '#f1f2f4'; ctx.beginPath(); ctx.moveTo(X, 0); ctx.lineTo(X, H); ctx.stroke(); }
+  for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) { const [, Y] = w2s(0, y); ctx.strokeStyle = major(y) ? '#e3e6ea' : '#f1f2f4'; ctx.beginPath(); ctx.moveTo(0, Y); ctx.lineTo(W, Y); ctx.stroke(); }
+  const len = step * view.s; ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(8, H - 10); ctx.lineTo(8 + len, H - 10); ctx.stroke();
+  ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.fillText((+step.toFixed(3)) + ' m', 10 + len, H - 6);
 }
 function drawShapesFill() {
   P.shapes.forEach(sh => {
-    if (!sh.closed || sh.ring.length < 3) return;
-    ctx.fillStyle = sh.kind === 'room' ? 'rgba(14,116,144,.05)' : 'rgba(100,116,139,.12)';
+    if (sh.kind === 'circle' || !sh.closed || sh.ring.length < 3) return;
+    ctx.fillStyle = sh.kind === 'room' ? 'rgba(14,116,144,.05)' : 'rgba(100,116,139,.13)';
     ctx.beginPath(); sh.ring.forEach((id, i) => { const [X, Y] = ps(id); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.fill();
-    if (sh.kind === 'room') {
-      let cx = 0, cy = 0; sh.ring.forEach(id => { const p = ptById(id); cx += p.x; cy += p.y; }); cx /= sh.ring.length; cy /= sh.ring.length;
-      const [X, Y] = w2s(cx, cy); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#334155'; ctx.font = '700 13px sans-serif'; ctx.fillText(sh.name, X, Y - 8);
-      ctx.font = '12px sans-serif'; ctx.fillStyle = '#64748b'; ctx.fillText(Math.abs(polyArea(sh.ring)).toFixed(2) + ' m²', X, Y + 8);
-    }
+    if (sh.kind === 'room') { let cx = 0, cy = 0; sh.ring.forEach(id => { const p = ptById(id); cx += p.x; cy += p.y; }); cx /= sh.ring.length; cy /= sh.ring.length; const [X, Y] = w2s(cx, cy);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#94a3b8'; ctx.font = '600 11px sans-serif'; ctx.fillText(sh.name + ' · ' + Math.abs(polyArea(sh.ring)).toFixed(1) + ' m²', X, Y); }
   });
 }
-function edgeSide(e) {
-  const sh = P.shapes.find(s => s.closed && shapeEdges(s).includes(e)); if (!sh) return 1;
-  const i = sh.ring.indexOf(e.a), j = sh.ring.indexOf(e.b); const n = sh.ring.length; const fwd = (i + 1) % n === j;
-  const ccw = polyArea(sh.ring) >= 0; return (fwd === ccw) ? -1 : 1;
+function drawCircles() {
+  P.shapes.forEach(sh => {
+    if (sh.kind !== 'circle') return; const c = ptById(sh.center); if (!c) return; const [X, Y] = w2s(c.x, c.y); const sel = S.sel && S.sel.type === 'circle' && S.sel.id === sh.id;
+    ctx.strokeStyle = sel ? '#0b7cc1' : (sh.measured ? '#0f766e' : '#14b8a6'); ctx.lineWidth = sel ? 4 : 2; ctx.setLineDash(sh.measured ? [] : [6, 5]);
+    ctx.beginPath(); ctx.arc(X, Y, sh.r * view.s, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+    if (sh.r * view.s > 18) label((sh.measured ? '' : '~') + 'Ø' + (2 * sh.r).toFixed(3), X, Y + sh.r * view.s + 9, 0, sh.measured ? '#0f766e' : '#b45309', 'rgba(251,251,252,.85)');
+  });
 }
+function edgeSide(e) { const sh = P.shapes.find(s => s.closed && s.ring.length > 2 && shapeEdges(s).includes(e)); if (!sh) return 1; const i = sh.ring.indexOf(e.a), j = sh.ring.indexOf(e.b); const fwd = (i + 1) % sh.ring.length === j; return (fwd === (polyArea(sh.ring) >= 0)) ? -1 : 1; }
 function drawEdges() {
-  const conf = new Set((A ? A.conflicts : []).map(c => c.e.id));
+  const conf = new Set((A ? A.conflicts : []).map(c => c.e.id)); const showDiag = S.tab === 'olc';
   P.edges.forEach(e => {
+    if (e.kind === 'diag' && !showDiag && !(S.sel && S.sel.id === e.id)) { const a = ps(e.a), b = ps(e.b); ctx.strokeStyle = 'rgba(22,163,74,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); return; }
     const a = ps(e.a), b = ps(e.b); const sel = S.sel && S.sel.type === 'edge' && S.sel.id === e.id; const m = e.len != null;
     let col, wd, dash = [];
-    if (e.kind === 'wall') { col = m ? '#1f2a37' : '#d97706'; wd = 3; if (!m) dash = [8, 6]; }
+    if (e.kind === 'wall') { col = m ? '#1f2a37' : '#d97706'; wd = 2.5; if (!m) dash = [8, 6]; }
     else if (e.kind === 'detail') { col = m ? '#0f766e' : '#14b8a6'; wd = 2; if (!m) dash = [6, 5]; }
     else { col = m ? '#16a34a' : '#86efac'; wd = 1.5; dash = m ? [] : [4, 4]; }
     if (conf.has(e.id)) col = '#dc2626';
-    ctx.lineWidth = sel ? wd + 4 : wd; ctx.strokeStyle = sel ? '#0b7cc1' : col; ctx.setLineDash(dash);
-    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
-    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; const ang = Math.atan2(dy, dx);
-    if (l > 28) {
-      const sd = e.kind === 'diag' ? 0 : edgeSide(e) * 13; const nx = -dy / l * sd, ny = dx / l * sd;
-      const t = (m ? '' : '~') + fmt(m ? e.len : plen(e.a, e.b));
-      const f = e.kind === 'diag' ? 0.35 : 0.5;
-      label(t, a[0] + dx * f + nx, a[1] + dy * f + ny, ang, conf.has(e.id) ? '#dc2626' : (m ? (e.kind === 'diag' ? '#15803d' : '#111827') : '#b45309'), 'rgba(251,251,252,.85)');
+    ctx.lineWidth = sel ? wd + 4 : wd; ctx.strokeStyle = sel ? '#0b7cc1' : col; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    if (SET.showLen && (l > 46 || sel)) {
+      const sd = e.kind === 'diag' ? 0 : edgeSide(e) * 11; const nx = -dy / l * sd, ny = dx / l * sd; const f = e.kind === 'diag' ? 0.35 : 0.5;
+      label((m ? '' : '~') + (m ? e.len : plen(e.a, e.b)).toFixed(m ? 3 : 2), a[0] + dx * f + nx, a[1] + dy * f + ny, Math.atan2(dy, dx), conf.has(e.id) ? '#dc2626' : (m ? (e.kind === 'diag' ? '#15803d' : '#111827') : '#b45309'), 'rgba(251,251,252,.85)', 11);
     }
   });
 }
 function drawSuggestions() {
   if (!A) return;
-  A.sug.forEach(s => {
-    const a = ps(s.a), b = ps(s.b); const on = S.sel && S.sel.type === 'sug' && S.sel.a === s.a && S.sel.b === s.b;
-    ctx.strokeStyle = on ? '#7c3aed' : 'rgba(124,58,237,.55)'; ctx.lineWidth = on ? 3 : 2; ctx.setLineDash([10, 6]);
-    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
-    label((s.why === 'eksik' ? 'çapraz gerekli' : 'kontrol çaprazı') + (on ? ' · lazerle ölç' : ''), (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 12, Math.atan2(b[1] - a[1], b[0] - a[0]), '#7c3aed', 'rgba(255,255,255,.92)');
-  });
+  A.sug.forEach(s => { const a = ps(s.a), b = ps(s.b); const on = S.sel && S.sel.type === 'sug' && S.sel.a === s.a && S.sel.b === s.b;
+    ctx.strokeStyle = on ? '#7c3aed' : 'rgba(124,58,237,.5)'; ctx.lineWidth = on ? 3 : 2; ctx.setLineDash([10, 6]); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+    label(s.why === 'eksik' ? 'çapraz gerekli' : 'kontrol', (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 10, Math.atan2(b[1] - a[1], b[0] - a[0]), '#7c3aed', 'rgba(255,255,255,.9)', 10.5); });
 }
 function drawPoints() {
+  const big = S.tab === 'no'; const crowd = P.pts.length > 0 && view.s < 25;
   P.pts.forEach(p => {
-    const [X, Y] = w2s(p.x, p.y); const sel = S.sel && S.sel.type === 'pt' && S.sel.id === p.id;
-    const unf = A && A.unfixed.has(p.id);
-    ctx.fillStyle = sel ? '#0b7cc1' : '#475569'; ctx.beginPath(); ctx.arc(X, Y, sel ? 7 : 4.5, 0, 2 * Math.PI); ctx.fill();
-    if (unf) { ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X, Y, 8, 0, 2 * Math.PI); ctx.stroke(); }
-    ctx.font = '600 12px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    const w = ctx.measureText(p.name).width; ctx.fillStyle = 'rgba(251,251,252,.8)'; ctx.fillRect(X + 5, Y - 18, w + 4, 14);
-    ctx.fillStyle = '#6d28d9'; ctx.fillText(p.name, X + 7, Y - 4);
+    const [X, Y] = w2s(p.x, p.y); if (X < -20 || Y < -20 || X > W + 20 || Y > H + 20) return;
+    const sel = (S.sel && S.sel.type === 'pt' && S.sel.id === p.id) || S.mfrom === p.id; const unf = A && A.unfixed.has(p.id) && S.tab === 'olc';
+    ctx.fillStyle = sel ? '#0b7cc1' : '#475569'; ctx.beginPath(); ctx.arc(X, Y, sel ? 6 : (big ? 5 : 3.5), 0, 2 * Math.PI); ctx.fill();
+    if (unf) { ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X, Y, 7, 0, 2 * Math.PI); ctx.stroke(); }
+    if (crowd && !big && !sel) return;
+    ctx.font = (big ? '700 13px' : '600 10.5px') + ' sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    const w = ctx.measureText(p.name).width; ctx.fillStyle = big ? 'rgba(237,233,254,.95)' : 'rgba(251,251,252,.75)'; ctx.fillRect(X + 4, Y - (big ? 19 : 15), w + 4, big ? 16 : 12);
+    ctx.fillStyle = '#6d28d9'; ctx.fillText(p.name, X + 6, Y - (big ? 4 : 3));
   });
 }
 function drawCornerFlags() {
-  if (!A) return;
-  A.shapes.forEach(info => info.corners.forEach(c => {
-    if (c.st !== 'gonyesiz' && c.st !== 'varsayim') return;
-    const [X, Y] = ps(c.id); const txt = c.st === 'gonyesiz' ? '⚠ ' + c.inner.toFixed(2) + '°' : '90°?';
-    ctx.font = '700 11.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const w = ctx.measureText(txt).width; ctx.fillStyle = c.st === 'gonyesiz' ? 'rgba(254,226,226,.95)' : 'rgba(255,237,213,.9)'; ctx.fillRect(X + 6, Y + 4, w + 6, 15);
-    ctx.fillStyle = c.st === 'gonyesiz' ? '#b91c1c' : '#c2410c'; ctx.fillText(txt, X + 9, Y + 5);
-  }));
+  if (!A || S.tab === 'no') return;
+  A.shapes.forEach(info => info.corners.forEach(c => { if (c.st !== 'gonyesiz') return; const [X, Y] = ps(c.id); const txt = '⚠' + c.inner.toFixed(1) + '°';
+    ctx.font = '700 10.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; const w = ctx.measureText(txt).width; ctx.fillStyle = 'rgba(254,226,226,.95)'; ctx.fillRect(X + 4, Y + 3, w + 4, 13); ctx.fillStyle = '#b91c1c'; ctx.fillText(txt, X + 6, Y + 4); }));
 }
 
-/* ---------- Takip: büyük yön diskleri ---------- */
+/* ---------- Takip diskleri ---------- */
 function takipOptions(sh) {
   if (sh.ring.length < 2) return [0, 90, 180, -90].map(h => ({ head: h, turn: null, lab: '' }));
-  const h = shapeHead(sh);
-  const o = [{ t: 90, lab: 'Sol' }, { t: 0, lab: 'Düz' }, { t: -90, lab: 'Sağ' }].map(x => ({ head: h + x.t, turn: x.t, lab: x.lab }));
-  if (![90, 0, -90].includes(S.pendingTurn)) o.push({ head: h + S.pendingTurn, turn: S.pendingTurn, lab: turnText(S.pendingTurn) });
-  return o;
+  const h = shapeHead(sh); const o = [{ t: 90, lab: 'Sol' }, { t: 0, lab: 'Düz' }, { t: -90, lab: 'Sağ' }].map(x => ({ head: h + x.t, turn: x.t, lab: x.lab }));
+  if (![90, 0, -90].includes(S.pendingTurn)) o.push({ head: h + S.pendingTurn, turn: S.pendingTurn, lab: turnText(S.pendingTurn) }); return o;
 }
-const DISC_R = 80, DISC_SIZE = 25;
+const DISC_R = 70, DISC_SIZE = 22;
 function drawTakip() {
-  if (S.tool !== 'takip') return; const sh = activeShape(); if (!sh) return;
+  if (S.tab !== 'kroki' || S.kmode !== 'takip') return; const sh = activeShape(); if (!sh) return;
   const [X, Y] = ps(sh.ring[sh.ring.length - 1]); const cur = norm180(nextHead(sh));
-  ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, Y, 11, 0, 2 * Math.PI); ctx.stroke();
-  takipOptions(sh).forEach(o => {
-    const on = Math.abs(norm180(o.head - cur)) < 1e-6; const a = -o.head * deg;
-    const bx = X + Math.cos(a) * DISC_R, by = Y + Math.sin(a) * DISC_R;
-    ctx.strokeStyle = on ? '#0b7cc1' : '#cbd5e1'; ctx.lineWidth = on ? 3 : 2; ctx.setLineDash(on ? [] : [4, 4]);
-    ctx.beginPath(); ctx.moveTo(X + Math.cos(a) * 13, Y + Math.sin(a) * 13); ctx.lineTo(bx - Math.cos(a) * DISC_SIZE, by - Math.sin(a) * DISC_SIZE); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = on ? '#0b7cc1' : 'rgba(255,255,255,.95)'; ctx.strokeStyle = on ? '#0b7cc1' : '#94a3b8'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(bx, by, DISC_SIZE, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = on ? '#fff' : '#475569'; ctx.beginPath();
-    ctx.moveTo(bx + Math.cos(a) * 11, by + Math.sin(a) * 11); ctx.lineTo(bx + Math.cos(a + 2.4) * 10, by + Math.sin(a + 2.4) * 10); ctx.lineTo(bx + Math.cos(a - 2.4) * 10, by + Math.sin(a - 2.4) * 10); ctx.fill();
-    if (o.lab) { ctx.font = '700 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = on ? '#0b7cc1' : '#64748b'; ctx.fillText(o.lab, bx + Math.cos(a) * 38, by + Math.sin(a) * 38); }
-  });
+  ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, Y, 9, 0, 2 * Math.PI); ctx.stroke();
+  takipOptions(sh).forEach(o => { const on = Math.abs(norm180(o.head - cur)) < 1e-6; const a = -o.head * deg; const bx = X + Math.cos(a) * DISC_R, by = Y + Math.sin(a) * DISC_R;
+    ctx.strokeStyle = on ? '#0b7cc1' : '#cbd5e1'; ctx.lineWidth = on ? 3 : 2; ctx.setLineDash(on ? [] : [4, 4]); ctx.beginPath(); ctx.moveTo(X + Math.cos(a) * 11, Y + Math.sin(a) * 11); ctx.lineTo(bx - Math.cos(a) * DISC_SIZE, by - Math.sin(a) * DISC_SIZE); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = on ? '#0b7cc1' : 'rgba(255,255,255,.95)'; ctx.strokeStyle = on ? '#0b7cc1' : '#94a3b8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, by, DISC_SIZE, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = on ? '#fff' : '#475569'; ctx.beginPath(); ctx.moveTo(bx + Math.cos(a) * 10, by + Math.sin(a) * 10); ctx.lineTo(bx + Math.cos(a + 2.4) * 9, by + Math.sin(a + 2.4) * 9); ctx.lineTo(bx + Math.cos(a - 2.4) * 9, by + Math.sin(a - 2.4) * 9); ctx.fill();
+    if (o.lab) { ctx.font = '700 10.5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = on ? '#0b7cc1' : '#64748b'; ctx.fillText(o.lab, bx + Math.cos(a) * 34, by + Math.sin(a) * 34); } });
 }
 function takipTap(sh, X, Y) {
   const [px, py] = ps(sh.ring[sh.ring.length - 1]);
-  // önce disklere bak
-  for (const o of takipOptions(sh)) { const a = -o.head * deg; const bx = px + Math.cos(a) * DISC_R, by = py + Math.sin(a) * DISC_R; if (Math.hypot(X - bx, Y - by) < DISC_SIZE + 12) { chooseDir(sh, o); return true; } }
-  const d = Math.hypot(X - px, Y - py); if (d < 16) return true;
-  const h = Math.atan2(-(Y - py), X - px) / deg;
-  if (sh.ring.length < 2) { chooseDir(sh, { head: Math.round(h / 90) * 90, turn: null }); return true; }
-  const t = Math.round(norm180(h - shapeHead(sh)) / 90) * 90;
-  if (Math.abs(t) === 180) { toast('Geri yön seçilemez'); return true; }
-  chooseDir(sh, { turn: t }); return true;
+  for (const o of takipOptions(sh)) { const a = -o.head * deg; const bx = px + Math.cos(a) * DISC_R, by = py + Math.sin(a) * DISC_R; if (Math.hypot(X - bx, Y - by) < DISC_SIZE + 14) { chooseDir(sh, o); return; } }
+  if (Math.hypot(X - px, Y - py) < 14) return; const h = Math.atan2(-(Y - py), X - px) / deg;
+  if (sh.ring.length < 2) { chooseDir(sh, { head: Math.round(h / 90) * 90, turn: null }); return; }
+  const t = Math.round(norm180(h - shapeHead(sh)) / 90) * 90; if (Math.abs(t) === 180) { toast('Geri yön seçilemez'); return; } chooseDir(sh, { turn: t });
 }
 function chooseDir(sh, o) { tick(); if (o.turn === null) { sh.h0 = norm180(o.head); saveProject(); } else S.pendingTurn = o.turn; render(); }
 
 /* ---------- Obje yakalama ---------- */
-function segInter(a, b, c, d) {
-  const r = [b[0] - a[0], b[1] - a[1]], s = [d[0] - c[0], d[1] - c[1]]; const den = r[0] * s[1] - r[1] * s[0]; if (Math.abs(den) < 1e-9) return null;
-  const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
-  if (t < -0.001 || t > 1.001 || u < -0.001 || u > 1.001) return null; return [a[0] + t * r[0], a[1] + t * r[1]];
-}
+function segInter(a, b, c, d) { const r = [b[0] - a[0], b[1] - a[1]], s = [d[0] - c[0], d[1] - c[1]]; const den = r[0] * s[1] - r[1] * s[0]; if (Math.abs(den) < 1e-9) return null; const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den; if (t < -0.001 || t > 1.001 || u < -0.001 || u > 1.001) return null; return [a[0] + t * r[0], a[1] + t * r[1]]; }
 function footOn(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1]; const l2 = dx * dx + dy * dy || 1; const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2; return { t, q: [a[0] + t * dx, a[1] + t * dy] }; }
 function osnap(X, Y, fromId, opts) {
-  opts = opts || {}; const R = 18;
-  let best = null; const consider = (s, d, pri) => { if (d > R) return; const sc = d + pri * 6; if (!best || sc < best.sc) { s.sc = sc; best = s; } };
+  opts = opts || {}; const R = opts.r || 20; let best = null; const consider = (s, d, pri) => { if (d > R) return; const sc = d + pri * 6; if (!best || sc < best.sc) { s.sc = sc; best = s; } };
   P.pts.forEach(p => { if (p.id === fromId) return; const [px, py] = w2s(p.x, p.y); consider({ type: 'end', pid: p.id, X: px, Y: py }, Math.hypot(px - X, py - Y), 0); });
   if (opts.pointsOnly) return best;
   const es = P.edges.filter(e => e.kind !== 'diag'); const ss = es.map(e => [ps(e.a), ps(e.b)]);
-  for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) {
-    const q = segInter(ss[i][0], ss[i][1], ss[j][0], ss[j][1]); if (!q) continue;
-    const ends = [es[i].a, es[i].b, es[j].a, es[j].b]; if (new Set(ends).size < 4) continue;
-    consider({ type: 'int', e1: es[i].id, e2: es[j].id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 1);
-  }
+  for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) { const q = segInter(ss[i][0], ss[i][1], ss[j][0], ss[j][1]); if (!q) continue; if (new Set([es[i].a, es[i].b, es[j].a, es[j].b]).size < 4) continue; consider({ type: 'int', e1: es[i].id, e2: es[j].id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 1); }
   es.forEach((e, i) => { const [a, b] = ss[i]; const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; consider({ type: 'mid', e: e.id, X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); });
   if (fromId) { const f = ps(fromId); es.forEach((e, i) => { if (e.a === fromId || e.b === fromId) return; const { t, q } = footOn(f, ...ss[i]); if (t < 0 || t > 1) return; consider({ type: 'perp', e: e.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 2); }); }
   es.forEach((e, i) => { const { t, q } = footOn([X, Y], ...ss[i]); if (t < 0 || t > 1) return; consider({ type: 'near', e: e.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 3.5); });
   return best;
 }
 function orthoSnap(fromId, X, Y) {
-  // serbest noktada: mevcut kenar yönlerine 0/90° yapış
-  const f = ps(fromId); const dx = X - f[0], dy = -(Y - f[1]); const L = Math.hypot(dx, dy); if (L < 1) return null;
-  const h = Math.atan2(dy, dx) / deg; const dirs = new Set([0]);
-  P.edges.forEach(e => { if (e.kind === 'diag') return; dirs.add(((headOf(e.a, e.b) % 90) + 90) % 90); });
-  let best = null; dirs.forEach(d => { for (let k = 0; k < 4; k++) { const c = d + k * 90; const diff = Math.abs(norm180(h - c)); if (diff <= 7 && (!best || diff < best.diff)) best = { diff, c }; } });
-  if (!best) return null; const len = dx * Math.cos(best.c * deg) + dy * Math.sin(best.c * deg);
-  return { type: 'ortho', X: f[0] + Math.cos(best.c * deg) * len, Y: f[1] - Math.sin(best.c * deg) * len };
+  const f = ps(fromId); const dx = X - f[0], dy = -(Y - f[1]); if (Math.hypot(dx, dy) < 1) return null; const h = Math.atan2(dy, dx) / deg; const dirs = new Set([0]);
+  P.edges.forEach(e => { if (e.kind !== 'diag') dirs.add(((headOf(e.a, e.b) % 90) + 90) % 90); });
+  let best = null; dirs.forEach(d => { for (let k = 0; k < 4; k++) { const c = d + k * 90; const diff = Math.abs(norm180(h - c)); if (diff <= 8 && (!best || diff < best.diff)) best = { diff, c }; } });
+  if (!best) return null; const len = dx * Math.cos(best.c * deg) + dy * Math.sin(best.c * deg); return { type: 'ortho', X: f[0] + Math.cos(best.c * deg) * len, Y: f[1] - Math.sin(best.c * deg) * len };
 }
 function snapCandidate(X, Y, fromId, opts) { return osnap(X, Y, fromId, opts) || (fromId && orthoSnap(fromId, X, Y)) || { type: 'free', X, Y }; }
 function realizeSnap(s) {
-  if (s.type === 'end') return s.pid;
-  const [x, y] = s2w(s.X, s.Y); const id = addPt(x, y);
+  if (s.type === 'end') return s.pid; const [x, y] = s2w(s.X, s.Y); const id = addPt(x, y);
   const onE = eid => { const e = edgeById(eid); P.cons.push({ id: uid('c'), type: 'online', p: id, a: e.a, b: e.b }); };
-  if (s.type === 'int') { onE(s.e1); onE(s.e2); } else if (s.type === 'mid' || s.type === 'near' || s.type === 'perp') onE(s.e);
-  return id;
+  if (s.type === 'int') { onE(s.e1); onE(s.e2); } else if (['mid', 'near', 'perp'].includes(s.type)) onE(s.e); return id;
 }
 function drawSnapMarker(s) {
   if (!s || s.type === 'free') return; const { X, Y } = s; ctx.strokeStyle = '#db2777'; ctx.lineWidth = 2; ctx.beginPath();
@@ -642,284 +590,285 @@ function drawSnapMarker(s) {
   else if (s.type === 'mid') { ctx.moveTo(X, Y - 8); ctx.lineTo(X + 8, Y + 6); ctx.lineTo(X - 8, Y + 6); ctx.closePath(); }
   else if (s.type === 'perp') { ctx.moveTo(X - 8, Y + 6); ctx.lineTo(X + 8, Y + 6); ctx.moveTo(X, Y + 6); ctx.lineTo(X, Y - 8); }
   else if (s.type === 'near') { ctx.moveTo(X - 7, Y - 7); ctx.lineTo(X + 7, Y - 7); ctx.lineTo(X - 7, Y + 7); ctx.lineTo(X + 7, Y + 7); ctx.closePath(); }
-  else if (s.type === 'ortho') { ctx.arc(X, Y, 6, 0, 2 * Math.PI); }
-  ctx.stroke();
-  const names = { end: 'köşe', int: 'kesişim', mid: 'orta', perp: 'dik', near: 'üzerinde', ortho: '90°' };
+  else ctx.arc(X, Y, 6, 0, 2 * Math.PI);
+  ctx.stroke(); const names = { end: 'köşe', int: 'kesişim', mid: 'orta', perp: 'dik', near: 'üzerinde', ortho: '90°' };
   ctx.font = '700 11px sans-serif'; ctx.fillStyle = '#db2777'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(names[s.type], X + 10, Y + 8);
 }
-
-/* ---------- Çizgi / Çapraz yerleştirme + büyüteç ---------- */
 let placing = null;
 function drawPlacing() {
-  if (!placing) return; const c = placing.cand;
-  const from = S.tool === 'cizgi' ? chainLast() : (S.tool === 'mesafe' ? S.mfrom : null);
-  if (from) { const a = ps(from); ctx.strokeStyle = '#db2777'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(c.X, c.Y); ctx.stroke(); ctx.setLineDash([]);
-    const [wx, wy] = s2w(c.X, c.Y); const p = ptById(from); label('~' + Math.hypot(wx - p.x, wy - p.y).toFixed(2) + ' m', (a[0] + c.X) / 2, (a[1] + c.Y) / 2 - 14, 0, '#db2777', 'rgba(255,255,255,.92)'); }
-  drawSnapMarker(c);
-  ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.X - 14, c.Y); ctx.lineTo(c.X + 14, c.Y); ctx.moveTo(c.X, c.Y - 14); ctx.lineTo(c.X, c.Y + 14); ctx.stroke();
-  const R = 56, Z = 2.5; let LX = placing.X, LY = placing.Y - 120; if (LY < R + 6) LY = placing.Y + 120; LX = Math.max(R + 4, Math.min(W - R - 4, LX));
+  if (!placing) return; const c = placing.cand; const from = placing.from;
+  if (from) { const a = ps(from); ctx.strokeStyle = '#db2777'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(c.X, c.Y); ctx.stroke(); ctx.setLineDash([]); const [wx, wy] = s2w(c.X, c.Y); const p = ptById(from); label('~' + Math.hypot(wx - p.x, wy - p.y).toFixed(2) + ' m', (a[0] + c.X) / 2, (a[1] + c.Y) / 2 - 12, 0, '#db2777', 'rgba(255,255,255,.92)'); }
+  drawSnapMarker(c); ctx.strokeStyle = '#0b7cc1'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.X - 12, c.Y); ctx.lineTo(c.X + 12, c.Y); ctx.moveTo(c.X, c.Y - 12); ctx.lineTo(c.X, c.Y + 12); ctx.stroke();
+  const R = 52, Z = 2.5; let LX = placing.X, LY = placing.Y - 110; if (LY < R + 4) LY = placing.Y + 110; LX = Math.max(R + 4, Math.min(W - R - 4, LX));
   ctx.save(); ctx.beginPath(); ctx.arc(LX, LY, R, 0, 2 * Math.PI); ctx.clip(); ctx.fillStyle = '#fff'; ctx.fillRect(LX - R, LY - R, 2 * R, 2 * R);
   const sw = (2 * R / Z) * DPR; try { ctx.drawImage(cv, c.X * DPR - sw / 2, c.Y * DPR - sw / 2, sw, sw, LX - R, LY - R, 2 * R, 2 * R); } catch (e) {}
   ctx.restore(); ctx.strokeStyle = '#1f2a37'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(LX, LY, R, 0, 2 * Math.PI); ctx.stroke();
-  ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(LX - 10, LY); ctx.lineTo(LX + 10, LY); ctx.moveTo(LX, LY - 10); ctx.lineTo(LX, LY + 10); ctx.stroke();
+  ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(LX - 9, LY); ctx.lineTo(LX + 9, LY); ctx.moveTo(LX, LY - 9); ctx.lineTo(LX, LY + 9); ctx.stroke();
 }
 function chainLast() { const sh = S.chain && shapeById(S.chain); return sh ? sh.ring[sh.ring.length - 1] : null; }
-function cizgiPlace(c) {
+function chainPlace(c) {
   const sh = S.chain && shapeById(S.chain);
-  if (!sh) {
-    snap(); const id = realizeSnap(c);
-    const nsh = { id: uid('s'), kind: 'detail', name: 'Detay', ring: [id], closed: false, turn: [null] }; P.shapes.push(nsh); S.chain = nsh.id; commit(); return;
-  }
+  if (!sh) { snap(); const id = realizeSnap(c); const nsh = { id: uid('s'), kind: 'room', name: 'Çizgi', ring: [id], closed: false, turn: [null] }; P.shapes.push(nsh); S.chain = nsh.id; commit(); toast('Sonraki noktaya dokun ya da basılı tut'); return; }
   const last = sh.ring[sh.ring.length - 1];
-  if (c.type === 'end' && c.pid === sh.ring[0] && sh.ring.length >= 3) { closeShape(sh); S.chain = null; setTool('cizgi', true); return; }
+  if (c.type === 'end' && c.pid === sh.ring[0] && sh.ring.length >= 3) { finishChain(true); return; }
   if (c.type === 'end' && c.pid === last) return;
-  snap(); const id = realizeSnap(c);
-  if (Math.hypot(ptById(id).x - ptById(last).x, ptById(id).y - ptById(last).y) < 0.01) { P.pts = P.pts.filter(p => p.id !== id); return; }
-  const e = addEdge(last, id, 'detail'); const n = sh.ring.length;
-  if (n >= 2) { const t = norm180(headOf(last, id) - headOf(sh.ring[n - 2], last)); sh.turn[n - 1] = snapTurn(t); }
+  snap(); const id = realizeSnap(c); if (plen(id, last) < 0.01) { P.pts = P.pts.filter(p => p.id !== id); return; }
+  addEdge(last, id, 'wall'); const n = sh.ring.length;
+  if (n >= 2) sh.turn[n - 1] = snapTurn(norm180(headOf(last, id) - headOf(sh.ring[n - 2], last)));
   if (c.type === 'perp') { const te = edgeById(c.e); P.cons.push({ id: uid('c'), type: 'perp', a: last, b: id, c: te.a, d: te.b }); }
   sh.ring.push(id); sh.turn.push(null); commit();
 }
-function mesafePlace(c) {
-  if (!S.mfrom) { snap(); S.mfrom = realizeSnap(c); commit(); toast('Şimdi ikinci noktaya dokun'); return; }
-  if (c.type === 'end' && c.pid === S.mfrom) return;
-  const id = c.type === 'end' ? c.pid : realizeSnap(c);
-  if (findEdge(S.mfrom, id)) { const e = findEdge(S.mfrom, id); S.sel = { type: 'edge', id: e.id }; S.mfrom = null; render(); return; }
-  snap(); const e = addEdge(S.mfrom, id, 'diag'); S.mfrom = null; S.sel = { type: 'edge', id: e.id }; commit(); toast(edgeName(e) + ' seçildi, lazerle ölç');
+function finishChain(close) {
+  const sh = S.chain && shapeById(S.chain); S.chain = null; if (!sh) return render();
+  if (sh.ring.length < 2) { snap(); const id = sh.ring[0]; P.shapes = P.shapes.filter(s => s !== sh); if (!P.edges.some(e => e.a === id || e.b === id) && !P.shapes.some(s => s.ring.includes(id))) { P.pts = P.pts.filter(p => p.id !== id); P.cons = P.cons.filter(c => c.p !== id); } commit(); return; }
+  const isRoomish = close && sh.ring.length >= 3;
+  if (isRoomish) { const roomy = sh.ring.length >= 4 && Math.abs(polyArea(sh.ring)) > 2; sh.kind = roomy ? 'room' : 'detail'; sh.name = roomy ? 'Oda ' + (P.roomSeq = (P.roomSeq || 0) + 1) : 'Detay'; if (!roomy) shapeEdges(sh).forEach(e => e.kind = 'detail'); closeShape(sh); if (!roomy) P.edges.filter(e => sh.ring.includes(e.a) && sh.ring.includes(e.b) && e.kind === 'wall').forEach(e => e.kind = 'detail'); commit(); }
+  else { sh.kind = 'detail'; sh.name = 'Detay'; shapeEdges(sh).forEach(e => e.kind = 'detail'); commit(); }
 }
 
-/* ---------- El çizimi → 90° kırıklı şekil ---------- */
+/* ---------- El çizimi ---------- */
 let stroke = null;
-function drawStroke() { if (!stroke || stroke.length < 2) return; ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.beginPath(); stroke.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); }
-function rdp(pts, eps) {
-  if (pts.length < 3) return pts.slice(); let dmax = 0, idx = 0; const a = pts[0], b = pts[pts.length - 1];
-  for (let i = 1; i < pts.length - 1; i++) { const d = segDistPt(pts[i], a, b); if (d > dmax) { dmax = d; idx = i; } }
-  if (dmax > eps) { const l = rdp(pts.slice(0, idx + 1), eps), r = rdp(pts.slice(idx), eps); return l.slice(0, -1).concat(r); }
-  return [a, b];
-}
+function drawStroke() { if (!stroke || stroke.pts.length < 2) return; ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.beginPath(); stroke.pts.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); if (stroke.start) drawSnapMarker(stroke.start); }
+function rdp(pts, eps) { if (pts.length < 3) return pts.slice(); let dmax = 0, idx = 0; const a = pts[0], b = pts[pts.length - 1]; for (let i = 1; i < pts.length - 1; i++) { const d = segDistPt(pts[i], a, b); if (d > dmax) { dmax = d; idx = i; } } if (dmax > eps) { const l = rdp(pts.slice(0, idx + 1), eps), r = rdp(pts.slice(idx), eps); return l.slice(0, -1).concat(r); } return [a, b]; }
 function segDistPt(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1]; const l2 = dx * dx + dy * dy; if (!l2) return Math.hypot(p[0] - a[0], p[1] - a[1]); let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2; t = Math.max(0, Math.min(1, t)); return Math.hypot(a[0] + t * dx - p[0], a[1] + t * dy - p[1]); }
 function lineInter(L1, L2) { const den = L1.d[0] * L2.d[1] - L1.d[1] * L2.d[0]; if (Math.abs(den) < 0.2) return null; const t = ((L2.p[0] - L1.p[0]) * L2.d[1] - (L2.p[1] - L1.p[1]) * L2.d[0]) / den; return [L1.p[0] + t * L1.d[0], L1.p[1] + t * L1.d[1]]; }
-function processStroke(sp) {
-  if (sp.length < 5) return toast('Çok kısa çizim');
+function processStroke(st) {
+  const sp = st.pts; if (sp.length < 5) return toast('Çok kısa çizim');
+  const xs = sp.map(p => p[0]), ys = sp.map(p => p[1]); const bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys); const size = bw + bh;
+  if (size < 30) return toast('Çok küçük çizim');
+  const endSnap = osnap(sp[sp.length - 1][0], sp[sp.length - 1][1], null, { pointsOnly: true, r: 26 });
+  const startPid = st.start && st.start.type === 'end' ? st.start.pid : null;
+  let closed = Math.hypot(sp[0][0] - sp[sp.length - 1][0], sp[0][1] - sp[sp.length - 1][1]) < Math.max(45, size * 0.12);
+  if (startPid && endSnap && endSnap.pid === startPid) closed = true;
   const wpts = sp.map(([X, Y]) => s2w(X, Y));
-  const size = Math.max(...sp.map(p => p[0])) - Math.min(...sp.map(p => p[0])) + Math.max(...sp.map(p => p[1])) - Math.min(...sp.map(p => p[1]));
-  const closed = Math.hypot(sp[0][0] - sp[sp.length - 1][0], sp[0][1] - sp[sp.length - 1][1]) < Math.max(45, size * 0.12);
-  let simp = rdp(wpts, Math.max(12, size * 0.035) / view.s);
-  if (closed) { simp[simp.length - 1] = simp[0]; }
+  // --- daire algılama
+  if (closed && !startPid) {
+    const cx = wpts.reduce((s, p) => s + p[0], 0) / wpts.length, cy = wpts.reduce((s, p) => s + p[1], 0) / wpts.length;
+    const rs = wpts.map(p => Math.hypot(p[0] - cx, p[1] - cy)); const rm = rs.reduce((a, b) => a + b, 0) / rs.length; const sd = Math.sqrt(rs.reduce((s, r) => s + (r - rm) ** 2, 0) / rs.length);
+    const v = rdp(wpts, size * 0.05 / view.s); let maxTurn = 0;
+    for (let i = 1; i < v.length - 1; i++) { const h1 = Math.atan2(v[i][1] - v[i - 1][1], v[i][0] - v[i - 1][0]), h2 = Math.atan2(v[i + 1][1] - v[i][1], v[i + 1][0] - v[i][0]); maxTurn = Math.max(maxTurn, Math.abs(wrapPI(h2 - h1)) / deg); }
+    const ar = bw / (bh || 1);
+    if (sd / rm < 0.13 && maxTurn < 55 && ar > 0.7 && ar < 1.43) {
+      snap(); const c = addPt(cx, cy); const sh = { id: uid('s'), kind: 'circle', name: 'Daire', center: c, r: rm, measured: false, ring: [], turn: [] }; P.shapes.push(sh);
+      S.sel = { type: 'circle', id: sh.id }; commit(); toast('Daire algılandı. Ölç sekmesinde çapını ölç.'); return;
+    }
+  }
+  let simp = rdp(wpts, Math.max(14, size * 0.045) / view.s);
+  if (closed) simp[simp.length - 1] = simp[0];
+  if (startPid) { const p = ptById(startPid); simp[0] = [p.x, p.y]; }
+  const minLen = size * 0.06 / view.s;
   let segs = []; for (let i = 0; i < simp.length - 1; i++) segs.push([simp[i], simp[i + 1]]);
-  segs = segs.filter(s => Math.hypot(s[1][0] - s[0][0], s[1][1] - s[0][1]) > 8 / view.s);
-  if (segs.length < 2) return toast('Şekil anlaşılamadı, tekrar çiz');
+  // çok kısa parçaları komşuya kat
+  for (let k = 0; k < 3; k++) { const out = []; segs.forEach(s => { const l = Math.hypot(s[1][0] - s[0][0], s[1][1] - s[0][1]); if (l < minLen && out.length) out[out.length - 1] = [out[out.length - 1][0], s[1]]; else out.push(s); }); segs = out; }
+  if (segs.length < 1 || (closed && segs.length < 3)) return toast('Şekil anlaşılamadı, tekrar çiz');
   const ang = s => Math.atan2(s[1][1] - s[0][1], s[1][0] - s[0][0]) / deg; const len = s => Math.hypot(s[1][0] - s[0][0], s[1][1] - s[0][1]);
-  const longest = segs.reduce((a, b) => len(a) > len(b) ? a : b); const base = ((ang(longest) % 90) + 90) % 90; const base2 = base > 45 ? base - 90 : base;
-  const baseA = Math.abs(base2) < 6 ? 0 : base2;
-  let L = segs.map(s => { const a = ang(s); const k = Math.round((a - baseA) / 90); const snapped = Math.abs(norm180(a - (baseA + k * 90))) <= 22; const dir = snapped ? norm180(baseA + k * 90) : a;
-    const mid = [(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2]; return { dir, snapped, p: snapped ? mid : s[0], d: [Math.cos(dir * deg), Math.sin(dir * deg)], s }; });
-  // aynı yöndeki ardışık parçaları birleştir
-  const M = []; L.forEach(l => { const pr = M[M.length - 1]; if (pr && pr.snapped && l.snapped && Math.abs(norm180(pr.dir - l.dir)) < 1) { pr.s = [pr.s[0], l.s[1]]; pr.p = [(pr.s[0][0] + pr.s[1][0]) / 2, (pr.s[0][1] + pr.s[1][1]) / 2]; } else M.push(Object.assign({}, l)); });
-  if (closed && M.length > 2) { const f = M[0], l = M[M.length - 1]; if (f.snapped && l.snapped && Math.abs(norm180(f.dir - l.dir)) < 1) { f.s = [l.s[0], f.s[1]]; f.p = [(f.s[0][0] + f.s[1][0]) / 2, (f.s[0][1] + f.s[1][1]) / 2]; M.pop(); } }
-  if ((closed && M.length < 3) || M.length < 1) return toast('Şekil anlaşılamadı, tekrar çiz');
+  // ana yön: mevcut çizimin yönü, yoksa en uzun parça
+  let baseA;
+  const ref = startPid ? P.edges.find(e => e.kind !== 'diag' && (e.a === startPid || e.b === startPid)) : null;
+  if (ref) baseA = ((headOf(ref.a, ref.b) % 90) + 90) % 90; else { const longest = segs.reduce((a, b) => len(a) > len(b) ? a : b); baseA = ((ang(longest) % 90) + 90) % 90; }
+  if (baseA > 45) baseA -= 90; if (Math.abs(baseA) < 15 && !ref) baseA = 0;
+  const L = segs.map(s => { const a = ang(s); const k = Math.round((a - baseA) / 90); const snapped = Math.abs(norm180(a - (baseA + k * 90))) <= SET.orthoTol; const dir = snapped ? norm180(baseA + k * 90) : a; return { dir, snapped, s }; });
+  const M = []; L.forEach(l => { const pr = M[M.length - 1]; if (pr && pr.snapped && l.snapped && Math.abs(norm180(pr.dir - l.dir)) < 1) pr.s = [pr.s[0], l.s[1]]; else M.push(Object.assign({}, l)); });
+  if (closed && M.length > 2) { const f = M[0], l = M[M.length - 1]; if (f.snapped && l.snapped && Math.abs(norm180(f.dir - l.dir)) < 1) { f.s = [l.s[0], f.s[1]]; M.pop(); } }
+  M.forEach(m => { m.d = [Math.cos(m.dir * deg), Math.sin(m.dir * deg)]; m.p = m.snapped ? [(m.s[0][0] + m.s[1][0]) / 2, (m.s[0][1] + m.s[1][1]) / 2] : m.s[0]; });
+  if (startPid && M.length) M[0].p = simp[0];
+  if ((closed && M.length < 3) || !M.length) return toast('Şekil anlaşılamadı, tekrar çiz');
   const n = M.length; const corners = [];
-  if (closed) { for (let i = 0; i < n; i++) { const a = M[(i - 1 + n) % n], b = M[i]; corners.push(lineInter(a, b) || b.s[0]); } }
-  else { const proj = (L, q) => { const t = (q[0] - L.p[0]) * L.d[0] + (q[1] - L.p[1]) * L.d[1]; return [L.p[0] + t * L.d[0], L.p[1] + t * L.d[1]]; };
-    corners.push(proj(M[0], M[0].s[0])); for (let i = 1; i < n; i++) corners.push(lineInter(M[i - 1], M[i]) || M[i].s[0]); corners.push(proj(M[n - 1], M[n - 1].s[1])); }
+  const proj = (Ln, q) => { const t = (q[0] - Ln.p[0]) * Ln.d[0] + (q[1] - Ln.p[1]) * Ln.d[1]; return [Ln.p[0] + t * Ln.d[0], Ln.p[1] + t * Ln.d[1]]; };
+  if (closed) for (let i = 0; i < n; i++) corners.push(lineInter(M[(i - 1 + n) % n], M[i]) || M[i].s[0]);
+  else { corners.push(proj(M[0], M[0].s[0])); for (let i = 1; i < n; i++) corners.push(lineInter(M[i - 1], M[i]) || M[i].s[0]); corners.push(proj(M[n - 1], M[n - 1].s[1])); }
   snap();
-  P.roomSeq = (P.roomSeq || 0) + 1;
-  const sh = { id: uid('s'), kind: 'room', name: 'Oda ' + P.roomSeq, ring: [], closed, turn: [] };
-  corners.forEach(c => { sh.ring.push(addPt(c[0], c[1])); });
-  const m = sh.ring.length; const ne = closed ? m : m - 1;
-  for (let i = 0; i < ne; i++) addEdge(sh.ring[i], sh.ring[(i + 1) % m], 'wall');
-  sh.turn = sh.ring.map((_, i) => {
-    if (!closed && (i === 0 || i === m - 1)) return null;
-    const a = closed ? M[(i - 1 + n) % n] : M[i - 1], b = M[closed ? i : i];
-    if (!a.snapped || !b.snapped) return null; return norm180(b.dir - a.dir);
-  });
-  P.shapes.push(sh);
-  const e0 = shapeEdges(sh)[0]; S.sel = e0 ? { type: 'edge', id: e0.id } : null;
-  commit(); setTool('sec', true); toast(sh.name + ': ' + m + ' köşe. Şimdi kenarları lazerle ölç.');
+  const sh = { id: uid('s'), kind: 'room', name: closed ? 'Oda ' + (P.roomSeq = (P.roomSeq || 0) + 1) : 'Duvar', ring: [], closed, turn: [] };
+  corners.forEach((c, i) => { if (i === 0 && startPid) sh.ring.push(startPid); else if (!closed && i === corners.length - 1 && endSnap) sh.ring.push(endSnap.pid); else sh.ring.push(addPt(c[0], c[1])); });
+  const m = sh.ring.length; for (let i = 0; i < (closed ? m : m - 1); i++) if (!findEdge(sh.ring[i], sh.ring[(i + 1) % m])) addEdge(sh.ring[i], sh.ring[(i + 1) % m], 'wall');
+  sh.turn = sh.ring.map((_, i) => { if (!closed && (i === 0 || i === m - 1)) return null; const a = closed ? M[(i - 1 + n) % n] : M[i - 1], b = M[i]; if (!a.snapped || !b.snapped) return null; return norm180(b.dir - a.dir); });
+  P.shapes.push(sh); const e0 = shapeEdges(sh).find(e => e.len == null); S.sel = e0 ? { type: 'edge', id: e0.id } : null;
+  commit(); toast((closed ? sh.name + ': ' + m + ' köşe' : 'Duvar çizgisi: ' + m + ' nokta') + '. Ölç sekmesinde ölç.');
 }
 
 /* =================== Dokunma =================== */
-const ptrs = new Map(); let gest = null;
+const ptrs = new Map(); let gest = null; let holdT = null;
 function evXY(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 cv.addEventListener('pointerdown', e => {
   const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; placing = null; stroke = null; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; render(); return; }
+  if (ptrs.size === 2) { clearTimeout(holdT); const [a, b] = [...ptrs.values()]; placing = null; stroke = null; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; draw(); return; }
   if (ptrs.size !== 1) return;
-  if (S.tool === 'cizgi' || S.tool === 'mesafe') { const from = S.tool === 'cizgi' ? chainLast() : S.mfrom; gest = { t: 'place' }; placing = { X, Y, cand: snapCandidate(X, Y, from, { pointsOnly: false }) }; render(); }
-  else if (S.tool === 'ciz') { gest = { t: 'stroke' }; stroke = [[X, Y]]; render(); }
-  else gest = { t: 'tap', X0: X, Y0: Y, ox0: view.ox, oy0: view.oy, moved: false };
+  if (S.tab === 'kroki' && S.kmode === 'serbest') {
+    gest = { t: 'k', X0: X, Y0: Y, mode: 'pending' };
+    holdT = setTimeout(() => { if (gest && gest.t === 'k' && gest.mode === 'pending') { gest.mode = 'place'; const from = chainLast(); placing = { X, Y, from, cand: snapCandidate(X, Y, from) }; tick(); draw(); } }, 420);
+  } else gest = { t: 'tap', X0: X, Y0: Y, ox0: view.ox, oy0: view.oy, moved: false };
 });
 cv.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) return; const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); if (!gest) return;
-  if (gest.t === 'pinch' && ptrs.size >= 2) {
-    const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    const s = Math.max(2, Math.min(3000, gest.s0 * d / gest.d0)); const wx = (gest.m0[0] - gest.ox0) / gest.s0, wy = (gest.oy0 - gest.m0[1]) / gest.s0;
-    view.s = s; view.ox = m[0] - wx * s; view.oy = m[1] + wy * s; render();
-  } else if (gest.t === 'place') { const from = S.tool === 'cizgi' ? chainLast() : S.mfrom; placing = { X, Y, cand: snapCandidate(X, Y, from) }; render(); }
-  else if (gest.t === 'stroke') { const l = stroke[stroke.length - 1]; if (Math.hypot(X - l[0], Y - l[1]) > 3) { stroke.push([X, Y]); render(); } }
-  else if (gest.t === 'tap') { if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) > 12) gest.moved = true; if (gest.moved) { view.ox = gest.ox0 + X - gest.X0; view.oy = gest.oy0 + Y - gest.Y0; render(); } }
+  if (gest.t === 'pinch' && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; const s = Math.max(2, Math.min(3000, gest.s0 * d / gest.d0)); const wx = (gest.m0[0] - gest.ox0) / gest.s0, wy = (gest.oy0 - gest.m0[1]) / gest.s0; view.s = s; view.ox = m[0] - wx * s; view.oy = m[1] + wy * s; draw(); return; }
+  if (gest.t === 'k') {
+    if (gest.mode === 'pending' && Math.hypot(X - gest.X0, Y - gest.Y0) > 10) { clearTimeout(holdT); gest.mode = 'stroke'; const st = osnap(gest.X0, gest.Y0, null, { pointsOnly: true, r: 24 }); stroke = { pts: [st ? [st.X, st.Y] : [gest.X0, gest.Y0], [X, Y]], start: st }; }
+    else if (gest.mode === 'stroke') { const l = stroke.pts[stroke.pts.length - 1]; if (Math.hypot(X - l[0], Y - l[1]) > 3) stroke.pts.push([X, Y]); }
+    else if (gest.mode === 'place') placing = { X, Y, from: placing.from, cand: snapCandidate(X, Y, placing.from) };
+    draw(); return;
+  }
+  if (gest.t === 'tap') { if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) > 12) gest.moved = true; if (gest.moved) { view.ox = gest.ox0 + X - gest.X0; view.oy = gest.oy0 + Y - gest.Y0; draw(); } }
 });
 function endPtr(e, cancel) {
-  if (!ptrs.has(e.pointerId)) return; const [X, Y] = ptrs.get(e.pointerId); ptrs.delete(e.pointerId); if (!gest) return;
-  const g = gest;
-  if (g.t === 'place') { const c = placing && placing.cand; placing = null; gest = null; if (c && !cancel) { if (S.tool === 'cizgi') cizgiPlace(c); else mesafePlace(c); } render(); return; }
-  if (g.t === 'stroke') { const sp = stroke; stroke = null; gest = null; if (!cancel && sp) processStroke(sp); render(); return; }
+  if (!ptrs.has(e.pointerId)) return; const [X, Y] = ptrs.get(e.pointerId); ptrs.delete(e.pointerId); clearTimeout(holdT); if (!gest) return; const g = gest;
+  if (g.t === 'k') { gest = null;
+    if (cancel) { placing = null; stroke = null; draw(); return; }
+    if (g.mode === 'pending') kTap(X, Y);
+    else if (g.mode === 'place') { const c = placing.cand; placing = null; chainPlace(c); }
+    else if (g.mode === 'stroke') { const st = stroke; stroke = null; processStroke(st); }
+    render(); return; }
   if (g.t === 'tap' && !g.moved && !cancel) { gest = null; handleTap(X, Y); return; }
-  if (ptrs.size === 0) { gest = null; placing = null; stroke = null; render(); } else if (g.t === 'pinch') gest = null;
+  if (ptrs.size === 0) { gest = null; placing = null; stroke = null; draw(); } else if (g.t === 'pinch') gest = null;
 }
 cv.addEventListener('pointerup', e => endPtr(e, false));
 cv.addEventListener('pointercancel', e => endPtr(e, true));
-cv.addEventListener('wheel', e => { e.preventDefault(); const [X, Y] = evXY(e); const f = Math.exp(-e.deltaY * 0.0015); const wx = (X - view.ox) / view.s, wy = (view.oy - Y) / view.s; view.s = Math.max(2, Math.min(3000, view.s * f)); view.ox = X - wx * view.s; view.oy = Y + wy * view.s; render(); }, { passive: false });
+cv.addEventListener('wheel', e => { e.preventDefault(); const [X, Y] = evXY(e); const f = Math.exp(-e.deltaY * 0.0015); const wx = (X - view.ox) / view.s, wy = (view.oy - Y) / view.s; view.s = Math.max(2, Math.min(3000, view.s * f)); view.ox = X - wx * view.s; view.oy = Y + wy * view.s; draw(); }, { passive: false });
 
-function segDist(X, Y, a, b) { return segDistPt([X, Y], a, b); }
-function hitTest(X, Y) {
-  let best = null, bd = 16;
+function hitTest(X, Y, opts) {
+  opts = opts || {}; let best = null, bd = 22;
   P.pts.forEach(p => { const [px, py] = w2s(p.x, p.y); const d = Math.hypot(px - X, py - Y); if (d < bd) { bd = d; best = { type: 'pt', id: p.id }; } });
-  if (best) return best;
-  let bl = null, dl = 18;
-  P.edges.forEach(e => { const d = segDist(X, Y, ps(e.a), ps(e.b)); if (d < dl) { dl = d; bl = { type: 'edge', id: e.id }; } });
-  if (A) A.sug.forEach(s => { const d = segDist(X, Y, ps(s.a), ps(s.b)); if (d < dl) { dl = d; bl = { type: 'sug', a: s.a, b: s.b, why: s.why }; } });
-  return bl;
+  if (best && (opts.pointsFirst || bd < 14)) return best;
+  let bl = null, dl = 20;
+  P.edges.forEach(e => { if (e.kind === 'diag' && S.tab !== 'olc') return; const d = segDistPt([X, Y], ps(e.a), ps(e.b)); if (d < dl) { dl = d; bl = { type: 'edge', id: e.id }; } });
+  P.shapes.forEach(s => { if (s.kind !== 'circle') return; const c = ptById(s.center); const [cx, cy] = w2s(c.x, c.y); const d = Math.abs(Math.hypot(X - cx, Y - cy) - s.r * view.s); if (d < dl) { dl = d; bl = { type: 'circle', id: s.id }; } });
+  if (A && S.tab === 'olc') A.sug.forEach(s => { const d = segDistPt([X, Y], ps(s.a), ps(s.b)); if (d < dl) { dl = d; bl = { type: 'sug', a: s.a, b: s.b, why: s.why }; } });
+  return bl || best;
+}
+function kTap(X, Y) {
+  if (S.chain) { chainPlace(snapCandidate(X, Y, chainLast())); return; }
+  S.sel = hitTest(X, Y); render();
 }
 function handleTap(X, Y) {
-  const h = hitTest(X, Y);
-  if (S.tool === 'takip') {
-    const sh = activeShape();
-    if (sh) { const [px, py] = ps(sh.ring[sh.ring.length - 1]); if (Math.hypot(X - px, Y - py) < DISC_R + DISC_SIZE + 25 || !h) { takipTap(sh, X, Y); return; } }
-    if (h && (h.type === 'edge' || h.type === 'sug')) { S.sel = h; setTool('sec', true); return; }
-    if (!sh) { snap(); const [wx, wy] = s2w(X, Y); newRoomShape(wx, wy); commit(); toast('Başlangıç köşesi kondu. Gideceğin yöne dokun, sonra lazerle ölç.'); }
-    return;
+  if (S.tab === 'kroki' && S.kmode === 'takip') {
+    const sh = activeShape(); if (sh) { takipTap(sh, X, Y); return; }
+    snap(); const [wx, wy] = s2w(X, Y); newRoomShape(wx, wy); commit(); toast('Başlangıç kondu. Yöne dokun, lazerle ölç.'); return;
   }
-  if (S.tool === 'sec') { S.sel = h; render(); }
+  if (S.tab === 'olc') {
+    const h = hitTest(X, Y);
+    if (h && h.type === 'pt') {
+      if (!S.mfrom) { S.mfrom = h.id; S.sel = null; render(); toast('Çapraz: ikinci noktaya dokun'); return; }
+      if (h.id === S.mfrom) { S.mfrom = null; render(); return; }
+      const ex = findEdge(S.mfrom, h.id); if (ex) { S.sel = { type: 'edge', id: ex.id }; S.mfrom = null; render(); return; }
+      snap(); const e = addEdge(S.mfrom, h.id, 'diag'); S.mfrom = null; S.sel = { type: 'edge', id: e.id }; commit(); toast(edgeName(e) + ' · lazerle ölç'); return;
+    }
+    S.mfrom = null; S.sel = h; render(); return;
+  }
+  if (S.tab === 'no') {
+    const h = hitTest(X, Y, { pointsFirst: true }); if (!h || h.type !== 'pt') return toast('Bir köşeye dokun');
+    const name = S.noBuf.trim(); if (!name) return toast('Önce numara yaz');
+    const p = ptById(h.id); const dup = P.pts.find(q => q.name === name && q.id !== p.id);
+    snap(); if (dup) { dup.name = p.name; toast('"' + name + '" ' + 'başka noktadaydı, adlar yer değiştirdi'); }
+    p.name = name; S.sel = { type: 'pt', id: p.id }; S.noBuf = incName(name); commit(); tick(); return;
+  }
 }
+function incName(n) { const m = n.match(/^(.*?)(\d+)$/); if (!m) return n; const num = String(+m[2] + 1).padStart(m[2].length, '0'); return m[1] + num; }
 
-/* =================== Arayüz =================== */
-function setTool(t, keepSel) { if (S.tool !== t) { S.mfrom = null; if (t !== 'cizgi') S.chain = null; } S.tool = t; if (!keepSel && t !== 'sec') S.sel = null; placing = null; stroke = null; render(); }
-function updateNav() {
-  document.querySelectorAll('nav [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === S.tool));
-  $('#bUndo').disabled = !undoStack.length; $('#bRedo').disabled = !redoStack.length; $('#title').textContent = P.name;
-}
+/* =================== Sekmeler ve panel =================== */
+function setTab(t) { if (S.tab !== t) { S.mfrom = null; if (t !== 'kroki') { S.chain = null; } } S.tab = t; placing = null; stroke = null; if (t === 'no') S.sel = null; render(); }
+function updateTabs() { document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab)); $('#bUndo').disabled = !undoStack.length; $('#bRedo').disabled = !redoStack.length; $('#title').textContent = P.name; }
 function focusShape() {
   if (S.sel && S.sel.type === 'edge') { const e = edgeById(S.sel.id); const sh = e && P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); if (sh) return sh; }
   if (S.sel && S.sel.type === 'pt') { const sh = shapeOfPoint(S.sel.id); if (sh) return sh; }
   if (S.sel && S.sel.type === 'sug') return P.shapes.find(s => s.ring.includes(S.sel.a));
-  return activeShape() || [...P.shapes].reverse().find(s => s.kind === 'room');
+  return activeShape() || [...P.shapes].reverse().find(s => s.kind === 'room' && s.closed);
 }
 function updateHint() {
-  let s = ''; const sh = activeShape();
-  if (S.tool === 'takip') {
-    if (!sh) s = 'Takip: başlangıç köşesine dokun ya da doğrudan lazerle ölç.';
-    else s = `${esc(sh.name)} · <b>${esc(pname(sh.ring[sh.ring.length - 1]))}</b> · sıradaki duvar: <b>${sh.ring.length < 2 ? 'yön seç' : turnText(S.pendingTurn)}</b> · yönü değiştirmek için oka dokun`;
-  } else if (S.tool === 'ciz') s = 'El çizimi: odanın şeklini parmağınla kabaca çiz. Bırakınca 90° kırıklı şekle dönüşür.';
-  else if (S.tool === 'cizgi') s = S.chain ? 'Çizgi: sonraki noktaya dokun. İlk noktaya dokunursan kapanır. Bitirmek için "Bitir".' : 'Çizgi: başlangıç noktasına dokun. Köşe, kesişim, orta, dik ve üzerinde yakalanır.';
-  else if (S.tool === 'mesafe') s = S.mfrom ? `Çapraz: <b>${esc(pname(S.mfrom))}</b>'den ikinci noktaya dokun.` : 'Çapraz / mesafe: ilk noktaya dokun.';
-  else {
-    if (S.sel && S.sel.type === 'edge') { const e = edgeById(S.sel.id); s = e ? `Lazer ölçüsü <b>${esc(edgeName(e))}</b> kenarına yazılacak` : ''; }
-    else if (S.sel && S.sel.type === 'sug') s = `Öneri: <b>${esc(pname(S.sel.a))}–${esc(pname(S.sel.b))}</b> ${S.sel.why === 'eksik' ? 'çaprazı (gönye için gerekli)' : 'kontrol çaprazı'} · lazerle ölç`;
-    else if (S.sel && S.sel.type === 'pt') s = 'Nokta seçili: adını ve köşe varsayımını değiştirebilirsin.';
-    else s = 'Seç: kenara, noktaya ya da mor öneri çizgisine dokun.';
-  }
-  const f = focusShape(); const info = f && A && A.shapes.find(x => x.sh.id === f.id);
-  if (info && f.kind === 'room' && (f.closed || S.tool === 'sec')) s += '<br>' + shapeSummary(info);
+  let s = '';
+  if (S.tab === 'kroki') {
+    if (S.kmode === 'takip') { const sh = activeShape(); s = !sh ? 'Takip: başlangıç köşesine dokun ya da lazerle ölç.' : `<b>${esc(pname(sh.ring[sh.ring.length - 1]))}</b> · sıradaki: <b>${sh.ring.length < 2 ? 'yön seç' : turnText(S.pendingTurn)}</b>`; }
+    else s = S.chain ? 'Sonraki noktaya dokun · basılı tut = yakala · ilk noktaya dokun = kapat' : 'Çiz = şekil · basılı tut = köşe/çizgi yakala, çizgi başlat · dokun = seç';
+  } else if (S.tab === 'olc') {
+    if (S.mfrom) s = `Çapraz: <b>${esc(pname(S.mfrom))}</b> → ikinci noktaya dokun`;
+    else if (S.sel && S.sel.type === 'edge') { const e = edgeById(S.sel.id); s = e ? `Ölçü → <b>${esc(edgeName(e))}</b>` : ''; }
+    else if (S.sel && S.sel.type === 'sug') s = `Ölçü → <b>${esc(pname(S.sel.a))}–${esc(pname(S.sel.b))}</b> (${S.sel.why === 'eksik' ? 'gerekli çapraz' : 'kontrol'})`;
+    else if (S.sel && S.sel.type === 'circle') s = `Ölçü → daire ${SET.circleDia ? 'çapı' : 'yarıçapı'}`;
+    else s = 'Kenara dokun = seç · iki noktaya dokun = çapraz';
+    const f = focusShape(); const info = f && A && A.shapes.find(x => x.sh.id === f.id); if (info && f.kind === 'room') s += '<br>' + shapeSummary(info);
+  } else s = `Köşeye dokun → <b>${esc(S.noBuf || '…')}</b> adı verilir, numara kendiliğinden artar`;
   $('#hint').innerHTML = s;
 }
 function renderPanel() {
-  const el = $('#panel'); let h = ''; const sh = activeShape(); const demo = SET.demo ? '<button data-act="demo">Demo</button>' : '';
-  if (S.tool === 'takip') {
-    const t = S.pendingTurn; const custom = sh && sh.ring.length >= 2 && ![90, 0, -90].includes(t);
-    h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p" data-act="addNum">Ekle</button><button data-act="angle" class="${custom ? 'on' : ''}" ${sh && sh.ring.length >= 2 ? '' : 'disabled'}>∠ ${custom ? turnText(t) : 'Açı'}</button></div>`;
-    h += `<div class="row"><button data-act="close" ${sh && sh.ring.length >= 3 ? '' : 'disabled'}>Odayı kapat</button><button data-act="delLast" ${sh && sh.ring.length >= 2 ? '' : 'disabled'}>Son kenarı sil</button><button data-act="newRoom">Yeni oda</button>${demo}</div>`;
-  } else if (S.tool === 'ciz') {
-    h += `<div class="info">Odayı kabaca çiz: düz kısımlar duvar, köşeler kırık olur. Duvara 22°'den yakın açılar <b>90°</b> kabul edilir. Sonra kenarları lazerle ölçersin.</div>`;
-  } else if (S.tool === 'cizgi') {
-    h += `<div class="info">Detay: kolon, niş, kapı, söve… Uçlar köşelere, duvar üstüne ve kesişimlere yapışır. Ölçülmemiş çizgiler <b>~tahmini</b>.</div><div class="row"><button data-act="endChain" ${S.chain ? '' : 'disabled'}>Bitir</button><button data-act="closeChain" ${S.chain && shapeById(S.chain) && shapeById(S.chain).ring.length >= 3 ? '' : 'disabled'}>Kapat</button></div>`;
-  } else if (S.tool === 'mesafe') {
-    h += `<div class="info">İki noktaya dokun, aradaki mesafe (çapraz) lazerle ölçülsün. Mor öneri çizgilerine Seç modunda dokunarak da ölçebilirsin.</div><div class="row"><button data-act="cancelM" ${S.mfrom ? '' : 'disabled'}>İptal</button></div>`;
-  } else {
-    const sel = S.sel;
-    if (sel && sel.type === 'edge' && edgeById(sel.id)) {
-      const e = edgeById(sel.id); const kinds = { wall: 'duvar', detail: 'detay', diag: 'çapraz' };
-      h += `<div class="info"><b>${esc(edgeName(e))}</b> · ${kinds[e.kind]} · ${e.len != null ? '<span class="tag ok">ölçüldü ' + fmt(e.len) + '</span>' : '<span class="tag warn">tahmini</span>'} · çizim <b>${fmt(plen(e.a, e.b))}</b></div>`;
-      h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p" data-act="setNum">Uygula</button>${demo}</div>`;
-      h += `<div class="row"><button data-act="next">Sonraki ▶</button>${e.len != null ? '<button data-act="clearLen">Ölçüyü sil</button>' : ''}${e.kind !== 'wall' ? '<button data-act="delEdge">Sil</button>' : ''}<button data-act="unsel">Bırak</button></div>`;
-    } else if (sel && sel.type === 'sug') {
-      h += `<div class="info">Öneri: <b>${esc(pname(sel.a))}–${esc(pname(sel.b))}</b> · ${sel.why === 'eksik' ? 'gönyeyi belirlemek için gerekli' : 'kontrol ölçüsü'}. Lazerle ölç ya da elle gir.</div>`;
-      h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p" data-act="setNum">Uygula</button>${demo}<button data-act="unsel">Bırak</button></div>`;
-    } else if (sel && sel.type === 'pt' && ptById(sel.id)) {
-      const p = ptById(sel.id); const shp = shapeOfPoint(p.id); const i = shp ? shp.ring.indexOf(p.id) : -1;
-      const corner = shp && shp.ring.length >= 3 && (shp.closed || (i > 0 && i < shp.ring.length - 1));
-      const c = corner && A ? (A.shapes.find(x => x.sh.id === shp.id) || { corners: [] }).corners.find(q => q.id === p.id) : null;
-      h += `<div class="row"><input id="pname" class="num" type="text" value="${esc(p.name)}" placeholder="Nokta adı"><button class="p" data-act="rename">Adı kaydet</button></div>`;
-      if (corner) h += `<div class="info">Köşe: varsayım <b>${shp.turn[i] == null ? 'yok (serbest)' : turnText(shp.turn[i])}</b>${c ? ' · iç açı <b>' + c.inner.toFixed(2) + '°</b>' : ''}</div><div class="row"><button data-act="as90">90° varsay</button><button data-act="asFree">Serbest (varsayım yok)</button></div>`;
-      h += `<div class="row">${A && A.unfixed.has(p.id) ? '<span class="tag warn">ölçüyle sabitlenmedi</span>' : '<span class="tag ok">sabit</span>'}<button data-act="unsel">Bırak</button></div>`;
+  const el = $('#panel'); let h = ''; const demo = SET.demo ? '<button class="sq" data-act="demo" data-tip="Demo ölçü üret (test)">D</button>' : '';
+  if (S.tab === 'kroki') {
+    h += `<div class="row"><button data-act="mSerbest" class="${S.kmode === 'serbest' ? 'on' : ''}" data-tip="Serbest: parmakla çiz, basılı tutup yakala">✎ Serbest</button><button data-act="mTakip" class="${S.kmode === 'takip' ? 'on' : ''}" data-tip="Takip: lazerle ölçtükçe duvar ekler">⟲ Takip</button>`;
+    if (S.kmode === 'takip') { const sh = activeShape(); const custom = sh && sh.ring.length >= 2 && ![90, 0, -90].includes(S.pendingTurn);
+      h += `<button class="sq ${custom ? 'on' : ''}" data-act="angle" ${sh && sh.ring.length >= 2 ? '' : 'disabled'} data-tip="90° dışı dönüş açısı gir">∠</button><button class="sq" data-act="delLast" ${sh && sh.ring.length >= 2 ? '' : 'disabled'} data-tip="Son duvarı sil">⌫</button><button data-act="close" ${sh && sh.ring.length >= 3 ? '' : 'disabled'} data-tip="Odayı kapat">Kapat</button><button class="sq" data-act="newRoom" data-tip="Yeni oda başlat">+</button>${demo}</div>`;
+      h += `<div class="row"><input id="num" class="num" type="text" inputmode="decimal" placeholder="Elle ölçü (m)"><button class="p sq" data-act="addNum" data-tip="Elle girilen ölçüyle duvar ekle">↵</button></div>`;
     } else {
-      h += `<div class="info">Kenar seçince lazer ölçüsü ona yazılır. Noktaya dokunup adını değiştirebilirsin (örneğin total station numarası).${S.lastMeasure ? ' Son ölçü: <b>' + fmt(S.lastMeasure) + ' m</b>' : ''}</div>`;
-      h += `<div class="row"><button data-act="firstOpen" ${P.edges.some(e => e.len == null && e.kind !== 'diag') ? '' : 'disabled'}>İlk ölçülmemiş kenar</button><button data-act="report">Kontrol raporu</button></div>`;
+      if (S.chain) h += `<button data-act="endChain" data-tip="Çizgiyi bitir (açık bırak)">Bitir</button><button data-act="closeChain" data-tip="İlk noktaya bağlayıp kapat">Kapat</button>`;
+      const sel = S.sel;
+      if (!S.chain && sel && (sel.type === 'edge' || sel.type === 'circle')) h += `<button class="sq" data-act="delSel" data-tip="Seçili çizgiyi/daireyi sil">🗑</button><button class="sq" data-act="unsel" data-tip="Seçimi bırak">✕</button>`;
+      if (!S.chain && sel && sel.type === 'pt') { const shp = shapeOfPoint(sel.id); const i = shp ? shp.ring.indexOf(sel.id) : -1; const corner = shp && shp.ring.length >= 3 && (shp.closed || (i > 0 && i < shp.ring.length - 1));
+        if (corner) h += `<button class="${shp.turn[i] != null ? 'on' : ''}" data-act="as90" data-tip="Bu köşe 90° kabul edilsin">90°</button><button class="${shp.turn[i] == null ? 'on' : ''}" data-act="asFree" data-tip="Bu köşe için açı varsayımı yapma">Serbest</button>`;
+        h += `<button class="sq" data-act="unsel" data-tip="Seçimi bırak">✕</button>`; }
+      h += `</div>`;
     }
+  } else if (S.tab === 'olc') {
+    const sel = S.sel; let info = '';
+    if (sel && sel.type === 'edge' && edgeById(sel.id)) { const e = edgeById(sel.id); info = `<b>${esc(edgeName(e))}</b> · ${{ wall: 'duvar', detail: 'detay', diag: 'çapraz' }[e.kind]} · ${e.len != null ? '<span class="tag ok">' + fmt(e.len) + '</span>' : '<span class="tag warn">~' + plen(e.a, e.b).toFixed(2) + '</span>'}`; }
+    else if (sel && sel.type === 'sug') info = `<b>${esc(pname(sel.a))}–${esc(pname(sel.b))}</b> · <span class="tag warn">${sel.why === 'eksik' ? 'gerekli çapraz' : 'kontrol çaprazı'}</span>`;
+    else if (sel && sel.type === 'circle') { const c = shapeById(sel.id); info = `Daire · Ø <b>${(2 * c.r).toFixed(3)}</b> ${c.measured ? '<span class="tag ok">ölçüldü</span>' : '<span class="tag warn">tahmini</span>'}`; }
+    else info = S.lastMeasure ? `Son ölçü: <b>${fmt(S.lastMeasure)} m</b> · bir kenar seç` : 'Kenar seç, lazerle ölç';
+    h += `<div class="info">${info}</div>`;
+    const canSet = sel && (sel.type === 'edge' || sel.type === 'sug' || sel.type === 'circle');
+    h += `<div class="row"><button class="sq" data-act="prev" data-tip="Önceki kenar">◀</button><input id="num" class="num" type="text" inputmode="decimal" placeholder="m"><button class="p sq" data-act="setNum" ${canSet ? '' : 'disabled'} data-tip="Elle yazılan ölçüyü seçili kenara yaz">↵</button>${S.lastMeasure && canSet ? '<button class="sq" data-act="useLast" data-tip="Son lazer ölçüsünü seçili kenara yaz">⤵</button>' : ''}<button class="sq" data-act="next" data-tip="Sonraki kenar">▶</button>${sel && sel.type === 'edge' && edgeById(sel.id) && edgeById(sel.id).len != null ? '<button class="sq" data-act="clearLen" data-tip="Bu kenarın ölçüsünü sil">⌧</button>' : ''}${sel && sel.type === 'edge' && edgeById(sel.id) && edgeById(sel.id).kind === 'diag' ? '<button class="sq" data-act="delSel" data-tip="Çaprazı sil">🗑</button>' : ''}${demo}</div>`;
+  } else {
+    h += `<div class="row"><span class="info">Sıradaki ad:</span><span class="buf">${esc(S.noBuf || '—')}</span><button class="sq" data-act="noAbc" data-tip="Harfli ad yaz (klavye)">ABC</button><button class="sq" data-act="noC" data-tip="Temizle">C</button></div>`;
+    h += `<div class="kp">${['1', '2', '3', '⌫', '4', '5', '6', '-', '7', '8', '9', '.', '', '0', '', ''].map(k => k ? `<button data-key="${k}">${k}</button>` : '<span></span>').join('')}</div>`;
   }
   el.innerHTML = h;
 }
 $('#panel').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return; const a = b.dataset.act; const sh = activeShape();
-  if (a === 'angle') { const v = parseNum(prompt('Dönüş açısı (°)\nSağa dönüş eksi, sola dönüş artı.\nÖrnek: sağa 95° → -95', String(S.pendingTurn))); if (isFinite(v)) { S.pendingTurn = norm180(v); render(); } }
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.key) { const k = b.dataset.key; if (k === '⌫') S.noBuf = S.noBuf.slice(0, -1); else S.noBuf += k; render(); return; }
+  const a = b.dataset.act; const sh = activeShape();
+  if (a === 'mSerbest') { S.kmode = 'serbest'; S.active = null; render(); }
+  else if (a === 'mTakip') { S.kmode = 'takip'; S.chain = null; render(); }
+  else if (a === 'angle') { const v = parseNum(prompt('Dönüş açısı (°)\nSağa eksi, sola artı. Örnek: sağa 95° → -95', String(S.pendingTurn))); if (isFinite(v)) { S.pendingTurn = norm180(v); render(); } }
   else if (a === 'addNum') { const v = parseNum($('#num').value); if (!(v > 0)) return toast('Geçerli bir ölçü gir'); takipAdd(v); }
-  else if (a === 'setNum') { const v = parseNum($('#num').value); if (!(v > 0)) return toast('Geçerli bir ölçü gir'); onMeasureManual(v); }
+  else if (a === 'setNum') { const v = parseNum($('#num').value); if (!(v > 0)) return toast('Geçerli bir ölçü gir'); onMeasure(v, true); }
+  else if (a === 'useLast') onMeasure(S.lastMeasure, true);
   else if (a === 'close') closeShape(sh);
   else if (a === 'delLast') deleteLast();
-  else if (a === 'newRoom') { S.active = null; S.sel = null; render(); toast('Yeni oda: başlangıç köşesine dokun ya da ölç'); }
+  else if (a === 'newRoom') { S.active = null; render(); toast('Yeni oda: başlangıca dokun ya da ölç'); }
   else if (a === 'demo') demoMeasure();
-  else if (a === 'endChain') { S.chain = null; render(); }
-  else if (a === 'closeChain') { const c = shapeById(S.chain); if (c) closeShape(c); S.chain = null; setTool('cizgi', true); }
-  else if (a === 'cancelM') { S.mfrom = null; render(); }
-  else if (a === 'next') nextEdge();
+  else if (a === 'endChain') finishChain(false);
+  else if (a === 'closeChain') finishChain(true);
+  else if (a === 'next' || a === 'prev') stepEdge(a === 'next' ? 1 : -1);
   else if (a === 'unsel') { S.sel = null; render(); }
   else if (a === 'clearLen') { const ed = edgeById(S.sel.id); snap(); ed.len = null; ed.est = plen(ed.a, ed.b); commit(); }
-  else if (a === 'delEdge') { const ed = edgeById(S.sel.id); snap(); deleteEdge(ed); S.sel = null; commit(); }
-  else if (a === 'firstOpen') { const ed = P.edges.find(e => e.len == null && e.kind !== 'diag'); if (ed) S.sel = { type: 'edge', id: ed.id }; render(); }
-  else if (a === 'rename') { const p = ptById(S.sel.id); const n = $('#pname').value.trim(); if (!n) return; if (P.pts.some(q => q.name === n && q.id !== p.id) && !confirm('"' + n + '" adı başka noktada da var. Yine de verilsin mi?')) return; snap(); p.name = n; commit(); toast('Nokta adı: ' + n); }
-  else if (a === 'as90' || a === 'asFree') { const p = ptById(S.sel.id); const shp = shapeOfPoint(p.id); const i = shp.ring.indexOf(p.id); const n = shp.ring.length; snap();
-    if (a === 'asFree') shp.turn[i] = null; else { const t = norm180(headOf(p.id, shp.ring[(i + 1) % n]) - headOf(shp.ring[(i - 1 + n) % n], p.id)); shp.turn[i] = t >= 0 ? 90 : -90; } commit(); }
-  else if (a === 'report') openReport();
+  else if (a === 'delSel') { snap(); if (S.sel.type === 'circle') deleteShape(shapeById(S.sel.id)); else deleteEdge(edgeById(S.sel.id)); S.sel = null; commit(); }
+  else if (a === 'as90' || a === 'asFree') { const p = ptById(S.sel.id); const shp = shapeOfPoint(p.id); const i = shp.ring.indexOf(p.id); const n = shp.ring.length; snap(); if (a === 'asFree') shp.turn[i] = null; else { const t = norm180(headOf(p.id, shp.ring[(i + 1) % n]) - headOf(shp.ring[(i - 1 + n) % n], p.id)); shp.turn[i] = t >= 0 ? 90 : -90; } commit(); }
+  else if (a === 'noAbc') { const v = prompt('Nokta adı (harf kullanılabilir)', S.noBuf); if (v !== null) { S.noBuf = v.trim(); render(); } }
+  else if (a === 'noC') { S.noBuf = ''; render(); }
 });
-$('#panel').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('#panel [data-act="addNum"], #panel [data-act="setNum"], #panel [data-act="rename"]'); if (b) b.click(); } });
-function onMeasureManual(v) { onMeasure(v - (SET.offset || 0)); }
-function nextEdge() {
-  const e = edgeById(S.sel.id); const sh = P.shapes.find(s => shapeEdges(s).includes(e)); const es = sh ? shapeEdges(sh) : P.edges;
-  const i = es.indexOf(e); S.sel = { type: 'edge', id: es[(i + 1) % es.length].id }; render();
-}
-function deleteEdge(e) { P.edges = P.edges.filter(x => x !== e); P.shapes.forEach(sh => { if (shapeEdges(sh).length === 0 && sh.kind === 'detail') {} }); }
-function deleteLast() {
-  const sh = activeShape(); if (!sh || sh.ring.length < 2) return; snap();
-  const last = sh.ring.pop(); sh.turn.pop(); const n = sh.ring.length; sh.turn[n - 1] = null;
-  P.edges = P.edges.filter(e => e.a !== last && e.b !== last); P.cons = P.cons.filter(c => ![c.p, c.a, c.b, c.c, c.d].includes(last)); P.pts = P.pts.filter(p => p.id !== last);
-  commit();
-}
-document.querySelectorAll('nav [data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('#panel').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('#panel [data-act="addNum"], #panel [data-act="setNum"]'); if (b) b.click(); } });
+document.querySelectorAll('#tabs [data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 $('#bUndo').onclick = undo; $('#bRedo').onclick = redo; $('#bFit').onclick = fit; $('#bCheck').onclick = openReport; $('#ble').onclick = bleConnect;
-function demoMeasure() {
-  let v; const sel = S.sel;
-  if (sel && sel.type === 'edge') { const e = edgeById(sel.id); v = plen(e.a, e.b) * (1 + (Math.random() - .5) * 0.02); }
-  else if (sel && sel.type === 'sug') v = plen(sel.a, sel.b) * (1 + (Math.random() - .5) * 0.004);
-  else v = 2 + Math.random() * 4;
-  onMeasure(Math.round(v * 1000) / 1000);
+function measurables() { const out = []; P.shapes.forEach(s => { if (s.kind === 'circle') out.push({ type: 'circle', id: s.id }); else shapeEdges(s).forEach(e => out.push({ type: 'edge', id: e.id })); }); P.edges.forEach(e => { if (!out.some(o => o.id === e.id)) out.push({ type: 'edge', id: e.id }); }); return out; }
+function stepEdge(d) {
+  const L = measurables(); if (!L.length) return; let i = S.sel ? L.findIndex(o => o.id === S.sel.id) : -1;
+  if (i < 0) { i = L.findIndex(o => o.type === 'edge' && edgeById(o.id).len == null); if (i < 0) i = 0; } else i = (i + d + L.length) % L.length;
+  S.sel = L[i]; S.mfrom = null; render();
 }
+function deleteEdge(e) { if (!e) return; P.edges = P.edges.filter(x => x !== e); P.shapes.forEach(sh => { const i = sh.ring.indexOf(e.a), j = sh.ring.indexOf(e.b); if (i >= 0 && j >= 0 && sh.kind !== 'circle') { if (sh.closed && (Math.abs(i - j) === 1 || Math.abs(i - j) === sh.ring.length - 1)) { const k = (i + 1) % sh.ring.length === j ? j : i; sh.ring = sh.ring.slice(k).concat(sh.ring.slice(0, k)); sh.turn = sh.turn.slice(k).concat(sh.turn.slice(0, k)); sh.closed = false; sh.turn[0] = null; sh.turn[sh.turn.length - 1] = null; } } }); cleanupPts(); }
+function cleanupPts() { const used = new Set(); P.edges.forEach(e => { used.add(e.a); used.add(e.b); }); P.shapes.forEach(s => { if (s.center) used.add(s.center); }); P.pts = P.pts.filter(p => used.has(p.id)); const ids = new Set(P.pts.map(p => p.id)); P.cons = P.cons.filter(c => [c.p, c.a, c.b, c.c, c.d].filter(Boolean).every(x => ids.has(x))); P.shapes = P.shapes.filter(s => s.kind === 'circle' ? ids.has(s.center) : s.ring.every(x => ids.has(x)) && s.ring.length > 0); }
+function deleteLast() { const sh = activeShape(); if (!sh || sh.ring.length < 2) return; snap(); const last = sh.ring.pop(); sh.turn.pop(); sh.turn[sh.ring.length - 1] = null; P.edges = P.edges.filter(e => e.a !== last && e.b !== last); cleanupPts(); commit(); }
+function deleteShape(sh) { if (!sh) return; if (sh.kind === 'circle') { P.shapes = P.shapes.filter(s => s !== sh); cleanupPts(); return; } const ring = new Set(sh.ring); P.edges = P.edges.filter(e => !(ring.has(e.a) && ring.has(e.b))); P.shapes = P.shapes.filter(s => s !== sh); cleanupPts(); }
+function demoMeasure() { let v; const sel = S.sel; if (sel && sel.type === 'edge') { const e = edgeById(sel.id); v = plen(e.a, e.b) * (1 + (Math.random() - .5) * 0.02); } else if (sel && sel.type === 'sug') v = plen(sel.a, sel.b); else if (sel && sel.type === 'circle') v = shapeById(sel.id).r * 2; else v = 2 + Math.random() * 4; onMeasure(Math.round(v * 1000) / 1000); }
 
-/* =================== Kontrol raporu =================== */
+/* =================== Rapor =================== */
 function openReport() {
   if (!A) return; let h = '<h3>Kontrol raporu</h3>';
   const stTxt = { gonyeli: '<span class="tag ok">gönyeli</span>', gonyesiz: '<span class="tag bad">gönyesiz</span>', varsayim: '<span class="tag warn">90° varsayım</span>', olcu: '<span class="tag ok">ölçüyle</span>', belirsiz: '<span class="tag warn">belirsiz</span>' };
-  if (A.conflicts.length) h += '<p><span class="tag bad">Çelişen ölçüler</span> ' + A.conflicts.map(c => esc(edgeName(c.e)) + ' (' + (c.r * 1000).toFixed(0) + ' mm)').join(', ') + '. Bu ölçüleri tekrar al.</p>';
-  A.shapes.filter(i => i.sh.kind === 'room').forEach(info => {
-    const sh = info.sh; const need = 2 * sh.ring.length - 3;
-    h += `<h3>${esc(sh.name)} ${sh.closed ? '· ' + info.area.toFixed(2) + ' m²' : '(açık)'}</h3><div class="info">${shapeSummary(info)}</div>`;
-    h += `<div class="info">${sh.ring.length} köşe → ${need} ölçü gerekli · ölçülmemiş kenar: ${info.unmeasured.length} · kontrol ölçüsü: ${Math.max(0, info.control)}</div>`;
-    const s = A.sug.find(q => q.sh === sh.id); if (s) h += `<p>👉 <b>${esc(pname(s.a))}–${esc(pname(s.b))}</b> ${s.why === 'eksik' ? 'çaprazını ölç (gönye için gerekli)' : 'çaprazını kontrol için ölç'}</p>`;
-    if (info.corners.length) h += '<table><tr><th>Köşe</th><th>İç açı</th><th>Varsayım</th><th>Durum</th></tr>' + info.corners.map(c => `<tr><td>${esc(pname(c.id))}</td><td>${c.inner.toFixed(2)}°</td><td>${c.t == null ? '—' : turnText(c.t)}</td><td>${stTxt[c.st]}${c.st === 'gonyesiz' ? ' ' + (c.dev > 0 ? '+' : '') + c.dev.toFixed(2) + '°' : ''}</td></tr>`).join('') + '</table>';
-  });
-  const det = P.pts.filter(p => A.unfixed.has(p.id) && !P.shapes.some(s => s.kind === 'room' && s.ring.includes(p.id)));
-  if (det.length) h += `<h3>Detaylar</h3><div class="info">Ölçüyle sabitlenmemiş detay noktaları: ${det.map(p => esc(p.name)).join(', ')}</div>`;
-  if (!A.shapes.length) h += '<div class="info">Henüz çizim yok.</div>';
-  h += `<div class="info" style="margin-top:8px">Kural: n köşeli oda için 2n−3 ölçü gerekir. Kenar ölçüleri gönyeyi göstermez, en az n−3 çapraz gerekir. +1 çapraz kontrol içindir.</div><div class="row" style="margin-top:8px"><button data-m="close">Kapat</button></div>`;
+  if (A.conflicts.length) h += '<p><span class="tag bad">Çelişen ölçüler</span> ' + A.conflicts.map(c => esc(edgeName(c.e)) + ' (' + (c.r * 1000).toFixed(0) + ' mm)').join(', ') + '</p>';
+  A.shapes.filter(i => i.sh.kind === 'room').forEach(info => { const sh = info.sh; const need = 2 * sh.ring.length - 3;
+    h += `<h3>${esc(sh.name)} ${sh.closed ? '· ' + info.area.toFixed(2) + ' m²' : '(açık)'}</h3><div class="info" style="white-space:normal">${shapeSummary(info)}</div><div class="info" style="white-space:normal">${sh.ring.length} köşe → ${need} ölçü gerekli · ölçülmemiş kenar ${info.unmeasured.length} · kontrol ${Math.max(0, info.control)}</div>`;
+    const s = A.sug.find(q => q.sh === sh.id); if (s) h += `<p>👉 <b>${esc(pname(s.a))}–${esc(pname(s.b))}</b> ${s.why === 'eksik' ? 'çaprazını ölç (gerekli)' : 'kontrol için ölç'}</p>`;
+    if (info.corners.length) h += '<table><tr><th>Köşe</th><th>İç açı</th><th>Varsayım</th><th>Durum</th></tr>' + info.corners.map(c => `<tr><td>${esc(pname(c.id))}</td><td>${c.inner.toFixed(2)}°</td><td>${c.t == null ? '—' : turnText(c.t)}</td><td>${stTxt[c.st]}${c.st === 'gonyesiz' ? ' ' + (c.dev > 0 ? '+' : '') + c.dev.toFixed(2) + '°' : ''}</td></tr>`).join('') + '</table>'; });
+  const det = P.pts.filter(p => A.unfixed.has(p.id) && !P.shapes.some(s => s.kind === 'room' && s.ring.includes(p.id)) && !P.shapes.some(s => s.center === p.id));
+  if (det.length) h += `<h3>Detaylar</h3><div class="info" style="white-space:normal">Ölçüyle sabitlenmemiş: ${det.map(p => esc(p.name)).join(', ')}</div>`;
+  h += `<div class="info" style="white-space:normal;margin-top:8px">n köşeli oda: 2n−3 ölçü. Kenarlar gönyeyi göstermez; n−3 çapraz gerekli, +1 kontrol.</div><div class="row"><button data-m="close">Kapat</button></div>`;
   openSheet(h);
 }
 
@@ -934,19 +883,23 @@ $('#bMenu').onclick = () => {
   <div class="row"><button data-m="new">Yeni proje</button><button data-m="open">Proje aç</button></div>
   <div class="row"><button data-m="rename">Projeyi adlandır</button><button data-m="import">JSON yükle</button></div>
   ${sh ? `<h3>${esc(sh.name)}</h3><div class="row"><button data-m="shName">Adlandır</button><button data-m="shDel">Sil</button></div>` : ''}
-  <h3>Nokta adlandırma</h3>
+  <h3>Otomatik nokta adı (yeni noktalar)</h3>
   <label>Ön ek <input type="text" id="nPre" value="${esc(P.naming.prefix || '')}" style="width:90px" placeholder="ör. B"></label>
   <label>Sıradaki numara <input type="text" inputmode="numeric" id="nNum" value="${P.naming.num}" style="width:90px"></label>
   <h3>Ayarlar</h3>
-  <label>Çizim ölçeği (yazı boyu) <select id="sScale">${[20, 50, 100, 200, 500].map(v => `<option value="${v}" ${SET.scaleDen == v ? 'selected' : ''}>1/${v}</option>`).join('')}</select></label>
-  <label>Takipte varsayılan dönüş <select id="sTurn"><option value="-90" ${SET.defaultTurn == -90 ? 'selected' : ''}>Sağ 90 (saat yönü)</option><option value="90" ${SET.defaultTurn == 90 ? 'selected' : ''}>Sol 90</option><option value="0" ${SET.defaultTurn == 0 ? 'selected' : ''}>Düz</option></select></label>
-  <label>Ölçüden sonra sıradaki kenara geç <input type="checkbox" id="sAuto" ${SET.autoAdvance ? 'checked' : ''}></label>
+  <label>Çizim ölçeği (DXF yazı boyu) <select id="sScale">${[20, 50, 100, 200, 500].map(v => `<option value="${v}" ${SET.scaleDen == v ? 'selected' : ''}>1/${v}</option>`).join('')}</select></label>
+  <label>Ekranda kenar ölçüleri <input type="checkbox" id="sLen" ${SET.showLen ? 'checked' : ''}></label>
+  <label>El çiziminde 90° kabul sınırı (°) <input type="text" inputmode="decimal" id="sOrtho" value="${SET.orthoTol}" style="width:80px"></label>
+  <label>Daire ölçüsü <select id="sCirc"><option value="1" ${SET.circleDia ? 'selected' : ''}>Çap</option><option value="0" ${SET.circleDia ? '' : 'selected'}>Yarıçap</option></select></label>
+  <label>Takipte varsayılan dönüş <select id="sTurn"><option value="-90" ${SET.defaultTurn == -90 ? 'selected' : ''}>Sağ 90</option><option value="90" ${SET.defaultTurn == 90 ? 'selected' : ''}>Sol 90</option><option value="0" ${SET.defaultTurn == 0 ? 'selected' : ''}>Düz</option></select></label>
+  <label>Ölçüden sonra sıradaki kenar <input type="checkbox" id="sAuto" ${SET.autoAdvance ? 'checked' : ''}></label>
   <label>Kenarlar bitince çapraz öner <input type="checkbox" id="sDiag" ${SET.autoDiag ? 'checked' : ''}></label>
-  <label>Gönye toleransı (°) <input type="text" inputmode="decimal" id="sGon" value="${SET.gonyeTol}" style="width:90px"></label>
-  <label>Lazer ofseti (m, köşe ucu vb.) <input type="text" inputmode="decimal" id="sOff" value="${SET.offset}" style="width:90px"></label>
+  <label>Gönye toleransı (°) <input type="text" inputmode="decimal" id="sGon" value="${SET.gonyeTol}" style="width:80px"></label>
+  <label>Lazer ofseti (m) <input type="text" inputmode="decimal" id="sOff" value="${SET.offset}" style="width:80px"></label>
+  <label>Ayar değişince yok say (sn) <input type="text" inputmode="decimal" id="sIgn" value="${SET.ignoreAfterSet}" style="width:80px"></label>
   <label>Demo lazer düğmesi <input type="checkbox" id="sDemo" ${SET.demo ? 'checked' : ''}></label>
   <div class="row"><button data-m="saveSet" class="p">Kaydet</button></div>
-  <h3>Lazer günlüğü</h3><pre>${esc(bleLog.slice(-25).join('\n') || 'Henüz kayıt yok')}</pre>
+  <h3>Lazer günlüğü</h3><pre>${esc(bleLog.slice(-30).join('\n') || 'Henüz kayıt yok')}</pre>
   <div class="row"><button data-m="close">Kapat</button></div>`);
 };
 $('#sheetBox').addEventListener('click', async e => {
@@ -955,30 +908,24 @@ $('#sheetBox').addEventListener('click', async e => {
   else if (m === 'dxf') { if (!P.pts.length) return toast('Çizim boş'); await saveFile(safeName(P.name) + '.dxf', toCp1254(buildDXF(P, SET)), 'application/octet-stream'); closeSheet(); }
   else if (m === 'json') { await saveFile(safeName(P.name) + '.json', JSON.stringify(P, null, 1), 'application/json'); closeSheet(); }
   else if (m === 'new') { const n = prompt('Yeni proje adı', 'Proje ' + new Date().toLocaleDateString('tr-TR')); if (!n) return; if (allProjects()[n] && !confirm('Bu adda proje var, üzerine yazılsın mı?')) return; saveProject(); P = newProject(n); undoStack = []; redoStack = []; S.active = null; S.sel = null; S.chain = null; commit(); fit(); closeSheet(); }
-  else if (m === 'open') { const all = allProjects(); const names = Object.keys(all).sort((a, b) => (all[b].saved || 0) - (all[a].saved || 0)); openSheet('<h3>Projeler</h3><div class="list">' + names.map(n => `<button data-open="${esc(n)}">${esc(n)} <span class="tag">${(all[n].shapes || []).length} şekil</span></button>`).join('') + '</div><div class="row"><button data-m="close">Kapat</button></div>'); }
+  else if (m === 'open') { const all = allProjects(); const names = Object.keys(all).sort((a, b) => (all[b].saved || 0) - (all[a].saved || 0)); openSheet('<h3>Projeler</h3><div class="list">' + names.map(n => `<button data-open="${esc(n)}">${esc(n)}</button>`).join('') + '</div><div class="row"><button data-m="close">Kapat</button></div>'); }
   else if (b.dataset.open) { saveProject(); P = allProjects()[b.dataset.open]; undoStack = []; redoStack = []; S.active = null; S.sel = null; S.chain = null; commit(); fit(); closeSheet(); }
   else if (m === 'rename') { const n = prompt('Proje adı', P.name); if (!n || n === P.name) return; const all = allProjects(); delete all[P.name]; writeJSON(LS_PROJ, all); P.name = n; commit(); closeSheet(); }
   else if (m === 'import') $('#fileIn').click();
   else if (m === 'shName') { if (!sh) return; const n = prompt('Ad', sh.name); if (n) { snap(); sh.name = n; commit(); } closeSheet(); }
-  else if (m === 'shDel') { if (sh && confirm(sh.name + ' silinsin mi?')) { snap(); deleteShape(sh); commit(); } closeSheet(); }
+  else if (m === 'shDel') { if (sh && confirm(sh.name + ' silinsin mi?')) { snap(); deleteShape(sh); S.sel = null; commit(); } closeSheet(); }
   else if (m === 'saveSet') {
-    SET.scaleDen = +$('#sScale').value; SET.defaultTurn = +$('#sTurn').value; SET.autoAdvance = $('#sAuto').checked; SET.autoDiag = $('#sDiag').checked; SET.demo = $('#sDemo').checked;
-    const off = parseNum($('#sOff').value); SET.offset = isFinite(off) ? off : 0; const g = parseNum($('#sGon').value); SET.gonyeTol = g > 0 ? g : 0.3;
+    SET.scaleDen = +$('#sScale').value; SET.defaultTurn = +$('#sTurn').value; SET.autoAdvance = $('#sAuto').checked; SET.autoDiag = $('#sDiag').checked; SET.demo = $('#sDemo').checked; SET.showLen = $('#sLen').checked; SET.circleDia = $('#sCirc').value === '1';
+    const num = (id, d, f) => { const v = parseNum($(id).value); return isFinite(v) && (f ? f(v) : true) ? v : d; };
+    SET.offset = num('#sOff', 0); SET.gonyeTol = num('#sGon', 0.3, v => v > 0); SET.orthoTol = num('#sOrtho', 35, v => v > 0 && v <= 45); SET.ignoreAfterSet = num('#sIgn', 3, v => v >= 0);
     P.naming.prefix = $('#nPre').value.trim(); const nn = parseInt($('#nNum').value, 10); if (nn > 0) P.naming.num = nn;
     S.pendingTurn = SET.defaultTurn; writeJSON(LS_SET, SET); closeSheet(); commit(); toast('Kaydedildi');
   }
 });
-function deleteShape(sh) {
-  const used = new Set(); P.shapes.forEach(s => { if (s !== sh) s.ring.forEach(id => used.add(id)); }); P.edges.forEach(e => { if (!sh.ring.includes(e.a) || !sh.ring.includes(e.b)) { used.add(e.a); used.add(e.b); } });
-  const del = new Set(sh.ring.filter(id => !used.has(id)));
-  P.edges = P.edges.filter(e => !(sh.ring.includes(e.a) && sh.ring.includes(e.b)) && !del.has(e.a) && !del.has(e.b));
-  P.cons = P.cons.filter(c => ![c.p, c.a, c.b, c.c, c.d].some(x => del.has(x)));
-  P.pts = P.pts.filter(p => !del.has(p.id)); P.shapes = P.shapes.filter(s => s !== sh); S.sel = null; if (S.active === sh.id) S.active = null;
-}
 $('#fileIn').addEventListener('change', async e => {
   const f = e.target.files[0]; if (!f) return;
-  try { const d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.pts)) throw new Error('Geçersiz dosya (v2 JSON bekleniyor)'); saveProject(); P = d; if (allProjects()[P.name] && !confirm('"' + P.name + '" var, üzerine yazılsın mı?')) P.name += ' (yüklendi)'; undoStack = []; redoStack = []; S.active = null; S.sel = null; commit(); fit(); closeSheet(); toast('Proje yüklendi'); }
-  catch (err) { alert('Dosya okunamadı: ' + err.message); } e.target.value = '';
+  try { const d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.pts)) throw new Error('Geçersiz dosya'); saveProject(); P = d; if (allProjects()[P.name] && !confirm('"' + P.name + '" var, üzerine yazılsın mı?')) P.name += ' (yüklendi)'; undoStack = []; redoStack = []; S.active = null; S.sel = null; commit(); fit(); closeSheet(); toast('Yüklendi'); }
+  catch (err) { alert('Okunamadı: ' + err.message); } e.target.value = '';
 });
 const safeName = s => s.replace(/[\\/:*?"<>|]+/g, '_');
 async function saveFile(name, data, mime) {
@@ -988,7 +935,7 @@ async function saveFile(name, data, mime) {
 }
 
 /* =================== DXF (R12, ANSI_1254) =================== */
-const CP1254 = { 'Ç': 0xC7, 'ç': 0xE7, 'Ğ': 0xD0, 'ğ': 0xF0, 'İ': 0xDD, 'ı': 0xFD, 'Ö': 0xD6, 'ö': 0xF6, 'Ş': 0xDE, 'ş': 0xFE, 'Ü': 0xDC, 'ü': 0xFC, '°': 0xB0, '²': 0xB2, '±': 0xB1, 'Â': 0xC2, 'â': 0xE2, 'Î': 0xCE, 'î': 0xEE, 'Û': 0xDB, 'û': 0xFB, '–': 0x96 };
+const CP1254 = { 'Ç': 0xC7, 'ç': 0xE7, 'Ğ': 0xD0, 'ğ': 0xF0, 'İ': 0xDD, 'ı': 0xFD, 'Ö': 0xD6, 'ö': 0xF6, 'Ş': 0xDE, 'ş': 0xFE, 'Ü': 0xDC, 'ü': 0xFC, '°': 0xB0, '²': 0xB2, '±': 0xB1, 'Â': 0xC2, 'â': 0xE2, 'Î': 0xCE, 'î': 0xEE, 'Û': 0xDB, 'û': 0xFB, '–': 0x96, 'Ø': 0xD8 };
 function toCp1254(str) { const out = new Uint8Array(str.length); for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); out[i] = c < 128 ? c : (CP1254[str[i]] || 0x3F); } return out; }
 function buildDXF(p, set) {
   const th = set.scaleDen * 0.0025; const L = [];
@@ -1018,6 +965,7 @@ function buildDXF(p, set) {
     text(m ? (e.kind === 'diag' ? 'CAPRAZ' : 'OLCU') : 'VARSAYIM', (m ? '' : '~') + (m ? e.len : l).toFixed(3), a.x + dx * f + nx, a.y + dy * f + ny, th, rot, true);
   });
   p.pts.forEach(pt => { g(0, 'POINT'); g(8, 'NOKTA'); g(10, n4(pt.x)); g(20, n4(pt.y)); g(30, '0.0'); text('NOKTA_ADI', pt.name, pt.x + th * 0.5, pt.y + th * 0.5, th * 0.8, 0, false); });
+  p.shapes.forEach(sh => { if (sh.kind !== 'circle') return; const c = ptById(sh.center); if (!c) return; g(0, 'CIRCLE'); g(8, sh.measured ? 'DETAY' : 'VARSAYIM'); g(10, n4(c.x)); g(20, n4(c.y)); g(30, '0.0'); g(40, n4(sh.r)); text(sh.measured ? 'OLCU' : 'VARSAYIM', (sh.measured ? '' : '~') + 'Ø' + (2 * sh.r).toFixed(3), c.x, c.y - sh.r - th * 1.2, th, 0, true); });
   p.shapes.forEach(sh => {
     if (sh.kind !== 'room' || sh.ring.length < 3) return; let cx = 0, cy = 0; sh.ring.forEach(id => { const q = ptById(id); cx += q.x; cy += q.y; }); cx /= sh.ring.length; cy /= sh.ring.length;
     text('YAZI', sh.name, cx, cy + th * 0.8, th * 1.4, 0, true); if (sh.closed) text('YAZI', 'A=' + Math.abs(polyArea(sh.ring)).toFixed(2) + ' m²', cx, cy - th * 1.2, th, 0, true);
@@ -1028,12 +976,13 @@ function buildDXF(p, set) {
   g(0, 'ENDSEC'); g(0, 'EOF'); return L.join('\r\n') + '\r\n';
 }
 
+
+
 /* =================== Başlat =================== */
 loadInitial();
-window.addEventListener('resize', resize);
 resize(); commit(); fit();
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { get P() { return P; }, set P(v) { P = v; }, S, get A() { return A; }, onMeasure, buildDXF: () => buildDXF(P, SET), parseBosch, setTool, handleTap, processStroke, w2s, ps, fit, commit, closeShape, activeShape, toCp1254 };
+window.RK = { get P() { return P; }, set P(v) { P = v; }, S, get A() { return A; }, onMeasure, buildDXF: () => buildDXF(P, SET), parseBosch, classifyBosch, onBleVal, setTab, handleTap, processStroke, w2s, ps, fit, commit, closeShape, activeShape, toCp1254, get view() { return view; } };
 </script>
 </body>
 </html>

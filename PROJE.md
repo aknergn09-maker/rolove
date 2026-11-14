@@ -190,6 +190,21 @@ Programda:
   - Seç: ad değiştirme, köşe varsayımı
 - Nokta adlandırma: ön ek + sıradaki numara (menüden). Her nokta elle yeniden adlandırılabilir.
 
+**v3 – Arayüz ve saha düzeltmeleri**
+- Sekmeler:
+  - Kroki: Serbest / Takip
+  - Ölç: ◀ ▶, elle giriş, son ölçüyü kullan, iki noktaya dokunarak çapraz
+  - Nokta No: tuş takımı, ABC ile harf, otomatik artış, aynı ad varsa yer değiştirme
+- Dokunma kayması düzeltildi: panel yüksekliği değişince tuval yeniden boyutlanıyor (ResizeObserver).
+- BLE filtresi: `C0 55 .. MOD` paketinde mod ≠ 06 ise ayar/mod değişikliği sayılıyor ve sonraki 3 sn'de gelen ölçü yok sayılıyor. Örnek: referans değiştirince cihaz `C0 55 10 02 01 ..` ve ardından son ölçüyü yeniden (`06`) gönderiyor.
+- Serbest çizim:
+  - Sürükle = el çizimi (90° sınırı 35°, ana yön 15° içindeyse eksenlere oturur, kısa parçalar birleşir)
+  - Basılı tut (420 ms) = yakalamalı nokta, büyüteçle çizgi başlatma
+  - Dokun = seç ya da zincire nokta ekle
+  - Bir köşeden başlayan çizim o köşeye bağlanır.
+- Daire algılama: yarıçap sapması < %13, sivri köşe yok, en/boy 0,7–1,43. Lazerle çap (ayardan yarıçap) ölçülür. DXF'te CIRCLE.
+- Daha sade etiketler. Düğmeye basılı tutunca ne işe yaradığı gösteriliyor.
+
 ## 9. Açık sorular
 
 - [ ] 3° TM dilimi
@@ -197,5 +212,5 @@ Programda:
 - [ ] Nokta kodlama listesi (B = bina, …)
 - [ ] Kapanma toleransı (öneri: 2 cm)
 - [ ] GitHub hesabı ve depo adı
-- [ ] GLM 50-27 CG'nin referans düzlemi seçenekleri (kılavuzdan) ve Bluetooth paketinde referansın görünüp görünmediği
+- [ ] Bosch paketindeki bayt 3 (mod: 06 = ölçüm, 02 = ayar?) ve bayt 4–5'in anlamı. Referans değişince ölçü yeniden gönderiliyor.
 - [ ] Köşe ucu adaptörü: tasarım ve uzunluk
