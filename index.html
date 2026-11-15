@@ -100,7 +100,7 @@ let SET = Object.assign({}, defSet, readJSON(LS_S, {}));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const newProject = name => ({ v: 8, name: name || ('Kroki ' + new Date().toLocaleDateString('tr-TR')), nodes: [], lines: [], rooms: [], walls: [], roomSeq: 0, created: Date.now() });
 let P = null;
-const S = { cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: true };
+const S = { cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
 let G = { faces: [], comps: [] };
 let undoSt = [], redoSt = [];
 let view = { s: 40, ox: 0, oy: 0 };
@@ -360,20 +360,20 @@ function realize(c) { // hedefi düğüme çevir (gerekirse çizgiyi böl)
 const CATS = [['ciz', 'Çiz'], ['duz', 'Düzenle'], ['ekle', 'Ekle']];
 const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['sil', '⌫', 'Sil']], ekle: [['oda', '▦', 'Oda']] };
 function setCat(c) { S.cat = c; if (!TOOLS[c].some(t => t[0] === S.tool)) setTool(TOOLS[c][0][0]); else render(); }
-function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.tool = t; S.kbuf = ''; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
+function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null;
 
 /* ---- Çizgi ---- */
 function chainAdd(c, kind) {
   snap(); const existed = ['end', 'near', 'mid', 'perp', 'int'].includes(c.type); const n = realize(c);
-  if (!S.chain) { S.chain = { first: n, last: n, n: 0, lines: [], firstLine: null, nodes: [n] }; S.kbuf = ''; commit(); return; }
+  if (!S.chain) { S.lastWall = null; S.lastWalls = null; S.chain = { first: n, last: n, n: 0, lines: [], firstLine: null, nodes: [n] }; S.kbuf = ''; commit(); return; }
   if (n === S.chain.last) { undoSt.pop(); return; }
   const l = addLine(S.chain.last, n, kind); if (!S.chain.firstLine) S.chain.firstLine = l.id; S.chain.lines.push(l.id); S.chain.n++; S.chain.last = n; (S.chain.nodes = S.chain.nodes || [S.chain.first]).push(n); S.kbuf = '';
   commit();
   if (n === S.chain.first && S.chain.n >= 2) { const rs = autoRooms(S.chain.lines); endChain(true); commit(); toast('Kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + r._f.net.toFixed(2) + ' m²').join(', ') : '')); return; }
   if (existed && degreeOf(n) >= 2 && S.chain.n >= 1) { const rs = autoRooms(S.chain.lines); if (rs.length) { endChain(false); commit(); toast(rs.map(r => r.name + ' oluştu · ' + r._f.net.toFixed(2) + ' m²').join(', ')); } }
 }
-function endChain(closed) { const c = S.chain; S.chain = null; if (c && S.tool === 'duvar' && c.n >= 1) { const ns2 = (c.nodes || []).slice(); if (closed && ns2.length > 1 && ns2[ns2.length - 1] === ns2[0]) ns2.pop(); const side = closed && ns2.length >= 3 ? SET.wallSide : SET.wallSide * chainOrient(ns2); P.walls.push({ id: uid('w'), nodes: ns2, closed: !!closed && ns2.length >= 3, t: SET.wallT, side }); } }
+function endChain(closed) { const c = S.chain; S.chain = null; if (c && S.tool === 'duvar' && c.n >= 1) { const ns2 = (c.nodes || []).slice(); if (closed && ns2.length > 1 && ns2[ns2.length - 1] === ns2[0]) ns2.pop(); const side = closed && ns2.length >= 3 ? SET.wallSide : SET.wallSide * chainOrient(ns2); const w = { id: uid('w'), nodes: ns2, closed: !!closed && ns2.length >= 3, t: SET.wallT, side }; P.walls.push(w); S.lastWall = w.id; } }
 function finishChain() { if (!S.chain) return; const c = S.chain; endChain(false); if (c.n === 0) { cleanup(); } commit(); }
 function chainBack() { if (!S.chain) return; snap(); const c = S.chain; if (!c.lines.length) { S.chain = null; commit(); return; } const lid = c.lines.pop(); const l = lineById(lid); const prev = l ? (l.a === c.last ? l.b : l.a) : c.first; if (l) deleteLine(l); c.last = prev; c.n--; if (c.nodes) c.nodes.pop(); if (!c.lines.length) c.firstLine = null; commit(); }
 function arrowAdd(k) { // k: 0 → 1 ↑ 2 ← 3 ↓ (eksen çerçevesinde)
@@ -399,7 +399,7 @@ function hitTest(X, Y) {
   let bn = null, dn = 16; P.nodes.forEach(n => { const [px, py] = w2s(n.x, n.y); const d = Math.hypot(px - X, py - Y); if (d < dn) { dn = d; bn = n; } });
   if (bn) return { node: bn.id };
   let bl = null, dl = 16; P.lines.forEach(l => { const d = segDist([X, Y], ns(l.a), ns(l.b)); if (d < dl) { dl = d; bl = l; } });
-  { const p = s2w(X, Y); for (const w of P.walls || []) { const g = wallGeom(w); if (g && g.quads.some(q => inPoly(p, q.poly)) && (!bl || dl > 5)) return { wall: w.id }; } }
+  { const p = s2w(X, Y); for (const w of P.walls || []) { const g = wallGeom(w); if (g && g.quads.some(q => inPoly(p, q.poly)) && (!bl || dl > 3)) return { wall: w.id }; } }
   if (bl) return { line: bl.id };
   const f = faceAt(s2w(X, Y)); const r = f && P.rooms.find(q => q._f === f); if (r) return { room: r.id };
   return null;
@@ -418,7 +418,7 @@ function delSel() {
 }
 function applyLen() {
   const L = kval(); const e = S.lenEdit; const l = e && lineById(e.id); if (!l || L == null) return; snap();
-  const fixId = e.fix === 'A' ? l.a : l.b, movId = e.fix === 'A' ? l.b : l.a; const F = nw(fixId), M = nw(movId); const u = V.unit(V.sub(M, F)); const n = nodeById(movId); n.x = F[0] + u[0] * L; n.y = F[1] + u[1] * L; l.kind = 'typed'; S.kbuf = ''; commit(); toast('Uzunluk ' + fmtM(L) + ' m');
+  const fixId = e.fix === 'A' ? l.a : l.b, movId = e.fix === 'A' ? l.b : l.a; const F = nw(fixId), M = nw(movId); const u = V.unit(V.sub(M, F)); const n = nodeById(movId); n.x = F[0] + u[0] * L; n.y = F[1] + u[1] * L; l.kind = 'typed'; S.kbuf = ''; S.lenEdit = null; S.np = false; commit(); toast('Uzunluk ' + fmtM(L) + ' m uygulandı');
 }
 function moveTap(c) {
   if (!S.move.base) { S.move.base = s2w(c.X, c.Y); render(); return; }
@@ -439,7 +439,7 @@ function odaTap(X, Y) { const p = s2w(X, Y); const f = faceAt(p); if (!f) return
 
 /* =================== Duvar (kalınlık) =================== */
 function chainOrient(ids) { const pts = ids.filter(id => nodeById(id)).map(nw); if (pts.length < 3) return 1; return polyArea(pts) < 0 ? 1 : -1; } // açık duvar: dışarısı solda mı
-function wallRow(t, act) { return `<div class="row"><span class="inf">Kalınlık</span>${[10, 15, 20, 25, 30].map(v => `<button data-a="${act}" data-v="${v / 100}" class="${Math.round(t * 100) === v ? 'on' : ''}">${v}</button>`).join('')}<button data-a="${act === 'wt' ? 'wside' : 'sside'}" title="Kalınlığı diğer tarafa al">⇄ Yön</button></div>`; }
+function wallRow(t, act) { return `<div class="row"><span class="inf">cm</span>${[10, 15, 20, 25, 30].map(v => `<button data-a="${act}" data-v="${v / 100}" class="${Math.round(t * 100) === v ? 'on' : ''}" style="padding:4px 0">${v}</button>`).join('')}<button data-a="${act === 'wt' ? 'wside' : 'sside'}" style="flex:1.4">⇄ Yön</button></div>`; }
 function lineInt(p1, u1, p2, u2) { const den = u1[0] * u2[1] - u1[1] * u2[0]; if (Math.abs(den) < 1e-6) return null; const t = ((p2[0] - p1[0]) * u2[1] - (p2[1] - p1[1]) * u2[0]) / den; return [p1[0] + t * u1[0], p1[1] + t * u1[1]]; }
 function wallGeom(w) {
   const ids = w.nodes.filter(id => nodeById(id)); const n = ids.length; if (n < 2) return null; const P0 = ids.map(nw); const closed = !!w.closed && n >= 3; const m = closed ? n : n - 1;
@@ -459,6 +459,26 @@ function drawWalls() {
   (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) drawWallGeom(g, S.sel && S.sel.wall === w.id, false); });
   if (S.tool === 'duvar' && S.chain && S.chain.nodes && S.chain.nodes.length >= 2) { const g = wallGeom({ nodes: S.chain.nodes, closed: false, t: SET.wallT, side: SET.wallSide * chainOrient(S.chain.nodes), preview: true }); if (g) drawWallGeom(g, false, true); }
 }
+function recentWalls() { if (S.chain) return []; const ids = (S.tool === 'serbest' && S.lastWalls) ? S.lastWalls : (S.lastWall ? [S.lastWall] : []); return (P.walls || []).filter(w => ids.includes(w.id)); }
+function wallOfLine(l) { return (P.walls || []).find(w => { const n = w.nodes.length; for (let i = 0; i < (w.closed ? n : n - 1); i++) { const x = w.nodes[i], y = w.nodes[(i + 1) % n]; if ((x === l.a && y === l.b) || (x === l.b && y === l.a)) return true; } return false; }); }
+function selWall() { if (!S.sel) return null; if (S.sel.wall) return P.walls.find(x => x.id === S.sel.wall); if (S.sel.lines && S.sel.lines.length === 1) { const l = lineById(S.sel.lines[0]); return l && wallOfLine(l); } return null; }
+function wallsFromLines(ids, extend) { // çizgilerden duvar(lar): zincirleri bul
+  ids = ids.filter(id => lineById(id)); if (!ids.length) return null;
+  const set = new Set(ids);
+  if (extend) { // tek çizgi: 2 bağlı düğümlerden geçerek zinciri büyüt
+    const grow = (from, prev) => { let cur = from, pl = prev; for (let g = 0; g < 500; g++) { const ls = P.lines.filter(l => l.a === cur || l.b === cur); if (ls.length !== 2) break; const nx = ls.find(l => l.id !== pl); if (!nx || set.has(nx.id)) break; set.add(nx.id); pl = nx.id; cur = nx.a === cur ? nx.b : nx.a; } };
+    const l0 = lineById(ids[0]); grow(l0.a, l0.id); grow(l0.b, l0.id);
+  }
+  const adj = new Map(); set.forEach(id => { const l = lineById(id); [l.a, l.b].forEach(n => { if (!adj.has(n)) adj.set(n, []); adj.get(n).push(l); }); });
+  const used = new Set(); const chains = [];
+  const walk = start => { const nodes = [start]; let cur = start; for (let g = 0; g < 2000; g++) { const nx = (adj.get(cur) || []).find(l => !used.has(l.id)); if (!nx) break; used.add(nx.id); cur = nx.a === cur ? nx.b : nx.a; nodes.push(cur); if (cur === start) break; } return nodes; };
+  [...adj.keys()].filter(n => adj.get(n).length !== 2).forEach(n => { while ((adj.get(n) || []).some(l => !used.has(l.id))) chains.push(walk(n)); });
+  [...adj.keys()].forEach(n => { while ((adj.get(n) || []).some(l => !used.has(l.id))) chains.push(walk(n)); });
+  snap(); const out = [];
+  chains.forEach(ns2 => { if (ns2.length < 2) return; let closed = false; if (ns2.length > 3 && ns2[ns2.length - 1] === ns2[0]) { ns2 = ns2.slice(0, -1); closed = true; } const side = closed ? SET.wallSide : SET.wallSide * chainOrient(ns2); const w = { id: uid('w'), nodes: ns2, closed, t: SET.wallT, side }; P.walls.push(w); out.push(w); });
+  if (!out.length) { undoSt.pop(); return null; } S.lastWall = out[out.length - 1].id; S.lastWalls = out.map(w => w.id); commit(); return out;
+}
+
 /* =================== Serbest çizim =================== */
 function drawStroke() { if (!stroke || stroke.length < 2) return; ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); stroke.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); }
 function rdp(pts, eps) { if (pts.length < 3) return pts.slice(); let dm = 0, ix = 0; const a = pts[0], b = pts[pts.length - 1]; for (let i = 1; i < pts.length - 1; i++) { const d = segDist(pts[i], a, b); if (d > dm) { dm = d; ix = i; } } if (dm > eps) { const l = rdp(pts.slice(0, ix + 1), eps), r = rdp(pts.slice(ix), eps); return l.slice(0, -1).concat(r); } return [a, b]; }
@@ -497,7 +517,7 @@ function processStroke(raw) {
   C = C.filter((q, i) => i === 0 || V.dist(q, C[i - 1]) > 1e-4);
   snap(); const ids = C.map((q, i) => { if (i === 0 && sC) return realize(sC); if (!closed && i === C.length - 1 && eC) return realize(eC); const ex = P.nodes.find(nd => Math.hypot(nd.x - q[0], nd.y - q[1]) < 0.002); return ex ? ex.id : addNode(q[0], q[1]); });
   const lids = []; const m2 = closed ? ids.length : ids.length - 1; for (let i = 0; i < m2; i++) { const l = addLine(ids[i], ids[(i + 1) % ids.length], 'sketch'); if (l) lids.push(l.id); }
-  commit(); const rs = autoRooms(lids); commit();
+  S.lastStroke = lids.slice(); S.lastWall = null; S.lastWalls = null; commit(); const rs = autoRooms(lids); commit();
   toast(lids.length + ' çizgi' + (closed ? ' · kapalı' : '') + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + r._f.net.toFixed(2) + ' m²').join(', ') : ''));
 }
 
@@ -579,28 +599,28 @@ function renderCmd() {
 }
 function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '6', 'C', '1', '2', '3', '00', '', '0', '', ''].map(k => k ? `<button data-k="${k}">${k}</button>` : '<span></span>').join('')}</div>`; }
 function renderSheet() {
-  let h = '';
+  let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
   if (S.tool === 'cizgi' || S.tool === 'duvar') {
     if (S.tool === 'duvar') h += wallRow(SET.wallT, 'wt');
-    h += `<div class="row"><span class="val ${S.kbuf ? 'act' : ''}">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span><button data-a="ar" data-v="2" ${S.chain ? '' : 'disabled'}>←</button><button data-a="ar" data-v="1" ${S.chain ? '' : 'disabled'}>↑</button><button data-a="ar" data-v="3" ${S.chain ? '' : 'disabled'}>↓</button><button data-a="ar" data-v="0" ${S.chain ? '' : 'disabled'}>→</button></div>`;
+    h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button><button data-a="ar" data-v="2" ${S.chain ? '' : 'disabled'}>←</button><button data-a="ar" data-v="1" ${S.chain ? '' : 'disabled'}>↑</button><button data-a="ar" data-v="3" ${S.chain ? '' : 'disabled'}>↓</button><button data-a="ar" data-v="0" ${S.chain ? '' : 'disabled'}>→</button></div>`;
     if (S.np) h += numpad();
-    h += `<div class="row"><button data-a="np">${S.np ? '▾ Tuşlar' : '▴ Tuşlar'}</button><button data-a="back" ${S.chain && S.chain.n ? '' : 'disabled'}>↶ Son</button><button data-a="close" ${S.chain && S.chain.n >= 2 ? '' : 'disabled'}>Kapat</button><button class="p" data-a="end" ${S.chain ? '' : 'disabled'}>Bitir</button></div>`;
+    h += `<div class="row"><button data-a="back" ${S.chain && S.chain.n ? '' : 'disabled'}>↶ Son</button><button data-a="close" ${S.chain && S.chain.n >= 2 ? '' : 'disabled'}>Kapat</button><button class="p" data-a="end" ${S.chain ? '' : 'disabled'}>Bitir</button></div>`;
   } else if (S.tool === 'dikdortgen') {
     const f = S.field || 'w';
     h += `<div class="row"><span class="inf">En</span><button class="val ${f === 'w' ? 'act' : ''}" data-a="fld" data-v="w">${S.rect.w || '—'} cm</button><span class="inf">Boy</span><button class="val ${f === 'h' ? 'act' : ''}" data-a="fld" data-v="h">${S.rect.h || '—'} cm</button></div>`;
     if (S.np) h += numpad();
-    h += `<div class="row"><button data-a="np">${S.np ? '▾ Tuşlar' : '▴ Tuşlar'}</button><button data-a="rclr">Ölçüleri temizle</button></div>`;
+    h += `<div class="row"><button data-a="np">${S.np ? '▾ Tuşları gizle' : '⌨ Tuşlar'}</button><button data-a="rclr">Ölçüleri temizle</button></div>`;
   } else if (S.tool === 'sec') {
     const sel = S.sel;
-    if (S.move) { h += `<div class="row"><span class="val ${S.kbuf ? 'act' : ''}">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span><span class="inf">mesafe yaz (isteğe bağlı)</span></div>` + (S.np ? numpad() : '') + `<div class="row"><button data-a="np">${S.np ? '▾ Tuşlar' : '▴ Tuşlar'}</button><button data-a="mvx">İptal</button></div>`; }
+    if (S.move) { h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button><span class="inf">mesafe yaz (isteğe bağlı)</span><button data-a="mvx">İptal</button></div>` + (S.np ? numpad() : ''); }
     else if (S.lenEdit) { const l = lineById(S.lenEdit.id); h += `<div class="row"><span class="inf">Şimdi ${fmtM(lineLen(l))} m</span><span class="val act">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span></div><div class="row"><button class="${S.lenEdit.fix === 'A' ? 'on' : ''}" data-a="fix" data-v="A">A sabit</button><button class="${S.lenEdit.fix === 'B' ? 'on' : ''}" data-a="fix" data-v="B">B sabit</button></div>` + numpad() + `<div class="row"><button data-a="lenx">İptal</button><button class="p" data-a="lenok" ${S.kbuf ? '' : 'disabled'}>✓ Uygula</button></div>`; }
     else if (!sel) h += `<div class="row"><span class="inf">Objeye dokun · boş yerde sürükle = kutu seçim</span></div>`;
     else if (sel.wall) { const w = P.walls.find(x => x.id === sel.wall); h += `<div class="row"><span class="inf"><b style="color:#fff">Duvar</b> · ${Math.round(w.t * 100)} cm</span></div>` + wallRow(w.t, 'swt') + `<div class="row"><button class="dng" data-a="del">Kalınlığı kaldır</button><button data-a="unsel">✕</button></div>`; }
-    else if (sel.room) { const r = roomById(sel.room); h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(r.name)}</b> · ${r._f ? r._f.net.toFixed(2) + ' m²' : 'açık'}</span></div><div class="row"><button data-a="rname">Adlandır</button><button class="dng" data-a="del">Oda adını sil</button><button data-a="unsel">✕</button></div>`; }
-    else if (sel.lines && sel.lines.length === 1 && !(sel.nodes || []).length) { const l = lineById(sel.lines[0]); const a = headDeg(nw(l.a), nw(l.b)); h += `<div class="row"><span class="inf">Çizgi · <b style="color:#fff">${fmtM(lineLen(l), 3)} m</b> · ${{ sketch: 'eskiz', typed: 'yazılan', laser: 'lazer', total: 'total' }[l.kind]} · ${(((a % 180) + 180) % 180).toFixed(1)}°</span></div><div class="row"><button data-a="len">Uzunluk</button><button data-a="mv">Taşı</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
+    else if (sel.room) { const r = roomById(sel.room); h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(r.name)}</b> · ${r._f ? r._f.net.toFixed(2) + ' m²' : 'açık'}</span></div><div class="row"><button data-a="rname">Adlandır</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Oda adını sil</button><button data-a="unsel">✕</button></div>`; }
+    else if (sel.lines && sel.lines.length === 1 && !(sel.nodes || []).length) { const l = lineById(sel.lines[0]); const a = headDeg(nw(l.a), nw(l.b)); h += `<div class="row"><span class="inf">Çizgi · <b style="color:#fff">${fmtM(lineLen(l), 3)} m</b> · ${{ sketch: 'eskiz', typed: 'yazılan', laser: 'lazer', total: 'total' }[l.kind]} · ${(((a % 180) + 180) % 180).toFixed(1)}°</span></div><div class="row"><button data-a="len">Uzunluk</button><button data-a="mv">Taşı</button>${wallOfLine(l) ? '' : '<button data-a="mkwall">▥ Duvar</button>'}<button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>` + (wallOfLine(l) ? wallRow(wallOfLine(l).t, 'swt') : ''); }
     else if (sel.nodes && sel.nodes.length === 1 && !(sel.lines || []).length) { const d = degreeOf(sel.nodes[0]); h += `<div class="row"><span class="inf">Köşe · ${d} çizgi bağlı</span></div><div class="row"><button data-a="cont">╱ Buradan devam</button><button data-a="mv">Taşı</button><button class="dng" data-a="del">${d === 2 ? 'Kırığı sil' : 'Sil'}</button><button data-a="unsel">✕</button></div>`; }
-    else { const n = (sel.lines || []).length; h += `<div class="row"><span class="inf">${n} çizgi${(sel.nodes || []).length ? ' + ' + sel.nodes.length + ' köşe' : ''} seçili</span></div><div class="row"><button data-a="mv">Taşı</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
-  } else if (S.tool === 'serbest') h += `<div class="row"><span class="inf">Parmakla çiz · bıraktığında düz çizgilere çevrilir · iki parmak = kaydır</span></div>`;
+    else { const n = (sel.lines || []).length; h += `<div class="row"><span class="inf">${n} çizgi${(sel.nodes || []).length ? ' + ' + sel.nodes.length + ' köşe' : ''} seçili</span></div><div class="row"><button data-a="mv">Taşı</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
+  } else if (S.tool === 'serbest') { const ok = S.lastStroke.some(id => lineById(id)); h += `<div class="row"><span class="inf">Parmakla çiz · iki parmak = kaydır</span></div>` + (ok ? wallRow(SET.wallT, 'wt') + `<div class="row"><button class="p" data-a="wstroke">▥ Son çizime duvar ekle</button></div>` : ''); }
   else if (S.tool === 'sil') h += `<div class="row"><span class="inf">Çizgi, köşe ya da oda adına dokun</span></div>`;
   else if (S.tool === 'oda') h += `<div class="row"><span class="inf">${P.rooms.length ? P.rooms.map(r => esc(r.name) + ' ' + (r._f ? r._f.net.toFixed(2) + ' m²' : 'açık')).join(' · ') : 'Henüz oda yok'}</span></div>`;
   $('#sheet').innerHTML = h ? `<div class="hd"><span></span></div>` + h : '';
@@ -617,11 +637,13 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'back') { chainBack(); return; }
   else if (a === 'close') { if (S.chain) chainAdd({ type: 'end', node: S.chain.first, X: 0, Y: 0 }, 'sketch'); return; }
   else if (a === 'end') { finishChain(); toast('Çizgi bitti'); return; }
-  else if (a === 'fld') S.field = b.dataset.v;
-  else if (a === 'wt') { SET.wallT = +b.dataset.v; writeJSON(LS_S, SET); }
-  else if (a === 'wside') { SET.wallSide = -SET.wallSide; writeJSON(LS_S, SET); }
-  else if (a === 'swt') { const w = P.walls.find(x => x.id === S.sel.wall); snap(); w.t = +b.dataset.v; SET.wallT = w.t; writeJSON(LS_S, SET); commit(); return; }
-  else if (a === 'sside') { const w = P.walls.find(x => x.id === S.sel.wall); snap(); w.side = -w.side; commit(); return; }
+  else if (a === 'fld') { S.field = b.dataset.v; S.np = true; }
+  else if (a === 'wt') { SET.wallT = +b.dataset.v; writeJSON(LS_S, SET); const ws = recentWalls(); if (ws.length) { snap(); ws.forEach(w => w.t = SET.wallT); commit(); toast('Son duvar ' + Math.round(SET.wallT * 100) + ' cm'); return; } }
+  else if (a === 'wstroke') { const ws = wallsFromLines(S.lastStroke.filter(id => lineById(id))); toast(ws ? 'Duvar eklendi · ' + Math.round(SET.wallT * 100) + ' cm · ⇄ için duvara dokun (Seç)' : 'Duvar eklenemedi'); return; }
+  else if (a === 'mkwall') { let ids = []; if (S.sel.room) { const r = roomById(S.sel.room); ids = r && r._f ? [...r._f.lids] : []; } else ids = (S.sel.lines || []).slice(); const one = !S.sel.room && ids.length === 1; const ws = wallsFromLines(ids, one); if (ws) { S.sel = { wall: ws[0].id }; render(); toast('Duvar eklendi · kalınlık ve ⇄ Yön aşağıda'); } else toast('Duvar eklenemedi'); return; }
+  else if (a === 'wside') { const ws = recentWalls(); if (ws.length) { snap(); ws.forEach(w => w.side = -w.side); commit(); toast('Son duvarın yönü değişti'); return; } SET.wallSide = -SET.wallSide; writeJSON(LS_S, SET); }
+  else if (a === 'swt') { const w = selWall(); if (!w) return; snap(); w.t = +b.dataset.v; SET.wallT = w.t; writeJSON(LS_S, SET); commit(); return; }
+  else if (a === 'sside') { const w = selWall(); if (!w) return; snap(); w.side = -w.side; commit(); return; }
   else if (a === 'rclr') { S.rect.w = ''; S.rect.h = ''; }
   else if (a === 'unsel') { S.sel = null; }
   else if (a === 'del') { delSel(); return; }
@@ -639,6 +661,13 @@ $('#fOrtO').onclick = () => { SET.ortho = SET.ortho === 'obj' ? 'off' : 'obj'; w
 $('#fOrtX').onclick = () => { SET.ortho = SET.ortho === 'xy' ? 'off' : 'xy'; writeJSON(LS_S, SET); toast(SET.ortho === 'xy' ? '90° kilit: ekran X-Y' : 'Kilit kapalı'); render(); };
 $('#fSnap').onclick = () => { SET.snap = !SET.snap; writeJSON(LS_S, SET); toast('Yakalama ' + (SET.snap ? 'açık' : 'kapalı')); render(); };
 $('#fFit').onclick = fit; $('#bUndo').onclick = undo; $('#bRedo').onclick = redo;
+
+/* ---- Dokunmatik düğmeler: tarayıcının yuttuğu "click" yerine doğrudan dokunmaya tepki ---- */
+let tapDown = null, lastTapT = 0;
+const bsig = b => (b.id || '') + '|' + JSON.stringify(b.dataset) + '|' + b.textContent;
+document.addEventListener('pointerdown', e => { const b = e.target.closest && e.target.closest('button'); tapDown = b ? { sig: bsig(b), x: e.clientX, y: e.clientY } : null; }, true);
+document.addEventListener('pointerup', e => { const b = e.target.closest && e.target.closest('button'); const d = tapDown; tapDown = null; if (!d || !b || b.disabled) return; if (bsig(b) !== d.sig || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 14) return; lastTapT = Date.now(); b.click(); }, true);
+document.addEventListener('click', e => { if (e.isTrusted && Date.now() - lastTapT < 700 && e.target.closest && e.target.closest('button')) { e.stopPropagation(); e.preventDefault(); } }, true);
 
 /* =================== Menü =================== */
 function openModal(h) { $('#mbox').innerHTML = h; $('#modal').classList.remove('hid'); }
