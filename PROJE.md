@@ -348,6 +348,13 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v9.5 Açıklık duvarı böler (kullanıcı isteği; kroki ve lazer için): kapı/pencere kenarları gerçek düğüm (köşe), çizgi köşe→kenar, açıklık, kenar→köşe parçalarına bölünür; ölçü zinciri bu parçaları yazar (etiket artık sadece "K Sağ/Sol", "P"). Açıklık = kendi iki düğümü arası (o.nb=1); eski kayıtlar açılınca dönüştürülür. Genişlik değişince bitiş kenarı duvar boyunca kayar, komşu parça kısalır. Açıklık silinince kenar düğümleri birleşir (kırık silinir). Kısa parça ölçü yazısı sınırı 42→26 px. t16.py 27 kontrol.
 
+- v9.6: çıkıntı/girintide silinen duvar parçasındaki kapı/pencere yeni yolun paralel yüzüne taşınır; sığmazsa kaldırılır ve uyarı. t17.py.
+- v10.0 4. AŞAMA (ana uygulamada): Ölç sekmesi → 📏 Lazer / Ölçü.
+  - Bosch GLM (50 C ailesi, 50-27 CG dahil varsayıldı) Web Bluetooth: servis 02a6c0d0-0451-4000-b000-fb3210111989, karakteristik 02a6c0d1-…; bağlanınca C0 55 02 01 00 1A yazılır; bildirim C0 55 10 06 … bayt 7–10 float32 LE metre. iPhone'da Bluefy gerekir. Gerçek cihazla DENENMEDİ (sahte cihazla test).
+  - Akış: çizgiye dokun → lazer ölçümü gelir (ya da önce ölç sonra dokun) ya da cm yaz (virgüllü, mm) → Uygula. Çizgi kind 'laser', l.m (m).
+  - Dengeleme (adjustGeometry): ağırlıklı en küçük kareler (CGLS, Gauss-Newton). Her çizgi yönü güçlü (300) korunur; lazer boyu 3000, yazılan 30, eskiz boyu ortak ölçek k ile 1. Sonuç: ilk ölçümde her şey aynı oranla ölçeklenir, sonrakiler yalnızca gerekeni değiştirir, açılar korunur. Çelişkili ölçüde (>2 mm kalıntı) uyarı.
+  - Lazer etiketleri 3 hane; çizgi sonradan bozulursa kırmızı "≠ gerçek"; "Yeniden hesapla". Ölçülü çizgi bölünürse (kapı) parça ölçüleri oranla dağıtılır, toplam korunur. t18.py 17 kontrol.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
