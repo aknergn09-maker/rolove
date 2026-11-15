@@ -161,7 +161,7 @@ function fixSel() {
   if (S.sel && S.sel.type === 'fillet' && !(P.fillets || {})[S.sel.id]) S.sel = null;
   if (S.circC && !ptById(S.circC)) S.circC = null;
 }
-function commit() { ensureCad(); solve(); A = analyze(); saveProject(); render(); }
+function commit() { ensureCad(); const _pre = new Map(P.pts.map(p => [p.id, [p.x, p.y]])); solve(); stabilize(_pre); (P.offsets || []).forEach(o => offBuild(o, true)); A = analyze(); (P.offsets || []).forEach(o => Object.values(o.map || {}).forEach(id => A.unfixed.delete(id))); saveProject(); render(); }
 
 /* =================== Dengeleme (en küçük kareler) =================== */
 const F = {
@@ -173,8 +173,9 @@ const F = {
 function buildObs(weak) {
   const O = []; const KS = weak ? shapeScales() : null;
   P.edges.forEach(e => {
+    if (e.gen && offById(e.gen)) return;
     if (e.len != null) O.push({ ids: [e.a, e.b], f: F.dist, v: e.len, s: SET.sigD, k: 'd', e });
-    else if (weak && !e.gen) O.push({ ids: [e.a, e.b], f: F.dist, v: estScaled(e, KS), s: e.typed ? 0.01 : SIG_EST, k: 'est', e });
+    else if (weak && !e.gen) O.push({ ids: [e.a, e.b], f: F.dist, v: estScaled(e, KS), s: e.typed ? 0.01 : Math.max(SIG_EST, 0.3 * estScaled(e, KS)), k: 'est', e });
   });
   if (weak) P.shapes.forEach(sh => {
     const n = sh.ring.length; if (n < 3) return;
@@ -187,6 +188,7 @@ function buildObs(weak) {
     });
   });
   P.cons.forEach(c => {
+    if (c.off && offById(c.off)) return; // ofset noktaları türetilir, çözüme girmez
     if (c.type === 'online') O.push({ ids: [c.p, c.a, c.b], f: F.online, v: 0, s: SIG_ON, k: 'on' });
     else if (c.type === 'offd') { const of = offById(c.off); const d = of ? of.d : c.d0; const mm = of ? of.m : c.m0; if (d != null) O.push({ ids: [c.p, c.a, c.b], f: F.online, v: c.sg * d, s: mm ? SET.sigD : 0.01, k: 'on' }); }
     else if (c.type === 'radius') { if (c.off) { const of = offById(c.off); const base = P.cons.find(x => x.type === 'radius' && !x.off && x.p === c.p && ((x.a === c.ba && x.b === c.bb) || (x.a === c.bb && x.b === c.ba))); if (of && base) c.r = Math.max(0.01, base.r + c.sgn * of.d); } if (weak || c.m) { const sg = c.m ? SET.sigD : 0.05; O.push({ ids: [c.p, c.a], f: F.dist, v: c.r, s: sg, k: c.m ? 'r' : 'est' }); O.push({ ids: [c.p, c.b], f: F.dist, v: c.r, s: sg, k: c.m ? 'r' : 'est' }); } }
@@ -195,7 +197,7 @@ function buildObs(weak) {
   });
   return O.filter(o => o.ids.every(id => ptById(id)));
 }
-function shapeScales() { const k = new Map(); P.shapes.forEach(sh => { if (sh.ring.length < 2) return; const r = []; shapeEdges(sh).forEach(e => { const b = e.est0 || e.est; if (e.len != null && b > 0.05 && e.kind !== 'diag' && !e.typed) r.push(e.len / b); }); if (r.length) { r.sort((a, b) => a - b); k.set(sh.id, r[Math.floor((r.length - 1) / 2)]); } }); return k; }
+function shapeScales() { const k = new Map(); P.shapes.forEach(sh => { if (sh.ring.length < 2) return; const r = []; { let tl = 0, al = 0; shapeEdges(sh).forEach(e => { if (OPEN(e.kind)) return; const l = e.est0 || e.est || 0; al += l; if (e.typed) tl += l; }); if (al > 0 && tl / al >= 0.5) return; } shapeEdges(sh).forEach(e => { const b = e.est0 || e.est; if (e.len != null && b > 0.05 && e.kind !== 'diag' && !e.typed) r.push(e.len / b); }); if (r.length) { r.sort((a, b) => a - b); k.set(sh.id, r[Math.floor((r.length - 1) / 2)]); } }); return k; }
 function estScaled(e, KS) { const b = e.est0 || e.est; if (!KS || OPEN(e.kind) || e.typed) return b; const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); const k = sh && KS.get(sh.id); return k ? b * Math.max(0.2, Math.min(5, k)) : b; }
 function obsGrad(o, X, idx) {
   const cols = []; o.ids.forEach(id => { const j = idx.get(id); cols.push(2 * j, 2 * j + 1); });
@@ -869,7 +871,7 @@ function splitEdgeAt(e, x, y) {
   const id = addPt(x, y); const a = e.a, b = e.b; const L0 = e.len; const kind = e.kind;
   P.edges = P.edges.filter(q => q !== e);
   const e1 = addEdge(a, id, kind), e2 = addEdge(id, b, kind);
-  if (L0 != null) { const t = addEdge(a, b, 'diag', L0); t.hidden = true; }
+  if (L0 != null) { const t = addEdge(a, b, 'diag', L0); t.hidden = true; } else if (e.typed) { const t = addEdge(a, b, 'diag'); t.hidden = true; t.typed = e.typed; t.est = t.est0 = e.est0 || e.est; }
   P.shapes.forEach(sh => { const i = ringPos(sh, a, b); if (i < 0) return; sh.ring.splice(i + 1, 0, id); sh.turn.splice(i + 1, 0, 0); });
   P.offsets.forEach(o => { if (o.e === e.id) o.e = e1.id; });
   P.doors.forEach(d => { if (d.e === e.id) d.e = e1.id; }); (P.windows || []).forEach(d => { if (d.e === e.id) d.e = e1.id; });
@@ -1681,7 +1683,7 @@ function findLine(a, b) { return P.edges.find(e => e.kind !== 'arc' && !e.hidden
 function insertPtInEdge(a, b, pid) {
   const e = findLine(a, b) || findEdge(a, b); if (!e) return false; if (e.gen) offDetach(e.gen);
   const L0 = e.len, kind = e.kind; P.edges = P.edges.filter(q => q !== e);
-  addEdge(a, pid, kind); addEdge(pid, b, kind); if (L0 != null) { const t = addEdge(a, b, 'diag', L0); t.hidden = true; }
+  addEdge(a, pid, kind); addEdge(pid, b, kind); if (L0 != null) { const t = addEdge(a, b, 'diag', L0); t.hidden = true; } else if (e.typed) { const t = addEdge(a, b, 'diag'); t.hidden = true; t.typed = e.typed; t.est = t.est0 = e.est0 || e.est; }
   P.shapes.forEach(s2 => { const i = ringPos(s2, a, b); if (i < 0) return; s2.ring.splice(i + 1, 0, pid); s2.turn.splice(i + 1, 0, 0); });
   return true;
 }
@@ -1977,6 +1979,7 @@ function firstScale(e, v) {
   const comp = compPts([e.a, e.b]);
   if (P.edges.some(q => q !== e && q.len != null && !OPEN(q.kind) && !q.typed && comp.has(q.a) && comp.has(q.b))) return null;
   if (e.typed) { if (Math.abs(k - 1) < 0.15) return null; const tb = e.typed; P.edges.forEach(q => { if (q.typed === tb) delete q.typed; }); }
+  else { let tl = 0, al = 0; P.edges.forEach(q => { if (q.hidden || q.gen || q.kind === 'diag' || OPEN(q.kind) || !comp.has(q.a)) return; const l = plen(q.a, q.b); al += l; if (q.typed) tl += l; }); if (al > 0 && tl / al >= 0.5) return null; }
   if (Math.abs(k - 1) < 0.02 || k < 0.01 || k > 100) return null;
   const rooms = P.shapes.filter(s => s.closed && s.kind === 'room' && s.ring.length > 2 && s.ring.every(id => comp.has(id)));
   if (rooms.length) { const polys = rooms.map(ringPoly); P.shapes.forEach(s => { const ids = s.kind === 'circle' ? [s.center] : s.ring; if (!ids.length || ids.some(id => comp.has(id) || !ptById(id))) return; if (ids.every(id => polys.some(pl => pointInPolyW(pw(id), pl)))) { const g = compPts(ids); if (!P.edges.some(q => q.len != null && g.has(q.a))) g.forEach(x => comp.add(x)); } }); }
@@ -2163,7 +2166,7 @@ function osnap(X, Y, fromId, opts) {
   for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) { const q = segInter(ss[i][0], ss[i][1], ss[j][0], ss[j][1]); if (!q) continue; if (new Set([es[i].a, es[i].b, es[j].a, es[j].b]).size < 4) continue; consider({ type: 'int', e1: es[i].id, e2: es[j].id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 1); }
   es.forEach((e, i) => { const [a, b] = ss[i]; const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; consider({ type: 'mid', e: e.id, X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); });
   if (fromId && ptById(fromId)) { const f = ps(fromId); es.forEach((e, i) => { if (e.a === fromId || e.b === fromId) return; const { t, q } = footOn(f, ...ss[i]); if (t < 0 || t > 1) return; consider({ type: 'perp', e: e.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 2); }); }
-  es.forEach((e, i) => { const { t, q } = footOn([X, Y], ...ss[i]); if (t < 0 || t > 1) return; consider({ type: 'near', e: e.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 3.5); });
+  es.forEach((e, i) => { const { t, q } = footOn([X, Y], ...ss[i]); if (t < 0 || t > 1) return; consider({ type: 'near', e: e.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), e.gen ? 5.5 : 3.5); });
   const W0 = s2w(X, Y);
   circleList().forEach((ci, k) => {
     es.forEach(e => { lineCirc(pw(e.a), pw(e.b), ci.C, ci.r).forEach(h => { if (h.t < 1e-4 || h.t > 1 - 1e-4 || !onCirc(ci, h.pt)) return; const [hx, hy] = w2sv(h.pt); consider({ type: 'cint', e: e.id, ci, X: hx, Y: hy }, Math.hypot(hx - X, hy - Y), 1); }); });
@@ -2253,12 +2256,36 @@ function noHold(X, Y) {
   const p = ptById(id); p.name = name; p.tot = true; S.sel = { type: 'pt', id }; S.noBuf = incName(name); tick(); commit(); toast(name + ' noktası kondu (total noktası)');
 }
 
+/* ---- çözüm sonrası çizimi döndürmeden/kaydırmadan yerinde tut (serbest dönme/öteleme giderilir) ---- */
+function stabilize(pre) {
+  const par = new Map(); const find = x => { while (par.get(x) !== x) { par.set(x, par.get(par.get(x))); x = par.get(x); } return x; };
+  P.pts.forEach(p => par.set(p.id, p.id)); const uni = (a, b) => { if (!par.has(a) || !par.has(b)) return; const ra = find(a), rb = find(b); if (ra !== rb) par.set(ra, rb); };
+  P.edges.forEach(e => { uni(e.a, e.b); if (e.c) uni(e.a, e.c); });
+  P.cons.forEach(c => { const ids = [c.p, c.a, c.b, c.c, c.d].filter(Boolean); ids.slice(1).forEach(x => uni(ids[0], x)); });
+  P.shapes.forEach(s => { for (let i = 1; i < s.ring.length; i++) uni(s.ring[i - 1], s.ring[i]); });
+  (P.offsets || []).forEach(o => Object.keys(o.map || {}).forEach(k => uni(k, o.map[k])));
+  const der = new Set(); (P.offsets || []).forEach(o => Object.values(o.map || {}).forEach(id => der.add(id)));
+  const groups = new Map(); P.pts.forEach(p => { if (!pre.has(p.id) || der.has(p.id)) return; const r = find(p.id); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(p); });
+  groups.forEach(g => {
+    if (g.length < 2) { const p = g[0]; const q = pre.get(p.id); p.x = q[0]; p.y = q[1]; return; }
+    const inG = new Set(g.map(p => p.id)); const ch = [];
+    P.edges.forEach(e => { if (e.hidden || e.kind === 'diag' || e.kind === 'arc' || !inG.has(e.a) || !inG.has(e.b)) return; const qa = pre.get(e.a), qb = pre.get(e.b); const pa = ptById(e.a), pb = ptById(e.b); const L = Math.hypot(qb[0] - qa[0], qb[1] - qa[1]); if (L < 1e-6) return; const d = wrapPI(Math.atan2(pb.y - pa.y, pb.x - pa.x) - Math.atan2(qb[1] - qa[1], qb[0] - qa[0])); ch.push([d, L]); });
+    let th = 0; if (ch.length) { ch.sort((a, b) => a[0] - b[0]); const tot = ch.reduce((s, c) => s + c[1], 0); let acc = 0; for (const c of ch) { acc += c[1]; if (acc >= tot / 2) { th = c[0]; break; } } }
+    let c1 = [0, 0]; g.forEach(p => { c1[0] += p.x; c1[1] += p.y; }); c1 = V.mul(c1, 1 / g.length);
+    const cs = Math.cos(-th), sn = Math.sin(-th);
+    g.forEach(p => { const x = p.x - c1[0], y = p.y - c1[1]; p.x = c1[0] + x * cs - y * sn; p.y = c1[1] + x * sn + y * cs; });
+    const med = a => { const b = a.slice().sort((x, y) => x - y); const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+    const dx = med(g.map(p => p.x - pre.get(p.id)[0])), dy = med(g.map(p => p.y - pre.get(p.id)[1]));
+    g.forEach(p => { p.x -= dx; p.y -= dy; });
+  });
+}
+
 
 /* =================== Başlat =================== */
 v7Init(); loadInitial();
 resize(); commit(); fit();
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { get P() { return P; }, set P(v) { P = v; }, S, get A() { return A; }, onMeasure, buildDXF: () => buildDXF(P, SET), parseBosch, classifyBosch, onBleVal, setTab, handleTap, processStroke, w2s, ps, fit, commit, closeShape, activeShape, toCp1254, get view() { return view; }, filletReal, joinOpenPlines, tryProtrusion, compPts, guideSnap, cadCand, snapCandidate, chainBase, setTool, offCancel, hitTest, applyKbuf, nextUnmeasured, setEdgeLen, classifyBosch, winById, analyze, get placing() { return placing; }, render, get SET() { return SET; }, undo, trimAt, noHold, osnap, realizeSnap };
+window.RK = { get P() { return P; }, set P(v) { P = v; }, S, get A() { return A; }, onMeasure, buildDXF: () => buildDXF(P, SET), parseBosch, classifyBosch, onBleVal, setTab, handleTap, processStroke, w2s, ps, fit, commit, closeShape, activeShape, toCp1254, get view() { return view; }, filletReal, joinOpenPlines, tryProtrusion, compPts, guideSnap, cadCand, snapCandidate, chainBase, setTool, offCancel, hitTest, applyKbuf, nextUnmeasured, setEdgeLen, classifyBosch, winById, analyze, get placing() { return placing; }, render, get SET() { return SET; }, undo, trimAt, noHold, osnap, realizeSnap, solve, stabilize };
 </script>
 </body>
 </html>
