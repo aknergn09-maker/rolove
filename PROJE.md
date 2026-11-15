@@ -346,6 +346,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v9.4 Kapı eli: Sağ/Sol (tanım: kapının açıldığı taraftan, kanadı kendine çektiğin taraftan duvara bakınca menteşe sağdaysa Sağ — DIN ile aynı). Etiket "K90 Sağ". Panelde El [Sağ][Sol] + "⇅ <oda> tarafına açılır" (el korunur, menteşe uyarlanır). Kapı ekledikten sonra Kapı/Pen. aracında da son kapının satırı görünür. HATA düzeltildi: düğmeye dokunuşun ikinci tıklaması panel yeniden çizilince başlığa düşüp tuş takımını açıyordu (tıklama koruması artık her hedefte).
 
+- v9.5 Açıklık duvarı böler (kullanıcı isteği; kroki ve lazer için): kapı/pencere kenarları gerçek düğüm (köşe), çizgi köşe→kenar, açıklık, kenar→köşe parçalarına bölünür; ölçü zinciri bu parçaları yazar (etiket artık sadece "K Sağ/Sol", "P"). Açıklık = kendi iki düğümü arası (o.nb=1); eski kayıtlar açılınca dönüştürülür. Genişlik değişince bitiş kenarı duvar boyunca kayar, komşu parça kısalır. Açıklık silinince kenar düğümleri birleşir (kırık silinir). Kısa parça ölçü yazısı sınırı 42→26 px. t16.py 27 kontrol.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?

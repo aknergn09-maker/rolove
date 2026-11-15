@@ -60,6 +60,10 @@ async def main():
         w2 = await ev("(()=>{const o=RK.P.openings[2]; const g=RK.opGeom(o); return [+o.w.toFixed(3), +g.P0[1].toFixed(3)]})()")
         ck('başlangıç + bitişe dokunarak pencere (1.00 m)', w2==[1.0,0.5], w2)
         ck('oda alanı değişmedi', await ev(AREA)==a0, [a0, await ev(AREA)])
+        bl = await ev("RK.P.lines.filter(l=>{const a=RK.P.nodes.find(n=>n.id===l.a), b=RK.P.nodes.find(n=>n.id===l.b); return Math.abs(a.y)<1e-9 && Math.abs(b.y)<1e-9}).map(l=>+RK.lineLen(l).toFixed(3)).sort()")
+        ck('alt duvar kapı kenarlarından bölündü: 0.50 + 0.90 + 2.60 (kenarlar köşe)', bl==[0.5,0.9,2.6], bl)
+        rl = await ev("RK.P.lines.filter(l=>{const a=RK.P.nodes.find(n=>n.id===l.a), b=RK.P.nodes.find(n=>n.id===l.b); return Math.abs(a.x-4)<1e-9 && Math.abs(b.x-4)<1e-9}).map(l=>+RK.lineLen(l).toFixed(3)).sort()")
+        ck('sağ duvar pencereden bölündü: 0.50 + 1.00 + 1.50', rl==[0.5,1.0,1.5], rl)
         await pg.screenshot(path='o10.png')
         # Seç: kapıya dokun → menteşe, açılış, genişlik
         await btn('#cats button[data-cat=duz]'); await btn('#tools button[data-tool=sec]'); q = await W(0.95,0.1); await ctap(*q); await pg.screenshot(path='o11.png')
@@ -76,8 +80,10 @@ async def main():
         await ev("(()=>{const o=RK.P.openings[0]; o.hinge=1; o.sw=1; RK.commit()})()")
         ck('  düğmelere bastıktan sonra tuş takımı kendiliğinden açılmadı', not await ev('RK.S.np')); await btn('#sheet button[data-a=np]'); [await btn(f'#sheet button[data-k="{c}"]') for c in "100"]; await btn('#sheet button[data-a=opw]')
         ck('  genişlik 100 cm oldu', abs(await ev("RK.P.openings[0].w")-1.0)<1e-9)
+        bl = await ev("RK.P.lines.filter(l=>{const a=RK.P.nodes.find(n=>n.id===l.a), b=RK.P.nodes.find(n=>n.id===l.b); return Math.abs(a.y)<1e-9 && Math.abs(b.y)<1e-9}).map(l=>+RK.lineLen(l).toFixed(3)).sort()")
+        ck('  komşu parça kısaldı: 0.50 + 1.00 + 2.50', bl==[0.5,1.0,2.5], bl)
         # Ötele: alt duvar 30 cm aşağı → kapı izler
-        await btn('#sheet button[data-a=unsel]'); await ev("RK.offsetWall('A0', -1, 0.3)")
+        await btn('#sheet button[data-a=unsel]'); await ev("RK.offsetWall(RK.P.lines.find(l=>{const a=RK.P.nodes.find(n=>n.id===l.a), b=RK.P.nodes.find(n=>n.id===l.b); return Math.abs(a.y)<1e-9 && Math.abs(b.y)<1e-9 && Math.max(a.x,b.x)>2}).id, -1, 0.3)")
         y = await ev("+RK.opGeom(RK.P.openings[0]).P0[1].toFixed(3)"); ck('alt duvar ötelenince üstündeki kapı da kaydı (y=-0.3)', y==-0.3, y)
         yw = await ev("(()=>{const g=RK.opGeom(RK.P.openings[2]); return [+g.P0[1].toFixed(3), +g.P1[1].toFixed(3)]})()"); ck('uzayan sağ duvardaki pencere yerinde kaldı (y 0.5–1.5)', sorted(yw)==[0.5,1.5], yw)
         # duvar çizerken: 300 → , sonraki parça kapı 90 → , 200 →
@@ -90,10 +96,15 @@ async def main():
         # Sil aracı: kapıya dokun
         n0 = await ev("RK.P.openings.length"); await btn('#cats button[data-cat=duz]'); await btn('#tools button[data-tool=sil]'); q = await W(3.45,5.1); await ctap(*q)
         ck('Sil: kapı silindi', await ev("RK.P.openings.length")==n0-1)
+        ck('  kapı silinince kenar noktaları birleşti (duvar tek parça 5.90)', 5.9 in await ev("RK.P.lines.map(l=>+RK.lineLen(l).toFixed(3))"), await ev("RK.P.lines.map(l=>+RK.lineLen(l).toFixed(3))"))
         # ev sahibi çizgi silinince açıklık gider
-        await ev("(()=>{RK.P.lines=RK.P.lines.filter(l=>l.id!=='A1'); RK.commit();})()")
+        await ev("(()=>{RK.P.lines=RK.P.lines.filter(l=>{const a=RK.P.nodes.find(n=>n.id===l.a), b=RK.P.nodes.find(n=>n.id===l.b); return !(Math.abs(a.x-4)<1e-9 && Math.abs(b.x-4)<1e-9)}); RK.commit();})()")
         ck('duvar çizgisi silinince üstündeki pencere de gitti', await ev("RK.P.openings.filter(o=>{const g=RK.opGeom(o); return g && g.P0[0]>3.9}).length")==0)
         await ev("RK.undo()"); ck('geri al: pencere geri', await ev("RK.P.openings.filter(o=>{const g=RK.opGeom(o); return g && g.P0[0]>3.9}).length")==1)
+        # eski biçimde kayıtlı açıklık (köşeden mesafe s ile) açılınca duvarı böler
+        await ev("""(()=>{const P=RK.P; P.nodes.push({id:'e0',x:0,y:-6},{id:'e1',x:5,y:-6}); P.lines.push({id:'E0',a:'e0',b:'e1',kind:'sketch'}); P.openings.push({id:'oe',type:'pencere',ha:'e0',hb:'e1',s:1,w:1.2,hinge:0,sw:-1}); RK.commit();})()""")
+        el = await ev("RK.P.lines.filter(l=>{const a=RK.P.nodes.find(n=>n.id===l.a); return Math.abs(a.y+6)<1e-9}).map(l=>+RK.lineLen(l).toFixed(3)).sort()")
+        ck('eski kayıt: açılınca duvar bölündü 1.00 + 1.20 + 2.80', el==[1.0,1.2,2.8], el)
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)
 asyncio.run(main())
