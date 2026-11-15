@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v9.3';
+const VER = 'v9.4';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -775,7 +775,7 @@ function drawOpenings() {
       const H = w2s(...Hw), E = w2s(...Ew), J = w2s(...Jw); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(...H); ctx.lineTo(...E); ctx.stroke();
       const r = Math.hypot(E[0] - H[0], E[1] - H[1]); let a1 = Math.atan2(E[1] - H[1], E[0] - H[0]), a2 = Math.atan2(J[1] - H[1], J[0] - H[0]); let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d <= -Math.PI) d += 2 * Math.PI;
       ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(H[0], H[1], r, a1, a1 + d, d < 0); ctx.stroke(); ctx.setLineDash([]); }
-    if (SET.showLen && Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) > 26) { const m = w2s(...V.add(g.mid, off(o.type === 'kapi' ? (o.sw > 0 ? -0.2 : g.t + 0.2) : -0.2))); ctx.font = '600 10px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = lc; ctx.fillText((o.type === 'kapi' ? 'K' : 'P') + Math.round(o.w * 100), m[0], m[1]); } });
+    if (SET.showLen && Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) > 26) { const m = w2s(...V.add(g.mid, off(o.type === 'kapi' ? (o.sw > 0 ? -0.2 : g.t + 0.2) : -0.2))); ctx.font = '600 10px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = lc; ctx.fillText((o.type === 'kapi' ? 'K' : 'P') + Math.round(o.w * 100) + (o.type === 'kapi' ? (doorHand(o, g) === 'sag' ? ' Sağ' : ' Sol') : ''), m[0], m[1]); } });
 }
 function opLineAt(X, Y) { // dokunulan yerdeki gerçek çizgi (duvar yüzüne dokunulduysa referans çizgisi) ve üstündeki nokta
   let best = null, bd = 26; P.lines.forEach(l => { if (l.step) return; const a = ns(l.a), b = ns(l.b); const d = segDist([X, Y], a, b); if (d < bd) { bd = d; best = { l, q: footT(s2w(X, Y), nw(l.a), nw(l.b)).q }; } });
@@ -798,6 +798,11 @@ function opPlace(s0, w) {
   const k = S.op; const L = V.dist(nw(k.ha), nw(k.hb)); if (s0 < -1e-6 || s0 + w > L + 1e-6) return toast('Açıklık duvarın dışına taşıyor (' + fmtM(L) + ' m)');
   snap(); const o = addOpening(k.type, k.ha, k.hb, Math.max(0, s0), w); S.op = { type: k.type, step: 1, f: 'w', d: '', w: k.w }; S.np = false; S.sel = { open: o.id }; commit(); toast((k.type === 'kapi' ? 'Kapı' : 'Pencere') + ' ' + Math.round(w * 100) + ' cm eklendi');
 }
+// el yönü: kapının açıldığı taraftan (kanadı kendine çektiğin taraftan) duvara bakınca menteşe sağdaysa "Sağ"
+function doorHand(o, g) { g = g || opGeom(o); if (!g) return null; const H = o.hinge ? g.P1 : g.P0; const d = V.mul(g.nB, -o.sw); const right = [d[1], -d[0]]; const v = V.sub(H, g.mid); return v[0] * right[0] + v[1] * right[1] > 0 ? 'sag' : 'sol'; }
+function setHand(o, h) { if (doorHand(o) !== h) o.hinge = o.hinge ? 0 : 1; }
+function doorSide(o, g) { g = g || opGeom(o); if (!g) return ''; const p = V.add(g.mid, V.mul(g.nB, g.o0 + (o.sw > 0 ? g.t : 0) + o.sw * 0.4)); const f = faceAt(p); const r = f && P.rooms.find(q => q._f === f); return r ? r.name : 'dışarı'; }
+function doorRow(o) { const h = doorHand(o); return `<div class="row"><span class="inf">El</span><button class="${h === 'sag' ? 'on' : ''}" data-a="ophand" data-v="sag">Sağ</button><button class="${h === 'sol' ? 'on' : ''}" data-a="ophand" data-v="sol">Sol</button><button data-a="opsw">⇅ ${esc(doorSide(o))} tarafına açılır</button></div>`; }
 function opById(id) { return (P.openings || []).find(o => o.id === id); }
 
 /* =================== Serbest çizim =================== */
@@ -932,6 +937,7 @@ function renderSheet() {
   let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
   if (S.tool === 'aciklik') { const k = S.op;
     h += `<div class="row"><button class="${k.type === 'kapi' ? 'on' : ''}" data-a="opt" data-v="kapi">🚪 Kapı</button><button class="${k.type === 'pencere' ? 'on' : ''}" data-a="opt" data-v="pencere">▤ Pencere</button></div>`;
+    const lo = S.sel && S.sel.open && opById(S.sel.open); if (k.step === 1 && lo && lo.type === 'kapi') h += `<div class="row"><span class="inf"><b style="color:#fff">Son kapı K${Math.round(lo.w * 100)}</b></span></div>` + doorRow(lo);
     if (k.step === 1) h += `<div class="row"><span class="inf">1) Duvar çizgisine dokun: açıklığın başladığı yer (köşeye yakınsa köşeye oturur)</span></div>`;
     else { h += `<div class="row"><span class="inf">Köşeden</span><button class="val ${k.f === 'd' ? 'act' : ''}" data-a="opf" data-v="d">${k.d || '0'} cm</button><span class="inf">Genişlik</span><button class="val ${k.f === 'w' ? 'act' : ''}" data-a="opf" data-v="w">${k.w || '—'} cm</button></div>`;
       h += `<div class="row"><span class="inf">2) Yön okuna bas ya da bitiş noktasına dokun</span>${opDirs().map(([sg, ar]) => `<button class="p" data-a="opar" data-v="${sg}">${ar}</button>`).join('')}<button data-a="opx">İptal</button></div>` + (S.np ? numpad() : ''); }
@@ -960,7 +966,7 @@ function renderSheet() {
     else if (S.lenEdit) { const l = lineById(S.lenEdit.id); h += `<div class="row"><span class="inf">Şimdi ${fmtM(lineLen(l))} m</span><span class="val act">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span></div><div class="row"><button class="${S.lenEdit.fix === 'A' ? 'on' : ''}" data-a="fix" data-v="A">A sabit</button><button class="${S.lenEdit.fix === 'B' ? 'on' : ''}" data-a="fix" data-v="B">B sabit</button></div>` + numpad() + `<div class="row"><button data-a="lenx">İptal</button><button class="p" data-a="lenok" ${S.kbuf ? '' : 'disabled'}>✓ Uygula</button></div>`; }
     else if (!sel) h += `<div class="row"><span class="inf">Objeye dokun · boş yerde sürükle = kutu seçim</span></div>`;
     else if (sel.wall) { const w = P.walls.find(x => x.id === sel.wall); const f = sel.face && wallFaces().find(x => x.w.id === sel.face.w && x.i === sel.face.i && x.k === sel.face.k); h += `<div class="row"><span class="inf"><b style="color:#fff">${f ? (f.k.startsWith('cap') ? 'Duvar ucu' : 'Duvar dış yüzü') + ' · ' + fmtM(V.dist(f.a, f.b), 3) + ' m' : 'Duvar'}</b> · ${Math.round(w.t * 100)} cm</span></div>` + wallRow(w.t, 'swt') + `<div class="row">${closeTarget() ? '<button class="p" data-a="closeSel">Kapat</button>' : ''}<button data-a="wsplit">Çizgilere çevir</button><button class="dng" data-a="del">Kalınlığı kaldır</button><button data-a="unsel">✕</button></div>`; }
-    else if (sel.open && opById(sel.open)) { const o = opById(sel.open); h += `<div class="row"><span class="inf"><b style="color:#fff">${o.type === 'kapi' ? 'Kapı' : 'Pencere'}</b> · ${Math.round(o.w * 100)} cm</span><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button><button data-a="opw" ${S.kbuf ? '' : 'disabled'}>Genişlik uygula</button></div>` + (S.np ? numpad() : '') + `<div class="row">${o.type === 'kapi' ? '<button data-a="ophg">⇄ Menteşe</button><button data-a="opsw">⇅ Açılış yönü</button>' : ''}<button data-a="opty">${o.type === 'kapi' ? '→ Pencere yap' : '→ Kapı yap'}</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
+    else if (sel.open && opById(sel.open)) { const o = opById(sel.open); h += `<div class="row"><span class="inf"><b style="color:#fff">${o.type === 'kapi' ? 'Kapı' : 'Pencere'}</b> · ${Math.round(o.w * 100)} cm</span><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button><button data-a="opw" ${S.kbuf ? '' : 'disabled'}>Genişlik uygula</button></div>` + (S.np ? numpad() : '') + (o.type === 'kapi' ? doorRow(o) : '') + `<div class="row"><button data-a="opty">${o.type === 'kapi' ? '→ Pencere yap' : '→ Kapı yap'}</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
     else if (sel.room) { const r = roomById(sel.room); h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(r.name)}</b> · ${r._f ? (r._f ? rA(r).toFixed(2) : '?') + ' m²' : 'açık'}</span></div><div class="row"><button data-a="rname">Adlandır</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Oda adını sil</button><button data-a="unsel">✕</button></div>`; }
     else if (sel.lines && sel.lines.length === 1 && !(sel.nodes || []).length) { const l = lineById(sel.lines[0]); const a = headDeg(nw(l.a), nw(l.b)); h += `<div class="row"><span class="inf">Çizgi · <b style="color:#fff">${fmtM(lineLen(l), 3)} m</b> · ${{ sketch: 'eskiz', typed: 'yazılan', laser: 'lazer', total: 'total' }[l.kind]} · ${(((a % 180) + 180) % 180).toFixed(1)}°</span></div><div class="row">${closeTarget() ? '<button class="p" data-a="closeSel">Kapat</button>' : ''}<button data-a="len">Uzunluk</button><button data-a="ofs">Ötele</button><button data-a="mv">Taşı</button>${wallOfLine(l) ? '' : '<button data-a="mkwall">▥ Duvar</button>'}<button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>` + (wallOfLine(l) ? wallRow(wallOfLine(l).t, 'swt') : ''); }
     else if (sel.nodes && sel.nodes.length === 1 && !(sel.lines || []).length) { const d = degreeOf(sel.nodes[0]); h += `<div class="row"><span class="inf">Köşe · ${d} çizgi bağlı</span></div><div class="row"><button data-a="cont">╱ Buradan devam</button><button data-a="mv">Taşı</button><button class="dng" data-a="del">${d === 2 ? 'Kırığı sil' : 'Sil'}</button><button data-a="unsel">✕</button></div>`; }
@@ -990,8 +996,8 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'opar') { opArrow(+b.dataset.v); return; }
   else if (a === 'opx') { S.op = { type: S.op.type, step: 1, f: 'w', d: '', w: S.op.w }; S.np = false; }
   else if (a === 'pend') { S.pendOpen = S.pendOpen === b.dataset.v ? null : b.dataset.v; if (S.pendOpen) toast((S.pendOpen === 'kapi' ? 'Kapı' : 'Pencere') + ': genişliği yaz + ok ya da bitiş noktasına dokun'); }
-  else if (a === 'ophg' || a === 'opsw' || a === 'opty' || a === 'opw') { const o = opById(S.sel && S.sel.open); if (!o) return; snap();
-    if (a === 'ophg') o.hinge = o.hinge ? 0 : 1; else if (a === 'opsw') o.sw = -o.sw; else if (a === 'opty') o.type = o.type === 'kapi' ? 'pencere' : 'kapi';
+  else if (a === 'ophg' || a === 'opsw' || a === 'opty' || a === 'opw' || a === 'ophand') { const o = opById(S.sel && S.sel.open); if (!o) return; snap();
+    if (a === 'ophg') o.hinge = o.hinge ? 0 : 1; else if (a === 'ophand') setHand(o, b.dataset.v); else if (a === 'opsw') { const h0 = doorHand(o); o.sw = -o.sw; setHand(o, h0); } else if (a === 'opty') o.type = o.type === 'kapi' ? 'pencere' : 'kapi';
     else { const W0 = kval(); const L = V.dist(nw(o.ha), nw(o.hb)); if (!(W0 > 0) || o.s + W0 > L + 1e-6) { undoSt.pop(); return toast('Genişlik duvara sığmıyor'); } o.w = W0; S.kbuf = ''; S.np = false; }
     commit(); return; }
   else if (a === 'mkm') { if (S.chain) finishChain(); S.mk = { mode: b.dataset.v, l1: null, l2: null, pts: [] }; S.sel = null; S.kbuf = ''; }
@@ -1049,7 +1055,7 @@ let tapDown = null, lastTapT = 0;
 const bsig = b => (b.id || '') + '|' + JSON.stringify(b.dataset) + '|' + b.textContent;
 document.addEventListener('pointerdown', e => { const b = e.target.closest && e.target.closest('button'); tapDown = b ? { sig: bsig(b), x: e.clientX, y: e.clientY } : null; }, true);
 document.addEventListener('pointerup', e => { const b = e.target.closest && e.target.closest('button'); const d = tapDown; tapDown = null; if (!d || !b || b.disabled) return; if (bsig(b) !== d.sig || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 14) return; lastTapT = Date.now(); b.click(); }, true);
-document.addEventListener('click', e => { if (e.isTrusted && Date.now() - lastTapT < 700 && e.target.closest && e.target.closest('button')) { e.stopPropagation(); e.preventDefault(); } }, true);
+document.addEventListener('click', e => { if (e.isTrusted && Date.now() - lastTapT < 700) { e.stopPropagation(); e.preventDefault(); } }, true); // düğmeye dokunuşun ikinci tıklaması (panel yeniden çizilince başka yere düşse bile) yutulur
 
 /* =================== Menü =================== */
 let modalAt = 0;
@@ -1082,7 +1088,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>
