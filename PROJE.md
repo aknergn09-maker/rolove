@@ -320,6 +320,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v8.12: Çıkıntı "Çizerek" yeniden çizgi gibi (nokta koy / cm + ok); her noktada aynı düz duvara dönüp dönmediği kontrol edilir. Çıkıntı aracında duvar yüzü/aks yakalanmaz (son nokta oda çizgisine oturur — önceki hata: dışa çıkıntıda dönüş duvarın dış yüzüne yakalanıyordu). Tam çizgi üstüne düşen her nokta çizgiyi böler. Serbest çizimde aynı duvarda başlayıp biten çizim için soru: "Çıkıntı mı? Evet / Hayır" (Hayır = yeni oda/çizgi, bitişik oda çizimi bozulmasın). Karşı yüz aranırken yeni çizilen çizgiler hariç.
 
+- v8.13: Köşe dönen çıkıntı/girinti: bir cepheden başlayıp başka cepheye (aynı odanın sınırı) dönünce aradaki köşe parçası (en kısa sınır yolu, ≤6 parça) silinir. İki odayı ayıran bölme silinmez; kapanan alanda başka çizgi varsa yapılmaz. Serbest çizimde soru "Çıkıntı / girinti mi?" (Evet'te serbest çizimin açtığı oda silinir). t10.py 8 kontrol.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
