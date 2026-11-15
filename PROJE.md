@@ -253,7 +253,8 @@ Programda:
 - Grup taşıma: Düzenle'de kenar/daire/oda içinden sürükleme, birbirine bağlı (kenar, kısıt, ofset) her şeyi birlikte taşır.
 - v7c — Daire/yay kesme: Trim'de daireye dokununca dokunulan parça silinir, kalan yay kenar olur (uçlar çizgi üstünde gerçek nokta). Yay da çizgilerle kırpılır; çizgi de daire/yayla kırpılır. Yakalama: çizgi–daire kesişimi (`cint`), daire üstü (`cnear`); nokta `oncirc` kısıtıyla (merkeze uzaklık = yarıçap) daire/yay üstünde kalır. Yaylar artık düz çizgi gibi yakalanmıyor.
 - v7c — Nokta adı: yeni noktalara otomatik ad verilmez (ayar: "Yeni noktalara otomatik ad ver"). Nokta No ile ad verilen nokta total noktası sayılır (`p.tot`, mor üçgen): analizde koordinatı bilinir; iki total noktası arasındaki kenar ölçü istemez, çapraz önerisine girmez. Boş tamponla noktaya dokunmak adı ve total işaretini siler. Nokta No hat, yay ve daire üstüne basılı tutarak da konur.
-- Test: work/t8.py 40 kontrol, t9 (eksen kilidi) 6, t10 (daire kesme/total) 13 (16 maddenin hepsi) + t4–t7 güncellendi.
+- v7d — Tuşla yazılan uzunluk (`e.typed` = zincir kimliği) gerçek kabul edilir: σ 1 cm, oda ölçek oranıyla çarpılmaz, ilk ölçü ölçeklemesinde korunur. Yazılı kenar ölçülünce %15'ten fazla farklıysa o zincirin yazılı değerleri eskiz sayılır ve ölçeklenir. Düzenle'de sürüklenen kenarın yazılı işareti kalkar. (Odaya eklenen 180x30 iç çıkıntının oda ölçeğiyle bozulması düzeltildi.)
+- Test: work/t8.py 40 kontrol, t9 (eksen kilidi) 6, t10 (daire kesme/total) 13, t11 (çıkıntı geometrisi) 4 (16 maddenin hepsi) + t4–t7 güncellendi.
 
 ## 9. Açık sorular
 

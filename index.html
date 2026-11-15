@@ -174,7 +174,7 @@ function buildObs(weak) {
   const O = []; const KS = weak ? shapeScales() : null;
   P.edges.forEach(e => {
     if (e.len != null) O.push({ ids: [e.a, e.b], f: F.dist, v: e.len, s: SET.sigD, k: 'd', e });
-    else if (weak && !e.gen) O.push({ ids: [e.a, e.b], f: F.dist, v: estScaled(e, KS), s: SIG_EST, k: 'est', e });
+    else if (weak && !e.gen) O.push({ ids: [e.a, e.b], f: F.dist, v: estScaled(e, KS), s: e.typed ? 0.01 : SIG_EST, k: 'est', e });
   });
   if (weak) P.shapes.forEach(sh => {
     const n = sh.ring.length; if (n < 3) return;
@@ -195,8 +195,8 @@ function buildObs(weak) {
   });
   return O.filter(o => o.ids.every(id => ptById(id)));
 }
-function shapeScales() { const k = new Map(); P.shapes.forEach(sh => { if (sh.ring.length < 2) return; const r = []; shapeEdges(sh).forEach(e => { const b = e.est0 || e.est; if (e.len != null && b > 0.05 && e.kind !== 'diag') r.push(e.len / b); }); if (r.length) { r.sort((a, b) => a - b); k.set(sh.id, r[Math.floor((r.length - 1) / 2)]); } }); return k; }
-function estScaled(e, KS) { const b = e.est0 || e.est; if (!KS || OPEN(e.kind)) return b; const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); const k = sh && KS.get(sh.id); return k ? b * Math.max(0.2, Math.min(5, k)) : b; }
+function shapeScales() { const k = new Map(); P.shapes.forEach(sh => { if (sh.ring.length < 2) return; const r = []; shapeEdges(sh).forEach(e => { const b = e.est0 || e.est; if (e.len != null && b > 0.05 && e.kind !== 'diag' && !e.typed) r.push(e.len / b); }); if (r.length) { r.sort((a, b) => a - b); k.set(sh.id, r[Math.floor((r.length - 1) / 2)]); } }); return k; }
+function estScaled(e, KS) { const b = e.est0 || e.est; if (!KS || OPEN(e.kind) || e.typed) return b; const sh = P.shapes.find(s => s.ring.includes(e.a) && s.ring.includes(e.b)); const k = sh && KS.get(sh.id); return k ? b * Math.max(0.2, Math.min(5, k)) : b; }
 function obsGrad(o, X, idx) {
   const cols = []; o.ids.forEach(id => { const j = idx.get(id); cols.push(2 * j, 2 * j + 1); });
   const c = cols.map(k => X[k]); const f0 = o.f(c);
@@ -1104,7 +1104,7 @@ function extendAt(X, Y) {
 /* ---- Düzenle: noktayı sürükle / kenara kırık ekle ---- */
 function editFinishMove(pid) {
   const p = ptById(pid); if (!p) return;
-  P.edges.forEach(e => { if ((e.a === pid || e.b === pid) && e.len == null) e.est = e.est0 = plen(e.a, e.b); });
+  P.edges.forEach(e => { if ((e.a === pid || e.b === pid) && e.len == null) { e.est = e.est0 = plen(e.a, e.b); delete e.typed; } });
   P.shapes.forEach(sh => { const n = sh.ring.length; const i = sh.ring.indexOf(pid); if (i < 0) return; [i - 1, i, i + 1].forEach(k => { const j = ((k % n) + n) % n; if (!sh.closed && (j === 0 || j === n - 1)) return; if (n < 3) return; const pr = sh.ring[(j - 1 + n) % n], nx = sh.ring[(j + 1) % n]; sh.turn[j] = snapTurn(norm180(headOf(sh.ring[j], nx) - headOf(pr, sh.ring[j]))); }); });
   commit();
 }
@@ -1742,7 +1742,7 @@ function chainPlace(c) {
       S.chain = null; commit(); toast('Pline\'lar birleştirildi'); return; }
   }
   snap(); const id = realizeSnap(c); if (plen(id, last) < 0.01) { P.pts = P.pts.filter(p => p.id !== id); P.cons = P.cons.filter(q => q.p !== id); undoStack.pop(); return; }
-  addEdge(last, id, 'wall'); const n = sh.ring.length;
+  const ne = addEdge(last, id, 'wall'); if (c.type === 'len' && c.L) { ne.typed = sh.id; ne.est = ne.est0 = c.L; } const n = sh.ring.length;
   if (n >= 2) sh.turn[n - 1] = snapTurn(norm180(headOf(last, id) - headOf(sh.ring[n - 2], last)));
   if (c.type === 'perp') { const te = edgeById(c.e); P.cons.push({ id: uid('c'), type: 'perp', a: last, b: id, c: te.a, d: te.b }); }
   sh.ring.push(id); sh.turn.push(null); S.cdir = null; commit();
@@ -1973,15 +1973,17 @@ function compPts(seed) {
 }
 function firstScale(e, v) {
   if (OPEN(e.kind) || e.kind === 'arc' || e.gen) return null;
-  const cur = plen(e.a, e.b); if (!(cur > 1e-6)) return null; const k = v / cur; if (Math.abs(k - 1) < 0.02 || k < 0.01 || k > 100) return null;
+  const cur = plen(e.a, e.b); if (!(cur > 1e-6)) return null; const k = v / cur;
   const comp = compPts([e.a, e.b]);
-  if (P.edges.some(q => q !== e && q.len != null && !OPEN(q.kind) && comp.has(q.a) && comp.has(q.b))) return null;
+  if (P.edges.some(q => q !== e && q.len != null && !OPEN(q.kind) && !q.typed && comp.has(q.a) && comp.has(q.b))) return null;
+  if (e.typed) { if (Math.abs(k - 1) < 0.15) return null; const tb = e.typed; P.edges.forEach(q => { if (q.typed === tb) delete q.typed; }); }
+  if (Math.abs(k - 1) < 0.02 || k < 0.01 || k > 100) return null;
   const rooms = P.shapes.filter(s => s.closed && s.kind === 'room' && s.ring.length > 2 && s.ring.every(id => comp.has(id)));
   if (rooms.length) { const polys = rooms.map(ringPoly); P.shapes.forEach(s => { const ids = s.kind === 'circle' ? [s.center] : s.ring; if (!ids.length || ids.some(id => comp.has(id) || !ptById(id))) return; if (ids.every(id => polys.some(pl => pointInPolyW(pw(id), pl)))) { const g = compPts(ids); if (!P.edges.some(q => q.len != null && g.has(q.a))) g.forEach(x => comp.add(x)); } }); }
   const O = pw(e.a); const [X0, Y0] = w2s(O[0], O[1]);
   comp.forEach(id => { const p = ptById(id); p.x = O[0] + (p.x - O[0]) * k; p.y = O[1] + (p.y - O[1]) * k; });
   P.edges.forEach(q => { if (!comp.has(q.a) || q.len != null || !OPEN(q.kind)) return; const w = q.est0 || q.est; const A = pw(q.a), B = pw(q.b); const u = V.unit(V.sub(B, A)); const pb = ptById(q.b); pb.x = A[0] + u[0] * w; pb.y = A[1] + u[1] * w; });
-  P.edges.forEach(q => { if (!comp.has(q.a) || q.len != null || OPEN(q.kind)) return; q.est = q.est0 = plen(q.a, q.b); });
+  P.edges.forEach(q => { if (!comp.has(q.a) || q.len != null || OPEN(q.kind) || q.typed) return; q.est = q.est0 = plen(q.a, q.b); });
   P.shapes.forEach(s => { if (s.kind === 'circle' && comp.has(s.center) && !s.measured && !s.typed) s.r *= k; });
   P.cons.forEach(c => { if (c.type === 'radius' && comp.has(c.p) && !c.m && !c.typed && !c.off) c.r *= k; });
   (P.offsets || []).forEach(o => { const src = offSrc(o); if (src && src.ring.some(id => comp.has(id))) offBuild(o, true); });
