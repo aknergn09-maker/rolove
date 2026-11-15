@@ -276,7 +276,7 @@ function drawMarker(c) {
   else if (c.type === 'perp') { ctx.moveTo(X - 8, Y + 6); ctx.lineTo(X + 8, Y + 6); ctx.moveTo(X - 2, Y + 6); ctx.lineTo(X - 2, Y - 8); }
   else if (c.type === 'near') { ctx.moveTo(X - 7, Y - 7); ctx.lineTo(X + 7, Y - 7); ctx.lineTo(X - 7, Y + 7); ctx.lineTo(X + 7, Y + 7); ctx.closePath(); }
   else { ctx.moveTo(X - 6, Y); ctx.lineTo(X + 6, Y); ctx.moveTo(X, Y - 6); ctx.lineTo(X, Y + 6); }
-  ctx.stroke(); const nm = SNAP_NAMES[c.type]; if (nm) { ctx.font = '700 11px sans-serif'; ctx.fillStyle = COL.snap; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(nm, X + 10, Y + 8); }
+  ctx.stroke(); const nm = c.lab || SNAP_NAMES[c.type]; if (nm) { ctx.font = '700 11px sans-serif'; ctx.fillStyle = COL.snap; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(nm, X + 10, Y + 8); }
 }
 function drawAim() {
   if (!aim) return; const c = aim.c;
@@ -318,6 +318,9 @@ function osnap(X, Y, fromId, excl) {
   ls.forEach((l, i) => { const m = V.mul(V.add(ss[i][0], ss[i][1]), 0.5); cons({ type: 'mid', l: l.id, X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); });
   if (fromId && nodeById(fromId)) { const f = ns(fromId); ls.forEach((l, i) => { if (l.a === fromId || l.b === fromId) return; const { t, q } = footT(f, ss[i][0], ss[i][1]); if (t < 0.001 || t > 0.999) return; cons({ type: 'perp', l: l.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 2); }); }
   ls.forEach((l, i) => { const { t, q } = footT([X, Y], ss[i][0], ss[i][1]); if (t < 0.001 || t > 0.999) return; cons({ type: 'near', l: l.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 3.5); });
+  const segsW = wallFaces().map(f => ({ a: f.a, b: f.b, lab: null })).concat(wallAxes().map(x => ({ a: x.a, b: x.b, lab: 'Aks' })));
+  wallAxes().forEach(x => { const a = w2s(...x.a), b = w2s(...x.b); [a, b].forEach(p => cons({ type: 'end', wf: true, lab: 'Aks ucu', X: p[0], Y: p[1] }, Math.hypot(p[0] - X, p[1] - Y), 0.4)); const m = V.mul(V.add(a, b), 0.5); cons({ type: 'mid', wf: true, lab: 'Aks orta', X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); const { t, q } = footT([X, Y], a, b); if (t > 0.001 && t < 0.999) cons({ type: 'near', wf: true, lab: 'Aks', X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 3.2); });
+  if (fromId && nodeById(fromId)) { const f0 = ns(fromId); segsW.forEach(sg => { const a = w2s(...sg.a), b = w2s(...sg.b); const { t, q } = footT(f0, a, b); if (t < 0.001 || t > 0.999) return; cons({ type: 'perp', wf: true, lab: sg.lab ? 'Aksa dik' : 'Dik', X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 1.8); }); }
   wallFaces().forEach(f => { const a = w2s(...f.a), b = w2s(...f.b); [a, b].forEach(p => cons({ type: 'end', wf: true, X: p[0], Y: p[1] }, Math.hypot(p[0] - X, p[1] - Y), 0.3)); const m = V.mul(V.add(a, b), 0.5); cons({ type: 'mid', wf: true, X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); const { t, q } = footT([X, Y], a, b); if (t > 0.001 && t < 0.999) cons({ type: 'near', wf: true, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 3.6); });
   return best;
 }
@@ -344,6 +347,9 @@ function candidate(X, Y, opts) { // ekrandaki dokunuştan hedef nokta
     if (L != null) return { type: 'len', X: X2, Y: Y2, L };
     if (typ !== 'free') { // eksen üzerinde hizalama
       let best = null; P.nodes.forEach(n => { if (n.id === fromId || (opts.excl || []).includes(n.id)) return; const s = (n.x - fromW[0]) * u[0] + (n.y - fromW[1]) * u[1]; if (s <= 0.005) return; const px = Math.abs(s - d) * view.s; const pri = S.chain && n.id === S.chain.first ? -4 : 0; if (px < 12 && (!best || px + pri < best.sc)) best = { sc: px + pri, s, id: n.id }; });
+      let hit = null; if (SET.snap) { const tryHit = (A, B, info) => { const x = segX(fromW, V.add(fromW, u), A, B); if (!x || x.t <= 0.005 || x.u < -1e-6 || x.u > 1 + 1e-6) return; const px = Math.abs(x.t - d) * view.s; if (px < 14 && (!hit || px < hit.px)) { const cosA = Math.abs(V.unit(V.sub(B, A))[0] * u[0] + V.unit(V.sub(B, A))[1] * u[1]); hit = Object.assign({ px, s: x.t, perpish: cosA < 0.02 }, info); } };
+        P.lines.forEach(l => { if (l.a === fromId || l.b === fromId) return; tryHit(nw(l.a), nw(l.b), { l: l.id }); }); wallFaces().forEach(f => tryHit(f.a, f.b, { wf: true })); wallAxes().forEach(x => tryHit(x.a, x.b, { wf: true, ax: true })); }
+      if (hit && (!best || hit.px <= best.sc)) { const P4 = V.add(fromW, V.mul(u, hit.s)); const [X4, Y4] = w2s(...P4); const c = { type: hit.l ? 'perp' : 'near', X: X4, Y: Y4, lab: hit.ax ? (hit.perpish ? 'Aksa dik' : 'Aks') : (hit.perpish ? 'Dik' : 'Kesişim') }; if (hit.l) c.l = hit.l; else { c.wf = true; c.type = 'perp'; } return c; }
       if (best && SET.snap) { const P3 = V.add(fromW, V.mul(u, best.s)); const [X3, Y3] = w2s(...P3); return { type: 'track', X: X3, Y: Y3, gu: [best.id] }; }
       return { type: typ, X: X2, Y: Y2 };
     }
@@ -465,6 +471,7 @@ function drawWalls() {
 }
 function recentWalls() { if (S.chain) return []; const ids = (S.tool === 'serbest' && S.lastWalls) ? S.lastWalls : (S.lastWall ? [S.lastWall] : []); return (P.walls || []).filter(w => ids.includes(w.id)); }
 function wallFaces() { const out = []; (P.walls || []).forEach(w => { const g = wallGeom(w); if (!g) return; g.quads.forEach(q => { out.push({ w, i: q.i, k: 'out', a: q.poly[3], b: q.poly[2] }); if (q.capA) out.push({ w, i: q.i, k: 'capA', a: q.poly[0], b: q.poly[3] }); if (q.capB) out.push({ w, i: q.i, k: 'capB', a: q.poly[1], b: q.poly[2] }); }); }); return out; }
+function wallAxes() { const out = []; (P.walls || []).forEach(w => { const g = wallGeom(w); if (!g) return; g.quads.forEach(q => out.push({ w, i: q.i, a: V.mul(V.add(q.poly[0], q.poly[3]), 0.5), b: V.mul(V.add(q.poly[1], q.poly[2]), 0.5) })); }); return out; }
 function wallOfLine(l) { return (P.walls || []).find(w => { const n = w.nodes.length; for (let i = 0; i < (w.closed ? n : n - 1); i++) { const x = w.nodes[i], y = w.nodes[(i + 1) % n]; if ((x === l.a && y === l.b) || (x === l.b && y === l.a)) return true; } return false; }); }
 function selWall() { if (!S.sel) return null; if (S.sel.wall) return P.walls.find(x => x.id === S.sel.wall); if (S.sel.lines && S.sel.lines.length === 1) { const l = lineById(S.sel.lines[0]); return l && wallOfLine(l); } return null; }
 function wallsFromLines(ids, extend) { // çizgilerden duvar(lar): zincirleri bul
