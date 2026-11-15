@@ -282,6 +282,7 @@ function drawAim() {
   if (!aim) return; const c = aim.c;
   // kılavuz çizgileri
   (c.gu || []).forEach(id => { const n = nodeById(id); if (!n) return; const [X, Y] = w2s(n.x, n.y); ctx.strokeStyle = 'rgba(34,197,94,.7)'; ctx.lineWidth = 1; ctx.setLineDash([2, 4]); const dx = c.X - X, dy = c.Y - Y, l = Math.hypot(dx, dy) || 1; ctx.beginPath(); ctx.moveTo(X - dx / l * 2000, Y - dy / l * 2000); ctx.lineTo(X + dx / l * 2000, Y + dy / l * 2000); ctx.stroke(); ctx.setLineDash([]); ctx.strokeStyle = COL.guide; ctx.beginPath(); ctx.moveTo(X - 4, Y - 4); ctx.lineTo(X + 4, Y + 4); ctx.moveTo(X + 4, Y - 4); ctx.lineTo(X - 4, Y + 4); ctx.stroke(); });
+  (c.from || []).forEach(F => { ctx.strokeStyle = 'rgba(34,197,94,.8)'; ctx.lineWidth = 1; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(...F); ctx.lineTo(c.X, c.Y); ctx.stroke(); ctx.setLineDash([]); });
   // lastik bant
   const from = aimFrom(); const fromW = from ? (from.w || nw(from.id)) : null;
   if (S.tool === 'dikdortgen' && S.rect.c1) { const q = rectCorners(S.rect.c1, s2w(c.X, c.Y)); ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.beginPath(); q.forEach((p, i) => { const [X, Y] = w2s(...p); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); const e = rectDims(S.rect.c1, s2w(c.X, c.Y)); label(fmtM(e[0]) + ' × ' + fmtM(e[1]), c.X, c.Y - 22, 0, '#f9a8d4', 12); }
@@ -314,15 +315,24 @@ function osnap(X, Y, fromId, excl) {
   const ex = new Set(excl || []);
   P.nodes.forEach(n => { if (ex.has(n.id)) return; const [px, py] = w2s(n.x, n.y); cons({ type: 'end', node: n.id, X: px, Y: py }, Math.hypot(px - X, py - Y), 0); });
   const ls = P.lines.filter(l => !ex.has(l.a) && !ex.has(l.b)); const ss = ls.map(l => [ns(l.a), ns(l.b)]);
-  { // kesişimler: gerçek çizgiler + duvar yüzleri + duvar aksları (aks uçları biraz uzatılır)
+  { // kesişimler: çizgiler + duvar yüzleri + duvar aksı; çizgi ve yüzlerin UZANTISI (1 m) ile kesişim de ("Uzantı")
     const all = []; ls.forEach((l, i) => all.push({ A: ss[i][0], B: ss[i][1], l: l.id, ends: [l.a, l.b] }));
     wallFaces().forEach(f => all.push({ A: w2s(...f.a), B: w2s(...f.b), wf: true, w: f.w.id }));
-    wallAxes().forEach(x => { const u = V.unit(V.sub(x.b, x.a)); const e = Math.max(2 * x.w.t, 0.5); all.push({ A: w2s(...V.sub(x.a, V.mul(u, e))), B: w2s(...V.add(x.b, V.mul(u, e))), wf: true, ax: true, w: x.w.id, lids: wallLineIds(x.w) }); });
-    const near = all.filter(g => segDist([X, Y], g.A, g.B) < 40);
-    const axEnds = wallAxes().flatMap(x => [x.capA ? w2s(...x.a) : null, x.capB ? w2s(...x.b) : null].filter(Boolean)).concat(wallFaces().flatMap(f => [w2s(...f.a), w2s(...f.b)]));
-    for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) { const g = near[i], h = near[j]; if (g.ends && h.ends && g.ends.some(n => h.ends.includes(n))) continue; if (g.ax && h.ax) continue; if ((g.ax || h.ax) && g.w && g.w === h.w) continue; if ((g.ax && h.l && g.lids.includes(h.l)) || (h.ax && g.l && h.lids.includes(g.l))) continue; const x = segX(g.A, g.B, h.A, h.B); if (!x) continue; const e = 1e-3; if (x.t < -e || x.t > 1 + e || x.u < -e || x.u > 1 + e) continue; const endT = x.t < e || x.t > 1 - e, endU = x.u < e || x.u > 1 - e; if (endT && endU && !(g.ax || h.ax)) continue;
-      if (axEnds.some(q => Math.hypot(q[0] - x.p[0], q[1] - x.p[1]) < 1.5)) continue;
-      const c = { type: 'int', X: x.p[0], Y: x.p[1], lab: (g.ax || h.ax) ? 'Aks kesişimi' : null }; const rl = [g, h].filter(q => q.l && !((q === g ? endT : endU))).map(q => q.l); if (rl.length) { c.rl = rl; } else c.wf = true; cons(c, Math.hypot(x.p[0] - X, x.p[1] - Y), (g.ax || h.ax || g.wf || h.wf) ? 0.2 : 1); }
+    wallAxes().forEach(x => all.push({ A: w2s(...x.a), B: w2s(...x.b), wf: true, ax: true, w: x.w.id, lids: wallLineIds(x.w) }));
+    const EXT = 1.0 * view.s; all.forEach(g => { const L = V.dist(g.A, g.B) || 1; g.e = g.ax ? 0 : EXT / L; });
+    const near = all.filter(g => { const u = V.unit(V.sub(g.B, g.A)); const A2 = V.sub(g.A, V.mul(u, g.e * V.dist(g.A, g.B))), B2 = V.add(g.B, V.mul(u, g.e * V.dist(g.A, g.B))); return segDist([X, Y], A2, B2) < 40; });
+    const ptsEnd = P.nodes.map(n => w2s(n.x, n.y)).concat(wallFaces().flatMap(f => [w2s(...f.a), w2s(...f.b)]));
+    for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) {
+      const g = near[i], h = near[j]; if (g.ends && h.ends && g.ends.some(n => h.ends.includes(n))) continue; if (g.ax && h.ax) continue; if ((g.ax || h.ax) && g.w && g.w === h.w) continue; if ((g.ax && h.l && g.lids.includes(h.l)) || (h.ax && g.l && h.lids.includes(g.l))) continue;
+      const x = segX(g.A, g.B, h.A, h.B); if (!x) continue; const e = 1e-3;
+      if (x.t < -g.e - e || x.t > 1 + g.e + e || x.u < -h.e - e || x.u > 1 + h.e + e) continue;
+      const inG = x.t > -e && x.t < 1 + e, inH = x.u > -e && x.u < 1 + e; const ext = !(inG && inH);
+      if (ptsEnd.some(q => Math.hypot(q[0] - x.p[0], q[1] - x.p[1]) < 1.5)) continue; // köşe zaten "Uç"
+      const c = { type: 'int', X: x.p[0], Y: x.p[1], lab: ext ? 'Uzantı kesişimi' : ((g.ax || h.ax) ? 'Aks kesişimi' : null) };
+      if (ext) c.from = [[g, x.t, inG], [h, x.u, inH]].filter(q => !q[2]).map(([q, t]) => t < 0 ? q.A : q.B);
+      const rl = [[g, x.t], [h, x.u]].filter(([q, t]) => q.l && t > e && t < 1 - e).map(([q]) => q.l); if (rl.length) c.rl = rl; else c.wf = true;
+      cons(c, Math.hypot(x.p[0] - X, x.p[1] - Y), ext ? 0.6 : ((g.ax || h.ax || g.wf || h.wf) ? 0.2 : 1));
+    }
   }
   ls.forEach((l, i) => { const m = V.mul(V.add(ss[i][0], ss[i][1]), 0.5); cons({ type: 'mid', l: l.id, X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); });
   if (fromId && nodeById(fromId)) { const f = ns(fromId); ls.forEach((l, i) => { if (l.a === fromId || l.b === fromId) return; const { t, q } = footT(f, ss[i][0], ss[i][1]); if (t < 0.001 || t > 0.999) return; cons({ type: 'perp', l: l.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 2); }); }

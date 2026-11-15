@@ -299,6 +299,7 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v8.5: Kesişim yakalama birleşik: gerçek çizgiler + duvar yüzleri + (uçları uzatılmış) duvar aksları; yakın parçalarla sınırlı (40 px). Türetilmiş noktalar (aks/yüz) gerçek çizginin üstüne düşerse çizgi bölünür ve bağlanır. t5.py 5 kontrol.
 - v8.6: Aks–aks kesişimi ve kapalı köşedeki aks ucu verilmez; aks yalnızca çizgi ve duvar yüzleriyle (kendi duvarı hariç) kesiştirilir; aks ucu sadece açık uçlarda.
+- v8.7: "Uzantı kesişimi": çizgi ve duvar yüzlerinin 1 m uzantısı başka çizgi/yüzle kesişince yakalanır (oda çizgisinin uzantısı × komşu duvarın dış yüzü); yeşil noktalı kılavuz çizilir. Aks artık uzatılmıyor. t6.py 5 kontrol.
 
 ### Aşama planı (v8) — kullanıcı isteğiyle sıra değişti: önce çizim, sonra ölçme
 1. Arayüz, çizgi/dikdörtgen/duvar/serbest, yakalama (aks, dik), seç-taşı-sil, çok oda — TAMAM (onay bekliyor)
