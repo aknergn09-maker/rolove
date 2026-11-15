@@ -266,3 +266,28 @@ Programda:
 - [ ] GitHub hesabı ve depo adı
 - [ ] Bosch eğim modu paketi (günlük ekran görüntüsü bekleniyor). Bilinen: 04 ön, 06 arka referans, 0A üç değer, değer 0 = ayar.
 - [ ] Köşe ucu adaptörü: tasarım ve uzunluk
+
+## 10. YENİDEN BAŞLANGIÇ — kullanıcının istemedikleri ve istekleri (15.11.2026)
+
+Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak; önce öneriler konuşulacak.
+
+1. Çizgiye yama/kırık eklemek zor; düz çizgideki kırık silinemiyor. → Seçim aracı: noktayı seç → kaydır / sil.
+2. Arayüz kullanışlı değil.
+3. Önce ofset atılsın, tarama sonradan eklensin. Tıklanan aralığa (kapalı alana) tarama. Kapı/pencere alanı ikiye bölüyorsa kapı/pencere ağzı kapansın, tarama karışmasın.
+4. Tek oda değil, birden çok oda: bir odadan başlayıp yanına birleştirerek gidiyor. Eski programda çok zordu.
+5. Lazer ölçüsü verince o çizgi gerçek değere gelsin; diğer odalar dahil HER ŞEY ölçeklensin. Her yeni cephe uymadığında çizgiler yine en az düzeyde ölçeklenebilir.
+6. Çoğu obje algılanmıyor (daireye tarama atılamadı). Daireye dinamik (canlı) önizleme; 3 noktadan daire.
+7. Serbest çizim uzun çizgilerde 20–30 cm duvar kalınlıklarını algılamıyor, çizgileri üst üste koyuyor; daire algılamıyor. Köşe seçip devam edilemiyor; olmazsa en azından köşe seç-kaydır, bir köşe diğer köşeye otursun.
+8. Çizgiyle çizerken kapı/pencere koyma tuşu olsun, sonra çizgi devam etsin. Ofset atılınca kapı otomatik kayıp uysun.
+9. Kapı/pencere yükseklikleri ayrı sekmede, sonradan. Tavan arası ölçülemediği için yer–tavan istesin; pencere yüksekliği ve yerden yüksekliği (parapet) girilsin, tavan arasını program hesaplasın; 0 girilebilsin (yere sıfır pencere).
+10. Geometri hesabı önce yazıyla: gerekli çaprazları söylesin, alındıktan sonra "yeterli" desin; "Geometriyi hesapla" tuşu (ayrı sekme olabilir). Duvar içinden geçen çapraz istemesin.
+11. AutoCAD gibi bir program: arayüz ve plan görüntüsü çok iyi olsun.
+
+## 11. v8 — Yeni çekirdek, Aşama 1 (15.11.2026)
+- Sıfırdan yazıldı. Eski sürüm: eski.html (veri anahtarları rk2_*, yeni: rk3_*; projeler ayrı).
+- Model: nodes {id,x,y}, lines {id,a,b,kind: sketch|typed|laser|total}, rooms {id,name,ax,ay}. Geometri = gerçek; hiçbir hesap kendiliğinden noktayı oynatmaz.
+- Odalar: çizgilerden düzlemsel graf (kesişimler ve T bağlantılar bölünerek), yarım-kenar yüz taraması; oda = çapa noktasını içeren en küçük yüz; ayrı parçalar (kolon) ada olarak alandan düşer. Kapanan yeni alana otomatik oda (ada içindekiler hariç).
+- Arayüz: siyah tema; üstte komut satırı; sağda ⊥ (obje kilidi), ✛ (X-Y), ⌖ (yakalama), ⤢; altta Çiz/Düzenle/Ekle sekmeleri; alttan açılan panel (tuş takımı, özellikler).
+- Çizgi: dokun/basılı tut + büyüteç, yakalama (uç, orta, kesişim, dik, üzerinde), eksen hizası, cm yaz + ok tuşu ya da parmakla yön; köşeden köşeye çizince oda kapanır.
+- Seç: dokun = çizgi/köşe/oda; mavi kare (grip) sürükle; köşeyi köşeye bırak = birleştir; çizgi ortasındaki elmas = çizgiyi kaydır; kutu seçim; Uzunluk (A/B sabit), Taşı (baz → hedef, mesafe yazılabilir), Sil, Kırığı sil, Buradan devam.
+- Test: work/v8/t1.py 19 kontrol.
