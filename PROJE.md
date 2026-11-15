@@ -293,3 +293,13 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - Test: work/v8/t1.py 19 kontrol.
 - v8.1: Duvar aracı (çizgi gibi çizilir; kalınlık 10–30 cm çipleri; ⇄ Yön; kapalıda varsayılan dışa; kalınlık türetilir, köşe taşınınca uyar; bant içine dokun = duvar seç). Serbest çizim geri geldi: ekran pikseliyle RDP (5 px), 8 px altı parçalar atılır, 20° içinde eksene oturtma, çizgi konumu ham noktaların ortalaması, iki paralel parça arasında kısa geçiş = dik kademe (25 cm duvar kalınlığı tanınır), uçlar köşeye/çizgiye bağlanır, kapanınca oda. Test: work/v8/t2.py 11 kontrol.
 - v8.2: Dokunma düzeltmeleri — düğmeler pointerup ile tetiklenir (tarayıcının yuttuğu click'e güvenilmez); panel kompakt (tuş takımı "⌨ cm"e dokununca açılır); ⇄ Yön ve kalınlık düğmeleri çizim bitince az önce çizilen duvara uygulanır; Uzunluk ✓ sonrası panel kapanır; çizgi seçilince duvarı varsa kalınlık/⇄ satırı; Serbest'te "▥ Son çizime duvar ekle"; Seç → "▥ Duvar" (bağlı zincir ya da oda sınırı). Testler artık iPhone 13 öykünmesi + gerçek dokunma olaylarıyla: work/v8/t3.py 20 kontrol (+ t1 19, t2 11).
+- v8.3: Duvarın diğer yüzü ve uç kapakları seçilebilir (panel: uzunluk, kalınlık, ⇄, "Çizgilere çevir", kalınlığı kaldır) ve yakalanır (uç, orta, üzerinde). t3.py 25 kontrol.
+
+### Aşama planı (v8)
+1. Arayüz, çizgi/dikdörtgen/duvar/serbest, yakalama, seç-taşı-sil, çok oda — TAMAM (onay bekliyor)
+2. Lazer ölçü ve ortak ölçek (ölçülen çizgi gerçek değerine, ölçülmemişler ortak oranla)
+3. Ofset, kapı/pencere (çizerken ve sonradan), tarama (tıklanan alana; kapı/pencere ağzı kapanır)
+4. Daire (merkez, 2 nokta, 3 nokta, canlı önizleme), kes/uzat/birleştir
+5. Kontrol sekmesi: yazılı rapor, oda içinden çapraz önerisi, "Geometriyi hesapla" (önizleme + onay)
+6. Yükseklikler sekmesi: yer–tavan, parapet, pencere yüksekliği → tavan arası hesap; 0 girilebilir
+7. Nokta adı / total noktaları, DXF
