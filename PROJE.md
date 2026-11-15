@@ -297,6 +297,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v8.4: Duvar aksı yakalama (aks, aks ucu, aks orta), duvar yüzüne/aksa dik; orto yönündeki ışın çizgiye/duvar yüzüne/aksa çarpınca tam üstüne oturur (gerçek çizgide T bağlantı). t4.py 7 kontrol.
 
+- v8.5: Kesişim yakalama birleşik: gerçek çizgiler + duvar yüzleri + (uçları uzatılmış) duvar aksları; yakın parçalarla sınırlı (40 px). Türetilmiş noktalar (aks/yüz) gerçek çizginin üstüne düşerse çizgi bölünür ve bağlanır. t5.py 5 kontrol.
+
 ### Aşama planı (v8) — kullanıcı isteğiyle sıra değişti: önce çizim, sonra ölçme
 1. Arayüz, çizgi/dikdörtgen/duvar/serbest, yakalama (aks, dik), seç-taşı-sil, çok oda — TAMAM (onay bekliyor)
 2. Ofset, kapı/pencere (çizerken ve sonradan), tarama (tıklanan alana; kapı/pencere ağzı kapanır), duvar birleşim yerleri

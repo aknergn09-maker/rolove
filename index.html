@@ -314,7 +314,16 @@ function osnap(X, Y, fromId, excl) {
   const ex = new Set(excl || []);
   P.nodes.forEach(n => { if (ex.has(n.id)) return; const [px, py] = w2s(n.x, n.y); cons({ type: 'end', node: n.id, X: px, Y: py }, Math.hypot(px - X, py - Y), 0); });
   const ls = P.lines.filter(l => !ex.has(l.a) && !ex.has(l.b)); const ss = ls.map(l => [ns(l.a), ns(l.b)]);
-  for (let i = 0; i < ls.length; i++) for (let j = i + 1; j < ls.length; j++) { const x = segX(ss[i][0], ss[i][1], ss[j][0], ss[j][1]); if (!x || x.t < 0.001 || x.t > 0.999 || x.u < 0.001 || x.u > 0.999) continue; cons({ type: 'int', l1: ls[i].id, l2: ls[j].id, X: x.p[0], Y: x.p[1] }, Math.hypot(x.p[0] - X, x.p[1] - Y), 1); }
+  { // kesişimler: gerçek çizgiler + duvar yüzleri + duvar aksları (aks uçları biraz uzatılır)
+    const all = []; ls.forEach((l, i) => all.push({ A: ss[i][0], B: ss[i][1], l: l.id, ends: [l.a, l.b] }));
+    wallFaces().forEach(f => all.push({ A: w2s(...f.a), B: w2s(...f.b), wf: true }));
+    wallAxes().forEach(x => { const u = V.unit(V.sub(x.b, x.a)); const e = Math.max(2 * x.w.t, 0.5); all.push({ A: w2s(...V.sub(x.a, V.mul(u, e))), B: w2s(...V.add(x.b, V.mul(u, e))), wf: true, ax: true }); });
+    const near = all.filter(g => segDist([X, Y], g.A, g.B) < 40);
+    const axEnds = wallAxes().flatMap(x => [w2s(...x.a), w2s(...x.b)]).concat(wallFaces().flatMap(f => [w2s(...f.a), w2s(...f.b)]));
+    for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) { const g = near[i], h = near[j]; if (g.ends && h.ends && g.ends.some(n => h.ends.includes(n))) continue; const x = segX(g.A, g.B, h.A, h.B); if (!x) continue; const e = 1e-3; if (x.t < -e || x.t > 1 + e || x.u < -e || x.u > 1 + e) continue; const endT = x.t < e || x.t > 1 - e, endU = x.u < e || x.u > 1 - e; if (endT && endU && !(g.ax || h.ax)) continue;
+      if (axEnds.some(q => Math.hypot(q[0] - x.p[0], q[1] - x.p[1]) < 1.5)) continue;
+      const c = { type: 'int', X: x.p[0], Y: x.p[1], lab: (g.ax || h.ax) ? 'Aks kesişimi' : null }; const rl = [g, h].filter(q => q.l && !((q === g ? endT : endU))).map(q => q.l); if (rl.length) { c.rl = rl; } else c.wf = true; cons(c, Math.hypot(x.p[0] - X, x.p[1] - Y), (g.ax || h.ax || g.wf || h.wf) ? 0.2 : 1); }
+  }
   ls.forEach((l, i) => { const m = V.mul(V.add(ss[i][0], ss[i][1]), 0.5); cons({ type: 'mid', l: l.id, X: m[0], Y: m[1] }, Math.hypot(m[0] - X, m[1] - Y), 2); });
   if (fromId && nodeById(fromId)) { const f = ns(fromId); ls.forEach((l, i) => { if (l.a === fromId || l.b === fromId) return; const { t, q } = footT(f, ss[i][0], ss[i][1]); if (t < 0.001 || t > 0.999) return; cons({ type: 'perp', l: l.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 2); }); }
   ls.forEach((l, i) => { const { t, q } = footT([X, Y], ss[i][0], ss[i][1]); if (t < 0.001 || t > 0.999) return; cons({ type: 'near', l: l.id, X: q[0], Y: q[1] }, Math.hypot(q[0] - X, q[1] - Y), 3.5); });
@@ -358,8 +367,9 @@ function candidate(X, Y, opts) { // ekrandaki dokunuştan hedef nokta
 }
 function realize(c) { // hedefi düğüme çevir (gerekirse çizgiyi böl)
   if (c.type === 'end' && c.node) return c.node; const [x, y] = s2w(c.X, c.Y);
-  if (c.wf) { const ex = P.nodes.find(n => Math.hypot(n.x - x, n.y - y) < 1e-4); return ex ? ex.id : addNode(x, y); }
-  if (c.type === 'int') { const l1 = lineById(c.l1), l2 = lineById(c.l2); const x2 = segX(nw(l1.a), nw(l1.b), nw(l2.a), nw(l2.b)); const n = addNode(...(x2 ? x2.p : [x, y])); splitLine(l1, n); splitLine(l2, n); return n; }
+  if (c.wf) { const ex = P.nodes.find(n => Math.hypot(n.x - x, n.y - y) < 1e-4); if (ex) return ex.id; const n = addNode(x, y); P.lines.slice().forEach(l => { const A = nw(l.a), B = nw(l.b); const f = footT([x, y], A, B); if (f.t > 1e-6 && f.t < 1 - 1e-6 && V.dist(f.q, [x, y]) < 1e-5) splitLine(l, n); }); return n; }
+  if (c.type === 'int' && c.rl) { const [x0, y0] = [x, y]; const ex = P.nodes.find(n => Math.hypot(n.x - x0, n.y - y0) < 1e-5); const n = ex ? ex.id : addNode(x0, y0); c.rl.forEach(id => { const l = lineById(id); if (l && l.a !== n && l.b !== n) splitLine(l, n); }); return n; }
+  if (c.type === 'int' && c.l1) { const l1 = lineById(c.l1), l2 = lineById(c.l2); const x2 = segX(nw(l1.a), nw(l1.b), nw(l2.a), nw(l2.b)); const n = addNode(...(x2 ? x2.p : [x, y])); splitLine(l1, n); splitLine(l2, n); return n; }
   if (['mid', 'near', 'perp'].includes(c.type)) { const l = lineById(c.l); const A = nw(l.a), B = nw(l.b); const t = c.type === 'mid' ? 0.5 : footT([x, y], A, B).t; const n = addNode(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t); splitLine(l, n); return n; }
   const ex = P.nodes.find(n => Math.hypot(n.x - x, n.y - y) < 1e-4); if (ex) return ex.id;
   return addNode(x, y);
