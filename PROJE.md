@@ -226,6 +226,14 @@ Programda:
 - Nokta No: hattın üstüne basılı tutunca hat bölünür, sıradaki adla nokta konur.
 - Ölçülen bir kenar bölünürse toplam ölçüsü gizli bir kenar olarak korunur.
 
+**v6 – Ofset ve duvar gerçek çizgi**
+- Ofset ve duvar dış yüzü artık gerçek nokta + kenar + pline (şekilde `gen` = ofset kimliği). Yakalanır, adlandırılır, ölçülür, trim/extend edilir.
+- Kalınlık bağı kısıtlarla tutulur: `offd` (noktanın kaynak çizgiye işaretli dik uzaklığı = kalınlık), düz ve uç noktalarda `perp`, yaylarda yarıçap = iç yarıçap ± kalınlık. Kaynak oda ölçüyle değişince dış yüz paralel kalır.
+- Kaynak pline değişince (kapı, kırık) dış yüz kendiliğinden yeniden kurulur. Kapıda dış yüz de kesilir, söve çizgileri (kalınlık boyunda) oluşur.
+- Dış yüzün yapısı elle değiştirilirse (trim, kırık, pline devamı) ofset kaydı çözülür, çizgiler bağımsız pline olur. Kalınlık kısıtı son değerle kalır, duvar taraması kalkar.
+- Kalınlık: araçta cm + ✓, ya da Ölç'te dış yüz kenarı seç → "kalınlık" → lazer.
+- Pline devamı: Çizgi aracında açık uçlar yeşil halkayla gösterilir (30 px yakalama). Serbest/Düzenle'de açık pline'ın kenarı ya da noktası seçilince "╱ Devam" düğmesi.
+
 ## 9. Açık sorular
 
 - [ ] 3° TM dilimi
