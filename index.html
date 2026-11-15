@@ -182,7 +182,8 @@ function computeFaces(realOnly) {
     if (x.t > e && x.t < 1 - e) s.ts.push({ t: x.t, p: x.p }); if (x.u > e && x.u < 1 - e) r.ts.push({ t: x.u, p: x.p });
   }
   // nokta-çizgi temasları (T) için: düğüm bir çizginin üstündeyse
-  segs.forEach(s => P.nodes.forEach(n => { if (n.id === s.l.a || n.id === s.l.b) return; const f = footT([n.x, n.y], s.a, s.b); if (f.t > 1e-7 && f.t < 1 - 1e-7 && V.dist(f.q, [n.x, n.y]) < 1e-6) s.ts.push({ t: f.t, p: [n.x, n.y] }); }));
+  const tpts = P.nodes.map(n => [n.x, n.y]); segs.forEach(r => { if (r.ref !== undefined || r.w) tpts.push(r.a, r.b); }); // sanal yüz uçları da (üst üste binen kolinear parçalar bölünsün)
+  segs.forEach(s => tpts.forEach(p => { const f = footT(p, s.a, s.b); if (f.t > 1e-7 && f.t < 1 - 1e-7 && V.dist(f.q, p) < 1e-6) s.ts.push({ t: f.t, p }); }));
   const intrudes = (s, m) => { // duvar bandı başka bir gerçek çizgiyi aşıyorsa (komşu odaya taşma) o yüz sınır sayılmaz
     const r = footT(m, s.ref[0], s.ref[1]).q; if (V.dist(r, m) < 1e-6) return false; return P.lines.some(l => { const x = segX(r, m, nw(l.a), nw(l.b)); return x && x.t > 1e-4 && x.t < 1 - 1e-4 && x.u > -1e-6 && x.u < 1 + 1e-6; }); };
   const ekeys = new Set(); const src = new Map();
@@ -200,8 +201,12 @@ function computeFaces(realOnly) {
   // adalar (iç içe ayrı parçalar: kolon vb.)
   bounded.forEach(f => { f.holes = []; outer.forEach(o => { if (o.comp === f.comp) return; if (!inPoly(o.poly[0], f.poly)) return; const inner = bounded.some(g => g !== f && g.comp !== o.comp && Math.abs(g.area) < Math.abs(f.area) && inPoly(o.poly[0], g.poly) && inPoly(g.poly[0], f.poly)); if (!inner) f.holes.push(o.poly); }); f.net = f.area - f.holes.reduce((s, h) => s + Math.abs(polyArea(h)), 0); });
   bounded.forEach(f => { // duvar bandının içindeki parça mı (ada delikleri dışında kalan bir iç noktayla)
-    const n = f.poly.length; let tot = 0, inW = 0; for (let i = 0; i < n; i++) { const a = f.poly[i], b = f.poly[(i + 1) % n]; const L = V.dist(a, b); if (L < 0.02) continue; const m = V.mul(V.add(a, b), 0.5); const q = V.add(m, V.mul([-(b[1] - a[1]) / L, (b[0] - a[0]) / L], 0.005)); if (!inPoly(q, f.poly) || f.holes.some(h => inPoly(q, h))) continue; tot += L; if (WQ.some(w => inPoly(q, w))) inW += L; }
-    f.wall = tot > 0 && inW >= tot * 0.999; });
+    // odanın içinde, hiçbir duvar bandına düşmeyen bir nokta varsa duvar değildir (kenarlardan farklı derinliklerde dene)
+    const n = f.poly.length; let any = false, free = false; const ins = q => inPoly(q, f.poly) && !f.holes.some(h => inPoly(q, h));
+    for (let i = 0; i < n && !free; i++) { const a = f.poly[i], b = f.poly[(i + 1) % n]; const L = V.dist(a, b); if (L < 0.02) continue; const nr = [-(b[1] - a[1]) / L, (b[0] - a[0]) / L];
+      for (const t of [0.25, 0.5, 0.75]) for (const d of [0.005, 0.12, 0.25, 0.4, 0.7]) { const q = V.add(V.add(a, V.mul(V.sub(b, a), t)), V.mul(nr, d)); if (!ins(q)) continue; any = true; if (!WQ.some(w => inPoly(q, w))) { free = true; break; } } }
+    f.wall = any && !free; });
+  if (realOnly === 'all') return { faces: bounded };
   return { faces: bounded.filter(f => !f.wall) };
 }
 function faceAt(p) { let best = null; G.faces.forEach(f => { if (!inPoly(p, f.poly) || f.holes.some(h => inPoly(p, h))) return; if (!best || f.area < best.area) best = f; }); return best; }

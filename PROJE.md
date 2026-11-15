@@ -328,6 +328,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v8.16: Sanal yüzün atılma kuralı değişti: yalnızca duvar bandı (referans çizgi → yüz) başka bir gerçek çizgiyi aşıyorsa yüz sayılmaz (komşu odaya taşma). Başka odanın duvarının dış yüzü, iskeletin içinde olsa da sınırdır. Çizgi/duvar zinciri bir duvar yüzüne düşünce oda kontrolü yapılır (önceden sadece mevcut düğüm/çizgiye düşünce). Yön fark etmez. t12.py 6 kontrol.
 
+- v8.17: Hata: dışarıya eklenen odanın duvar ucu (kapak) iskeletin çizgisiyle üst üste biniyordu; kolinear çakışan parçalar bölünmediği için yüz grafiği bozuluyor, komşu oda "açık" görünüyordu. computeFaces artık her parçayı sanal yüz uçlarında da böler. Duvar halkası tespiti: odanın içinde (farklı derinliklerde) bantsız bir nokta varsa duvar değil. t13.py 4 kontrol (kullanıcının senaryosu UI ile).
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
