@@ -332,6 +332,16 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v9.0 (2. aşama başladı): Ekle → Eleman (Kolon/Şömine/Baca/Şaft/Diğer; çiz ya da alana dokun; taralı; alanı yazar, odadan DÜŞÜLMEZ) ve Merdiven (çerçeve çizgi gibi çizilir ya da alana dokun; "Merdiven" + m² yazar, odadan DÜŞÜLÜR; Basamak: karşılıklı iki kenar seç + rıh sayısı N → N çizgi başlangıç ve bitiş dahil; v9.1: KISA kenar esas, N-1 eşit aralık, kısa kenara dik çıkılıp uzun kenarın doğrultusunda biter (uzun kenarın fazlası önemsiz), var olan kenar tekrar çizilmez; basamak çizgileri l.step, yüz grafiğine girmez; Yön: başlangıç/dönüş/bitiş noktaları → ok, P.arrows). Odalar P.rooms içinde kind:'eleman'|'merdiven'. rA(r) = görünen alan. Kararlar: yelpaze basamaklar elle çizgi; dairesel merdiven 3. aşamada (3 nokta: başlangıç-ara-bitiş, genişlik → ofset yay, rıh sayısı, ışınsal basamak; "esas cephe" sorusu gereksiz çünkü eş merkezli yaylarda eşit açı iki yayda aynı). Bekleyen: kapı/pencere gösterimi soruları. t14.py 11 kontrol.
 
+- v9.2 (inceleme sonrası sağlamlaştırma):
+  - Basamaklar P.stepSets {stair, a,b (kısa kenar düğümleri), c,d (uzun kenar), N}; her commit'te regenSteps ile yeniden üretilir (çerçeve taşınır/ötelenirse izler, merdiven işareti silinirse gider; bir basamak çizgisi silinirse seti gider). Oklar {stair, ref düğüm} ile merdiveni izler. Basamak uçları seçilemez.
+  - Kayıt başarısızsa (hafıza dolu) "KAYDEDİLEMEDİ" uyarısı.
+  - Aynı adlı proje üstüne yazmaz (uniqName: "ad (2)"); Adlandır var olan adı reddeder; JSON yükle aynı adı değiştirir.
+  - Kural (kullanıcı): ötelemede başka odanın m²'si değişmez. Duvar bandının sanal yüzü bir gerçek alanın içindeyse, o duvarın referans çizgisi o alanın sınırında ya da içinde değilse sınır sayılmaz (t8 C = 9.00).
+  - Basamak modunda en yakın gerçek çizgi seçilir (köşeye yakın dokunuş da olur).
+  - Sürüm (VER) menüde; yedek hatırlatma: son değişiklikten 30 dk sonra yedek yoksa ☰ kırmızı nokta, menüde "son yedek" bilgisi, açılışta uyarı; JSON yedek alınca P.backupAt.
+  - HATA bulundu ve düzeltildi: ☰ menüsü dokunuşla açılıp aynı dokunuşun tıklamasıyla hemen kapanıyordu (600 ms koruma).
+  - Testler depoda: test/t1..t15.py, `python3 test/run_all.py` (CHROME ortam değişkeni ya da playwright chromium).
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
