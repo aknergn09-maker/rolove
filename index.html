@@ -93,12 +93,12 @@ button.dng{color:#fca5a5}
 /* =================== Sabitler, durum =================== */
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
-const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true };
+const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
 const readJSON = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
 const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let SET = Object.assign({}, defSet, readJSON(LS_S, {}));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const newProject = name => ({ v: 8, name: name || ('Kroki ' + new Date().toLocaleDateString('tr-TR')), nodes: [], lines: [], rooms: [], roomSeq: 0, created: Date.now() });
+const newProject = name => ({ v: 8, name: name || ('Kroki ' + new Date().toLocaleDateString('tr-TR')), nodes: [], lines: [], rooms: [], walls: [], roomSeq: 0, created: Date.now() });
 let P = null;
 const S = { cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: true };
 let G = { faces: [], comps: [] };
@@ -137,11 +137,11 @@ function interiorPt(pts) {
 /* =================== Proje, geri al =================== */
 function allProjects() { return readJSON(LS_P, {}); }
 function save() { const all = allProjects(); P.saved = Date.now(); all[P.name] = P; writeJSON(LS_P, all); localStorage.setItem(LS_C, P.name); }
-function loadInitial() { const all = allProjects(); const c = localStorage.getItem(LS_C); P = (c && all[c] && all[c].v === 8) ? all[c] : newProject(); }
+function loadInitial() { const all = allProjects(); const c = localStorage.getItem(LS_C); P = (c && all[c] && all[c].v === 8) ? all[c] : newProject(); P.walls = P.walls || []; }
 function snap() { undoSt.push(JSON.stringify(P)); if (undoSt.length > 200) undoSt.shift(); redoSt = []; }
 function undo() { if (!undoSt.length) return toast('Geri alınacak işlem yok'); redoSt.push(JSON.stringify(P)); P = JSON.parse(undoSt.pop()); afterLoad(); commit(); }
 function redo() { if (!redoSt.length) return toast('Yinelenecek işlem yok'); undoSt.push(JSON.stringify(P)); P = JSON.parse(redoSt.pop()); afterLoad(); commit(); }
-function afterLoad() { if (S.chain && !nodeById(S.chain.last)) S.chain = null; if (S.sel) S.sel = null; S.move = null; S.lenEdit = null; }
+function afterLoad() { P.walls = P.walls || []; if (S.chain && !nodeById(S.chain.last)) S.chain = null; if (S.sel) S.sel = null; S.move = null; S.lenEdit = null; }
 function commit() { cleanup(); G = computeFaces(); updateRooms(); save(); render(); }
 
 /* =================== Model işlemleri =================== */
@@ -149,6 +149,7 @@ function addNode(x, y) { const id = uid('n'); P.nodes.push({ id, x, y }); return
 function findLine(a, b) { return P.lines.find(l => (l.a === a && l.b === b) || (l.a === b && l.b === a)); }
 function addLine(a, b, kind) { if (a === b) return null; const ex = findLine(a, b); if (ex) return ex; const l = { id: uid('l'), a, b, kind: kind || 'sketch' }; P.lines.push(l); return l; }
 function splitLine(l, nid) { // l çizgisini nid düğümünde böl
+  (P.walls || []).forEach(w => { const n = w.nodes.length; for (let i = 0; i < (w.closed ? n : n - 1); i++) { const x = w.nodes[i], y = w.nodes[(i + 1) % n]; if ((x === l.a && y === l.b) || (x === l.b && y === l.a)) { w.nodes.splice(i + 1, 0, nid); break; } } });
   P.lines = P.lines.filter(x => x !== l); const l1 = addLine(l.a, nid, l.kind), l2 = addLine(nid, l.b, l.kind); return [l1, l2];
 }
 function cleanup() { // sıfır boy, çift çizgi, yetim düğüm
@@ -156,8 +157,9 @@ function cleanup() { // sıfır boy, çift çizgi, yetim düğüm
   const seen = new Set(); P.lines = P.lines.filter(l => { const k = [l.a, l.b].sort().join('|'); if (seen.has(k)) return false; seen.add(k); return true; });
   const used = new Set(); P.lines.forEach(l => { used.add(l.a); used.add(l.b); });
   P.nodes = P.nodes.filter(n => used.has(n.id) || (S.chain && (S.chain.first === n.id || S.chain.last === n.id)) || (S.move && S.move.keep === n.id));
+  P.walls = (P.walls || []).filter(w => { w.nodes = w.nodes.filter(id => nodeById(id)); for (let i = w.nodes.length - 1; i > 0; i--) if (w.nodes[i] === w.nodes[i - 1]) w.nodes.splice(i, 1); return w.nodes.length >= 2; });
 }
-function mergeNodes(keep, drop) { if (keep === drop) return; P.lines.forEach(l => { if (l.a === drop) l.a = keep; if (l.b === drop) l.b = keep; }); P.nodes = P.nodes.filter(n => n.id !== drop); if (S.chain) { if (S.chain.first === drop) S.chain.first = keep; if (S.chain.last === drop) S.chain.last = keep; } }
+function mergeNodes(keep, drop) { if (keep === drop) return; P.lines.forEach(l => { if (l.a === drop) l.a = keep; if (l.b === drop) l.b = keep; }); (P.walls || []).forEach(w => { w.nodes = w.nodes.map(x => x === drop ? keep : x); if (S.chain && S.chain.nodes) S.chain.nodes = S.chain.nodes.map(x => x === drop ? keep : x); }); P.nodes = P.nodes.filter(n => n.id !== drop); if (S.chain) { if (S.chain.first === drop) S.chain.first = keep; if (S.chain.last === drop) S.chain.last = keep; } }
 function deleteNode(id) { // kırığı sil
   const ls = P.lines.filter(l => l.a === id || l.b === id);
   if (ls.length === 2) { const o = ls.map(l => l.a === id ? l.b : l.a); const A = nw(o[0]), B = nw(o[1]), C = nw(id); const col = Math.abs(wrapPI((headDeg(A, C) - headDeg(C, B)) * deg)) < 1 * deg; const kind = col && ls.every(l => l.kind === 'typed') ? 'typed' : 'sketch'; P.lines = P.lines.filter(l => !ls.includes(l)); addLine(o[0], o[1], kind); }
@@ -225,7 +227,7 @@ const COL = { sketch: '#f5a524', typed: '#e6e9ee', laser: '#4ade80', total: '#c0
 function label(t, X, Y, ang, col, sz) { ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a); ctx.font = '600 ' + (sz || 11) + 'px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(t).width + 6; ctx.fillStyle = 'rgba(11,13,16,.82)'; ctx.fillRect(-w / 2, -8, w, 16); ctx.fillStyle = col; ctx.fillText(t, 0, 0); ctx.restore(); }
 function draw() {
   if (!W || !P) return; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
-  drawGrid(); drawRooms(); drawLines(); drawSel(); drawAim(); drawScale();
+  drawGrid(); drawRooms(); drawWalls(); drawLines(); drawSel(); drawAim(); drawStroke(); drawScale();
 }
 function drawGrid() {
   let st = 1; while (st * view.s < 18) st *= 5; while (st * view.s > 120) st /= 5;
@@ -301,7 +303,7 @@ function frameBase(fromId) { // orto eksen açısı (derece)
   const l = P.lines[0]; return l ? norm90(headDeg(nw(l.a), nw(l.b))) : 0;
 }
 function aimFrom() { // lastik bandın başlangıcı
-  if (S.tool === 'cizgi' && S.chain) return { id: S.chain.last };
+  if ((S.tool === 'cizgi' || S.tool === 'duvar') && S.chain) return { id: S.chain.last };
   if (S.tool === 'sec' && S.move && S.move.base) return { w: S.move.base };
   if (S.tool === 'sec' && gest && gest.t === 'grip' && gest.g.k === 'n') return null;
   return null;
@@ -356,23 +358,24 @@ function realize(c) { // hedefi düğüme çevir (gerekirse çizgiyi böl)
 
 /* =================== Araçlar =================== */
 const CATS = [['ciz', 'Çiz'], ['duz', 'Düzenle'], ['ekle', 'Ekle']];
-const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['sil', '⌫', 'Sil']], ekle: [['oda', '▦', 'Oda']] };
+const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['sil', '⌫', 'Sil']], ekle: [['oda', '▦', 'Oda']] };
 function setCat(c) { S.cat = c; if (!TOOLS[c].some(t => t[0] === S.tool)) setTool(TOOLS[c][0][0]); else render(); }
-function setTool(t) { if (S.chain && t !== 'cizgi') finishChain(); S.tool = t; S.kbuf = ''; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
+function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.tool = t; S.kbuf = ''; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null;
 
 /* ---- Çizgi ---- */
 function chainAdd(c, kind) {
   snap(); const existed = ['end', 'near', 'mid', 'perp', 'int'].includes(c.type); const n = realize(c);
-  if (!S.chain) { S.chain = { first: n, last: n, n: 0, lines: [], firstLine: null }; S.kbuf = ''; commit(); return; }
+  if (!S.chain) { S.chain = { first: n, last: n, n: 0, lines: [], firstLine: null, nodes: [n] }; S.kbuf = ''; commit(); return; }
   if (n === S.chain.last) { undoSt.pop(); return; }
-  const l = addLine(S.chain.last, n, kind); if (!S.chain.firstLine) S.chain.firstLine = l.id; S.chain.lines.push(l.id); S.chain.n++; S.chain.last = n; S.kbuf = '';
+  const l = addLine(S.chain.last, n, kind); if (!S.chain.firstLine) S.chain.firstLine = l.id; S.chain.lines.push(l.id); S.chain.n++; S.chain.last = n; (S.chain.nodes = S.chain.nodes || [S.chain.first]).push(n); S.kbuf = '';
   commit();
-  if (n === S.chain.first && S.chain.n >= 2) { const rs = autoRooms(S.chain.lines); S.chain = null; commit(); toast('Kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + r._f.net.toFixed(2) + ' m²').join(', ') : '')); return; }
-  if (existed && degreeOf(n) >= 2 && S.chain.n >= 1) { const rs = autoRooms(S.chain.lines); if (rs.length) { S.chain = null; commit(); toast(rs.map(r => r.name + ' oluştu · ' + r._f.net.toFixed(2) + ' m²').join(', ')); } }
+  if (n === S.chain.first && S.chain.n >= 2) { const rs = autoRooms(S.chain.lines); endChain(true); commit(); toast('Kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + r._f.net.toFixed(2) + ' m²').join(', ') : '')); return; }
+  if (existed && degreeOf(n) >= 2 && S.chain.n >= 1) { const rs = autoRooms(S.chain.lines); if (rs.length) { endChain(false); commit(); toast(rs.map(r => r.name + ' oluştu · ' + r._f.net.toFixed(2) + ' m²').join(', ')); } }
 }
-function finishChain() { if (!S.chain) return; const c = S.chain; S.chain = null; if (c.n === 0) { cleanup(); } commit(); }
-function chainBack() { if (!S.chain) return; snap(); const c = S.chain; if (!c.lines.length) { S.chain = null; commit(); return; } const lid = c.lines.pop(); const l = lineById(lid); const prev = l ? (l.a === c.last ? l.b : l.a) : c.first; if (l) deleteLine(l); c.last = prev; c.n--; if (!c.lines.length) c.firstLine = null; commit(); }
+function endChain(closed) { const c = S.chain; S.chain = null; if (c && S.tool === 'duvar' && c.n >= 1) { const ns2 = (c.nodes || []).slice(); if (closed && ns2.length > 1 && ns2[ns2.length - 1] === ns2[0]) ns2.pop(); const side = closed && ns2.length >= 3 ? SET.wallSide : SET.wallSide * chainOrient(ns2); P.walls.push({ id: uid('w'), nodes: ns2, closed: !!closed && ns2.length >= 3, t: SET.wallT, side }); } }
+function finishChain() { if (!S.chain) return; const c = S.chain; endChain(false); if (c.n === 0) { cleanup(); } commit(); }
+function chainBack() { if (!S.chain) return; snap(); const c = S.chain; if (!c.lines.length) { S.chain = null; commit(); return; } const lid = c.lines.pop(); const l = lineById(lid); const prev = l ? (l.a === c.last ? l.b : l.a) : c.first; if (l) deleteLine(l); c.last = prev; c.n--; if (c.nodes) c.nodes.pop(); if (!c.lines.length) c.firstLine = null; commit(); }
 function arrowAdd(k) { // k: 0 → 1 ↑ 2 ← 3 ↓ (eksen çerçevesinde)
   const L = kval(); if (L == null) return toast('Önce uzunluğu yaz (cm)'); if (!S.chain) return toast('Önce başlangıç noktasına dokun');
   const b = frameBase(S.chain.last) + k * 90; const F = nw(S.chain.last); const P2 = V.add(F, [Math.cos(b * deg) * L, Math.sin(b * deg) * L]); const [X, Y] = w2s(...P2);
@@ -396,11 +399,12 @@ function hitTest(X, Y) {
   let bn = null, dn = 16; P.nodes.forEach(n => { const [px, py] = w2s(n.x, n.y); const d = Math.hypot(px - X, py - Y); if (d < dn) { dn = d; bn = n; } });
   if (bn) return { node: bn.id };
   let bl = null, dl = 16; P.lines.forEach(l => { const d = segDist([X, Y], ns(l.a), ns(l.b)); if (d < dl) { dl = d; bl = l; } });
+  { const p = s2w(X, Y); for (const w of P.walls || []) { const g = wallGeom(w); if (g && g.quads.some(q => inPoly(p, q.poly)) && (!bl || dl > 5)) return { wall: w.id }; } }
   if (bl) return { line: bl.id };
   const f = faceAt(s2w(X, Y)); const r = f && P.rooms.find(q => q._f === f); if (r) return { room: r.id };
   return null;
 }
-function selTap(X, Y) { const h = hitTest(X, Y); S.lenEdit = null; if (!h) S.sel = null; else if (h.node) S.sel = { nodes: [h.node] }; else if (h.line) S.sel = { lines: [h.line] }; else S.sel = { room: h.room }; S.kbuf = ''; render(); }
+function selTap(X, Y) { const h = hitTest(X, Y); S.lenEdit = null; if (!h) S.sel = null; else if (h.node) S.sel = { nodes: [h.node] }; else if (h.line) S.sel = { lines: [h.line] }; else if (h.wall) S.sel = { wall: h.wall }; else S.sel = { room: h.room }; S.kbuf = ''; render(); }
 function selNodes() { const s = new Set(S.sel && S.sel.nodes || []); (S.sel && S.sel.lines || []).forEach(id => { const l = lineById(id); if (l) { s.add(l.a); s.add(l.b); } }); return [...s]; }
 function boxSelect(b) { const x0 = Math.min(b.X0, b.X1), x1 = Math.max(b.X0, b.X1), y0 = Math.min(b.Y0, b.Y1), y1 = Math.max(b.Y0, b.Y1); const inside = id => { const [X, Y] = ns(id); return X >= x0 && X <= x1 && Y >= y0 && Y <= y1; };
   const lines = P.lines.filter(l => inside(l.a) && inside(l.b)).map(l => l.id); const nodes = P.nodes.filter(n => inside(n.id) && !lines.some(id => { const l = lineById(id); return l.a === n.id || l.b === n.id; })).map(n => n.id);
@@ -408,6 +412,7 @@ function boxSelect(b) { const x0 = Math.min(b.X0, b.X1), x1 = Math.max(b.X0, b.X
 function delSel() {
   if (!S.sel) return; snap();
   if (S.sel.room) { P.rooms = P.rooms.filter(r => r.id !== S.sel.room); }
+  else if (S.sel.wall) { P.walls = P.walls.filter(w => w.id !== S.sel.wall); }
   else { (S.sel.lines || []).forEach(id => { const l = lineById(id); if (l) deleteLine(l); }); (S.sel.nodes || []).forEach(id => { if (nodeById(id)) deleteNode(id); }); }
   S.sel = null; commit();
 }
@@ -426,25 +431,91 @@ function moveTap(c) {
 function silTap(X, Y) { const h = hitTest(X, Y); if (!h) return toast('Silinecek çizgiye, köşeye ya da odaya dokun'); snap();
   if (h.node) { const dg = degreeOf(h.node); deleteNode(h.node); toast(dg === 2 ? 'Kırık silindi, çizgiler birleşti' : 'Köşe silindi'); }
   else if (h.line) { deleteLine(lineById(h.line)); toast('Çizgi silindi'); }
+  else if (h.wall) { P.walls = P.walls.filter(w => w.id !== h.wall); toast('Duvar kalınlığı kaldırıldı'); }
   else { P.rooms = P.rooms.filter(r => r.id !== h.room); toast('Oda adı silindi'); }
   commit(); }
 /* ---- Oda ---- */
 function odaTap(X, Y) { const p = s2w(X, Y); const f = faceAt(p); if (!f) return toast('Kapalı bir alanın içine dokun'); const ex = P.rooms.find(r => r._f === f); if (ex) { S.sel = { room: ex.id }; render(); return; } snap(); const r = makeRoomAt(p, true); S.sel = { room: r.id }; commit(); toast(r.name + ' · ' + f.net.toFixed(2) + ' m²'); }
 
+/* =================== Duvar (kalınlık) =================== */
+function chainOrient(ids) { const pts = ids.filter(id => nodeById(id)).map(nw); if (pts.length < 3) return 1; return polyArea(pts) < 0 ? 1 : -1; } // açık duvar: dışarısı solda mı
+function wallRow(t, act) { return `<div class="row"><span class="inf">Kalınlık</span>${[10, 15, 20, 25, 30].map(v => `<button data-a="${act}" data-v="${v / 100}" class="${Math.round(t * 100) === v ? 'on' : ''}">${v}</button>`).join('')}<button data-a="${act === 'wt' ? 'wside' : 'sside'}" title="Kalınlığı diğer tarafa al">⇄ Yön</button></div>`; }
+function lineInt(p1, u1, p2, u2) { const den = u1[0] * u2[1] - u1[1] * u2[0]; if (Math.abs(den) < 1e-6) return null; const t = ((p2[0] - p1[0]) * u2[1] - (p2[1] - p1[1]) * u2[0]) / den; return [p1[0] + t * u1[0], p1[1] + t * u1[1]]; }
+function wallGeom(w) {
+  const ids = w.nodes.filter(id => nodeById(id)); const n = ids.length; if (n < 2) return null; const P0 = ids.map(nw); const closed = !!w.closed && n >= 3; const m = closed ? n : n - 1;
+  const ccw = closed ? polyArea(P0) > 0 : true; const segs = [];
+  for (let i = 0; i < m; i++) { const a = P0[i], b = P0[(i + 1) % n]; if (!findLine(ids[i], ids[(i + 1) % n]) && !w.preview) { segs.push(null); continue; } const u = V.unit(V.sub(b, a)); const left = [-u[1], u[0]]; const out = closed ? (ccw ? [-left[0], -left[1]] : left) : left; segs.push({ a, b, u, off: V.mul(out, w.side * w.t) }); }
+  const Q = []; for (let i = 0; i < n; i++) { const s1 = closed ? segs[(i - 1 + m) % m] : (i > 0 ? segs[i - 1] : null); const s2 = closed ? segs[i % m] : (i < m ? segs[i] : null); let q = null;
+    if (s1 && s2) { q = lineInt(V.add(s1.a, s1.off), s1.u, V.add(s2.a, s2.off), s2.u); if (!q || V.dist(q, P0[i]) > 4 * w.t) q = V.add(P0[i], s2.off); } else if (s1) q = V.add(P0[i], s1.off); else if (s2) q = V.add(P0[i], s2.off); Q.push(q); }
+  const quads = []; for (let i = 0; i < m; i++) { if (!segs[i]) continue; const j = (i + 1) % n; quads.push({ i, poly: [P0[i], P0[j], Q[j], Q[i]], capA: !closed && i === 0 || (closed ? !segs[(i - 1 + m) % m] : i > 0 && !segs[i - 1]), capB: !closed && i === m - 1 || (closed ? !segs[(i + 1) % m] : i < m - 1 && !segs[i + 1]) }); }
+  return { P0, Q, quads };
+}
+function drawWallGeom(g, sel, prev) {
+  g.quads.forEach(q => { const pts = q.poly.map(p => w2s(...p)); ctx.save(); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fillStyle = sel ? 'rgba(59,130,246,.22)' : prev ? 'rgba(244,114,182,.12)' : 'rgba(148,163,184,.12)'; ctx.fill(); ctx.clip();
+    ctx.strokeStyle = sel ? 'rgba(147,197,253,.55)' : prev ? 'rgba(244,114,182,.35)' : 'rgba(148,163,184,.35)'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs) - 60, x1 = Math.max(...xs) + 60, y0 = Math.min(...ys), y1 = Math.max(...ys); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.beginPath(); ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); ctx.stroke(); } ctx.restore();
+    ctx.strokeStyle = sel ? COL.sel : prev ? '#f472b6' : '#cbd5e1'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); if (q.capA) { ctx.moveTo(...pts[0]); ctx.lineTo(...pts[3]); } if (q.capB) { ctx.moveTo(...pts[1]); ctx.lineTo(...pts[2]); } ctx.stroke(); });
+}
+function drawWalls() {
+  (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) drawWallGeom(g, S.sel && S.sel.wall === w.id, false); });
+  if (S.tool === 'duvar' && S.chain && S.chain.nodes && S.chain.nodes.length >= 2) { const g = wallGeom({ nodes: S.chain.nodes, closed: false, t: SET.wallT, side: SET.wallSide * chainOrient(S.chain.nodes), preview: true }); if (g) drawWallGeom(g, false, true); }
+}
+/* =================== Serbest çizim =================== */
+function drawStroke() { if (!stroke || stroke.length < 2) return; ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); stroke.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); }
+function rdp(pts, eps) { if (pts.length < 3) return pts.slice(); let dm = 0, ix = 0; const a = pts[0], b = pts[pts.length - 1]; for (let i = 1; i < pts.length - 1; i++) { const d = segDist(pts[i], a, b); if (d > dm) { dm = d; ix = i; } } if (dm > eps) { const l = rdp(pts.slice(0, ix + 1), eps), r = rdp(pts.slice(ix), eps); return l.slice(0, -1).concat(r); } return [a, b]; }
+function endSnap(X, Y) { // serbest çizim ucu: köşe ya da çizgi üstü
+  let best = null, bd = 26; P.nodes.forEach(n => { const [px, py] = w2s(n.x, n.y); const d = Math.hypot(px - X, py - Y); if (d < bd) { bd = d; best = { type: 'end', node: n.id, X: px, Y: py }; } }); if (best) return best;
+  let bl = null, dl = 16; P.lines.forEach(l => { const a = ns(l.a), b = ns(l.b); const { t, q } = footT([X, Y], a, b); if (t < 0.02 || t > 0.98) return; const d = Math.hypot(q[0] - X, q[1] - Y); if (d < dl) { dl = d; bl = { type: 'near', l: l.id, X: q[0], Y: q[1] }; } }); return bl;
+}
+function processStroke(raw) {
+  if (raw.length < 3) return toast('Çok kısa çizim');
+  const sm = raw.map((p, i) => { if (i === 0 || i === raw.length - 1) return p; const a = raw[i - 1], c = raw[i + 1]; return [(a[0] + 2 * p[0] + c[0]) / 4, (a[1] + 2 * p[1] + c[1]) / 4]; });
+  const rdpI = (i0, i1, eps, out) => { let dm = 0, ix = -1; for (let i = i0 + 1; i < i1; i++) { const d = segDist(sm[i], sm[i0], sm[i1]); if (d > dm) { dm = d; ix = i; } } if (dm > eps) { rdpI(i0, ix, eps, out); rdpI(ix, i1, eps, out); } else out.push(i1); };
+  let vi = [0]; rdpI(0, sm.length - 1, 5, vi);
+  for (let guard = 0; guard < 80; guard++) { let k = -1; for (let i = 1; i < vi.length; i++) if (V.dist(sm[vi[i - 1]], sm[vi[i]]) < 8) { k = i; break; } if (k < 0 || vi.length <= 2) break; if (k === vi.length - 1) vi.splice(k - 1, 1); else vi.splice(k, 1); }
+  const v = vi.map(i => sm[i]);
+  if (v.length < 2) return toast('Çok kısa çizim');
+  const sX = raw[0], eX = raw[raw.length - 1]; let sC = endSnap(...sX), eC = endSnap(...eX);
+  let closed = v.length >= 4 && V.dist(sX, eX) < 32; if (sC && eC && sC.type === 'end' && eC.type === 'end' && sC.node === eC.node && v.length >= 4) closed = true; if (closed) eC = null;
+  const W2 = v.map(p => s2w(...p)); const b = frameBase(sC && sC.type === 'end' ? sC.node : null);
+  const rawW = raw.map(q => s2w(...q)); const tolN = 4 / view.s;
+  const meanP = (i0, i1) => { const n0 = i1 - i0; const cut = Math.floor(n0 * 0.2); let a0 = i0 + cut, a1 = i1 - cut; if (a1 < a0) { a0 = i0; a1 = i1; } let sx = 0, sy = 0, k = 0; for (let i = a0; i <= a1; i++) { sx += rawW[i][0]; sy += rawW[i][1]; k++; } return [sx / k, sy / k]; };
+  let segs = []; for (let i = 0; i + 1 < W2.length; i++) { const a = W2[i], c = W2[i + 1]; const h = headDeg(a, c); const h90 = b + Math.round((h - b) / 90) * 90; const len = V.dist(v[i], v[i + 1]); const snapped = Math.abs(h - h90) <= 20; segs.push({ a, c, h: snapped ? h90 : h, snapped, short: len < 30, i0: vi[i], i1: vi[i + 1] }); }
+  // kısa bağlantı parçası iki paralel parça arasındaysa at (kademe: dik bağlantı sonradan eklenir)
+  segs = segs.filter((sg, k) => { if (!sg.short || k === 0 || k === segs.length - 1) return true; const A = segs[k - 1], B = segs[k + 1]; return !(A.snapped && B.snapped && Math.abs(wrapPI((A.h - B.h) * deg)) < 1e-6); });
+  segs.forEach(sg => { if (!sg.snapped && sg.short) { const h90 = b + Math.round((sg.h - b) / 90) * 90; sg.h = h90; sg.snapped = true; } sg.u = [Math.cos(sg.h * deg), Math.sin(sg.h * deg)]; sg.p = sg.snapped ? meanP(sg.i0, sg.i1) : sg.a; });
+  const nOff = (A, B) => Math.abs((B.p[0] - A.p[0]) * -A.u[1] + (B.p[1] - A.p[1]) * A.u[0]);
+  const M = []; segs.forEach(sg => { const pr = M[M.length - 1]; if (pr && pr.snapped && sg.snapped && Math.abs(wrapPI((pr.h - sg.h) * deg)) < 1e-6 && nOff(pr, sg) < tolN) { pr.c = sg.c; pr.i1 = sg.i1; pr.p = meanP(pr.i0, pr.i1); } else M.push(Object.assign({}, sg)); });
+  if (closed && M.length > 2) { const f = M[0], l = M[M.length - 1]; if (f.snapped && l.snapped && Math.abs(wrapPI((f.h - l.h) * deg)) < 1e-6 && nOff(f, l) < tolN) { f.a = l.a; M.pop(); } }
+  if (closed && M.length < 3) closed = false;
+  const sW = sC ? s2w(sC.X, sC.Y) : null, eW = eC ? s2w(eC.X, eC.Y) : null;
+  if (sW) M[0].p = sW; if (eW && !closed) { const L = M[M.length - 1]; if (M.length > 1 || !sW) L.p = eW; else { L.u = V.unit(V.sub(eW, sW)); L.h = headDeg(sW, eW); } }
+  const proj = (L, q) => { const t = (q[0] - L.p[0]) * L.u[0] + (q[1] - L.p[1]) * L.u[1]; return V.add(L.p, V.mul(L.u, t)); };
+  const join = (A, B) => { const x = lineInt(A.p, A.u, B.p, B.u); if (x) return [x]; const q = rawW[B.i0] || B.a; return [proj(A, q), proj(B, q)]; }; // paralel → dik kademe
+  const n = M.length; let C = [];
+  if (closed) for (let i = 0; i < n; i++) C = C.concat(join(M[(i - 1 + n) % n], M[i]));
+  else { C.push(sW || proj(M[0], M[0].a)); for (let i = 1; i < n; i++) C = C.concat(join(M[i - 1], M[i])); C.push(eW || proj(M[n - 1], M[n - 1].c)); }
+  C = C.filter((q, i) => i === 0 || V.dist(q, C[i - 1]) > 1e-4);
+  snap(); const ids = C.map((q, i) => { if (i === 0 && sC) return realize(sC); if (!closed && i === C.length - 1 && eC) return realize(eC); const ex = P.nodes.find(nd => Math.hypot(nd.x - q[0], nd.y - q[1]) < 0.002); return ex ? ex.id : addNode(q[0], q[1]); });
+  const lids = []; const m2 = closed ? ids.length : ids.length - 1; for (let i = 0; i < m2; i++) { const l = addLine(ids[i], ids[(i + 1) % ids.length], 'sketch'); if (l) lids.push(l.id); }
+  commit(); const rs = autoRooms(lids); commit();
+  toast(lids.length + ' çizgi' + (closed ? ' · kapalı' : '') + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + r._f.net.toFixed(2) + ' m²').join(', ') : ''));
+}
+
 /* =================== Dokunma =================== */
-const ptrs = new Map(); let gest = null; let box = null;
+const ptrs = new Map(); let gest = null; let box = null; let stroke = null;
 const evXY = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 function aimOpts() {
-  if (S.tool === 'cizgi') return { fromId: S.chain ? S.chain.last : null, L: S.chain ? kval() : null };
+  if (S.tool === 'cizgi' || S.tool === 'duvar') return { fromId: S.chain ? S.chain.last : null, L: S.chain ? kval() : null };
   if (S.tool === 'sec' && S.move) return { fromW: S.move.base, L: S.move.base ? kval() : null, excl: S.move.base ? selNodes() : [] };
   if (S.tool === 'dikdortgen') return {};
   return {};
 }
-function needsAim() { return S.tool === 'cizgi' || S.tool === 'dikdortgen' || (S.tool === 'sec' && S.move); }
+function needsAim() { return S.tool === 'cizgi' || S.tool === 'duvar' || S.tool === 'dikdortgen' || (S.tool === 'sec' && S.move); }
 cv.addEventListener('pointerdown', e => {
   const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-  if (ptrs.size === 2) { if (gest && gest.t === 'grip' && gest.moved) { P = JSON.parse(undoSt.pop()); } aim = null; box = null; const [a, b] = [...ptrs.values()]; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; draw(); return; }
+  if (ptrs.size === 2) { if (gest && gest.t === 'grip' && gest.moved) { P = JSON.parse(undoSt.pop()); } aim = null; box = null; stroke = null; const [a, b] = [...ptrs.values()]; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; draw(); return; }
   if (ptrs.size > 2) return;
+  if (S.tool === 'serbest') { gest = { t: 'stroke', pts: [[X, Y]] }; stroke = gest.pts; return; }
   if (needsAim()) { gest = { t: 'aim', X0: X, Y0: Y }; aim = { X, Y, c: candidate(X, Y, aimOpts()) }; draw(); return; }
   if (S.tool === 'sec') { const g = gripsOf().find(g => { const [gx, gy] = w2s(...g.p); return Math.hypot(gx - X, gy - Y) < 22; }); if (g) { gest = { t: 'grip', g, X0: X, Y0: Y, moved: false }; return; } gest = { t: 'pend', X0: X, Y0: Y }; return; }
   gest = { t: 'pend', X0: X, Y0: Y };
@@ -452,6 +523,7 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) return; const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); if (!gest) return;
   if (gest.t === 'pinch' && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; const s = Math.max(1, Math.min(4000, gest.s0 * d / gest.d0)); const wx = (gest.m0[0] - gest.ox0) / gest.s0, wy = (gest.oy0 - gest.m0[1]) / gest.s0; view.s = s; view.ox = m[0] - wx * s; view.oy = m[1] + wy * s; draw(); return; }
+  if (gest.t === 'stroke') { const l = gest.pts[gest.pts.length - 1]; if (Math.hypot(X - l[0], Y - l[1]) > 2.5) gest.pts.push([X, Y]); draw(); return; }
   if (gest.t === 'aim') { aim = { X, Y, c: candidate(X, Y, aimOpts()) }; draw(); return; }
   if (gest.t === 'grip') {
     if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) < 6) return;
@@ -468,8 +540,9 @@ function endPtr(e, cancel) {
   if (!ptrs.has(e.pointerId)) return; const [X, Y] = ptrs.get(e.pointerId); ptrs.delete(e.pointerId); if (!gest) return; const g = gest;
   if (g.t === 'pinch') { if (ptrs.size === 0) gest = null; return; }
   gest = null;
+  if (g.t === 'stroke') { stroke = null; if (!cancel) processStroke(g.pts); else draw(); return; }
   if (g.t === 'aim') { const c = aim && aim.c; aim = null; if (cancel || !c) return draw();
-    if (S.tool === 'cizgi') chainAdd(c, c.type === 'len' ? 'typed' : 'sketch');
+    if (S.tool === 'cizgi' || S.tool === 'duvar') chainAdd(c, c.type === 'len' ? 'typed' : 'sketch');
     else if (S.tool === 'dikdortgen') rectPlace(c);
     else if (S.tool === 'sec' && S.move) moveTap(c);
     return; }
@@ -496,6 +569,8 @@ function renderBar() {
 function renderCmd() {
   const o = SET.ortho === 'xy' ? ' · <span class="k">ORTO X-Y</span>' : SET.ortho === 'obj' ? ' · <span class="k">ORTO obje</span>' : ''; let s = '';
   if (S.tool === 'cizgi') s = !S.chain ? 'ÇİZGİ  Başlangıç noktasına dokun (basılı tut = büyüteç)' : (S.kbuf ? `ÇİZGİ  <b>${fmtM(kval())} m</b> → ok tuşu ya da parmakla yön göster` : 'ÇİZGİ  Sonraki nokta · uzunluk yaz (cm) · ilk noktaya dokun = kapat');
+  else if (S.tool === 'duvar') s = (!S.chain ? 'DUVAR  Başlangıç noktasına dokun' : (S.kbuf ? `DUVAR  <b>${fmtM(kval())} m</b> → ok tuşu ya da parmakla yön` : 'DUVAR  Sonraki nokta · ilk noktaya dokun = kapat')) + ` · kalınlık ${Math.round(SET.wallT * 100)} cm`;
+  else if (S.tool === 'serbest') s = 'SERBEST  Parmakla çiz: düz çizgiler ve 90° köşeler tanınır · köşeden başla/bitir = bağlanır';
   else if (S.tool === 'dikdortgen') s = !S.rect.c1 ? 'DİKDÖRTGEN  1. köşeye dokun' + (S.rect.w || S.rect.h ? ` (${S.rect.w || '?'} × ${S.rect.h || '?'} cm)` : '') : 'DİKDÖRTGEN  Karşı köşeye dokun' + (S.rect.w && S.rect.h ? ' (yön için)' : '');
   else if (S.tool === 'sec') s = S.move ? (S.move.base ? 'TAŞI  Hedef noktaya dokun' + (S.kbuf ? ` · <b>${fmtM(kval())} m</b>` : '') : 'TAŞI  Baz noktasına dokun') : (S.lenEdit ? 'UZUNLUK  cm yaz, sabit ucu seç, ✓' : (S.sel ? 'SEÇ  Mavi kareyi sürükle = taşı · köşeyi köşeye bırak = birleştir' : 'SEÇ  Objeye dokun · boş yerde sürükle = kutu seçim · iki parmak = kaydır/yakınlaştır'));
   else if (S.tool === 'sil') s = 'SİL  Çizgiye dokun = sil · köşeye dokun = kırığı sil (çizgiler birleşir)';
@@ -505,7 +580,8 @@ function renderCmd() {
 function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '6', 'C', '1', '2', '3', '00', '', '0', '', ''].map(k => k ? `<button data-k="${k}">${k}</button>` : '<span></span>').join('')}</div>`; }
 function renderSheet() {
   let h = '';
-  if (S.tool === 'cizgi') {
+  if (S.tool === 'cizgi' || S.tool === 'duvar') {
+    if (S.tool === 'duvar') h += wallRow(SET.wallT, 'wt');
     h += `<div class="row"><span class="val ${S.kbuf ? 'act' : ''}">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span><button data-a="ar" data-v="2" ${S.chain ? '' : 'disabled'}>←</button><button data-a="ar" data-v="1" ${S.chain ? '' : 'disabled'}>↑</button><button data-a="ar" data-v="3" ${S.chain ? '' : 'disabled'}>↓</button><button data-a="ar" data-v="0" ${S.chain ? '' : 'disabled'}>→</button></div>`;
     if (S.np) h += numpad();
     h += `<div class="row"><button data-a="np">${S.np ? '▾ Tuşlar' : '▴ Tuşlar'}</button><button data-a="back" ${S.chain && S.chain.n ? '' : 'disabled'}>↶ Son</button><button data-a="close" ${S.chain && S.chain.n >= 2 ? '' : 'disabled'}>Kapat</button><button class="p" data-a="end" ${S.chain ? '' : 'disabled'}>Bitir</button></div>`;
@@ -519,11 +595,13 @@ function renderSheet() {
     if (S.move) { h += `<div class="row"><span class="val ${S.kbuf ? 'act' : ''}">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span><span class="inf">mesafe yaz (isteğe bağlı)</span></div>` + (S.np ? numpad() : '') + `<div class="row"><button data-a="np">${S.np ? '▾ Tuşlar' : '▴ Tuşlar'}</button><button data-a="mvx">İptal</button></div>`; }
     else if (S.lenEdit) { const l = lineById(S.lenEdit.id); h += `<div class="row"><span class="inf">Şimdi ${fmtM(lineLen(l))} m</span><span class="val act">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span></div><div class="row"><button class="${S.lenEdit.fix === 'A' ? 'on' : ''}" data-a="fix" data-v="A">A sabit</button><button class="${S.lenEdit.fix === 'B' ? 'on' : ''}" data-a="fix" data-v="B">B sabit</button></div>` + numpad() + `<div class="row"><button data-a="lenx">İptal</button><button class="p" data-a="lenok" ${S.kbuf ? '' : 'disabled'}>✓ Uygula</button></div>`; }
     else if (!sel) h += `<div class="row"><span class="inf">Objeye dokun · boş yerde sürükle = kutu seçim</span></div>`;
+    else if (sel.wall) { const w = P.walls.find(x => x.id === sel.wall); h += `<div class="row"><span class="inf"><b style="color:#fff">Duvar</b> · ${Math.round(w.t * 100)} cm</span></div>` + wallRow(w.t, 'swt') + `<div class="row"><button class="dng" data-a="del">Kalınlığı kaldır</button><button data-a="unsel">✕</button></div>`; }
     else if (sel.room) { const r = roomById(sel.room); h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(r.name)}</b> · ${r._f ? r._f.net.toFixed(2) + ' m²' : 'açık'}</span></div><div class="row"><button data-a="rname">Adlandır</button><button class="dng" data-a="del">Oda adını sil</button><button data-a="unsel">✕</button></div>`; }
     else if (sel.lines && sel.lines.length === 1 && !(sel.nodes || []).length) { const l = lineById(sel.lines[0]); const a = headDeg(nw(l.a), nw(l.b)); h += `<div class="row"><span class="inf">Çizgi · <b style="color:#fff">${fmtM(lineLen(l), 3)} m</b> · ${{ sketch: 'eskiz', typed: 'yazılan', laser: 'lazer', total: 'total' }[l.kind]} · ${(((a % 180) + 180) % 180).toFixed(1)}°</span></div><div class="row"><button data-a="len">Uzunluk</button><button data-a="mv">Taşı</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
     else if (sel.nodes && sel.nodes.length === 1 && !(sel.lines || []).length) { const d = degreeOf(sel.nodes[0]); h += `<div class="row"><span class="inf">Köşe · ${d} çizgi bağlı</span></div><div class="row"><button data-a="cont">╱ Buradan devam</button><button data-a="mv">Taşı</button><button class="dng" data-a="del">${d === 2 ? 'Kırığı sil' : 'Sil'}</button><button data-a="unsel">✕</button></div>`; }
     else { const n = (sel.lines || []).length; h += `<div class="row"><span class="inf">${n} çizgi${(sel.nodes || []).length ? ' + ' + sel.nodes.length + ' köşe' : ''} seçili</span></div><div class="row"><button data-a="mv">Taşı</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
-  } else if (S.tool === 'sil') h += `<div class="row"><span class="inf">Çizgi, köşe ya da oda adına dokun</span></div>`;
+  } else if (S.tool === 'serbest') h += `<div class="row"><span class="inf">Parmakla çiz · bıraktığında düz çizgilere çevrilir · iki parmak = kaydır</span></div>`;
+  else if (S.tool === 'sil') h += `<div class="row"><span class="inf">Çizgi, köşe ya da oda adına dokun</span></div>`;
   else if (S.tool === 'oda') h += `<div class="row"><span class="inf">${P.rooms.length ? P.rooms.map(r => esc(r.name) + ' ' + (r._f ? r._f.net.toFixed(2) + ' m²' : 'açık')).join(' · ') : 'Henüz oda yok'}</span></div>`;
   $('#sheet').innerHTML = h ? `<div class="hd"><span></span></div>` + h : '';
 }
@@ -540,6 +618,10 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'close') { if (S.chain) chainAdd({ type: 'end', node: S.chain.first, X: 0, Y: 0 }, 'sketch'); return; }
   else if (a === 'end') { finishChain(); toast('Çizgi bitti'); return; }
   else if (a === 'fld') S.field = b.dataset.v;
+  else if (a === 'wt') { SET.wallT = +b.dataset.v; writeJSON(LS_S, SET); }
+  else if (a === 'wside') { SET.wallSide = -SET.wallSide; writeJSON(LS_S, SET); }
+  else if (a === 'swt') { const w = P.walls.find(x => x.id === S.sel.wall); snap(); w.t = +b.dataset.v; SET.wallT = w.t; writeJSON(LS_S, SET); commit(); return; }
+  else if (a === 'sside') { const w = P.walls.find(x => x.id === S.sel.wall); snap(); w.side = -w.side; commit(); return; }
   else if (a === 'rclr') { S.rect.w = ''; S.rect.h = ''; }
   else if (a === 'unsel') { S.sel = null; }
   else if (a === 'del') { delSel(); return; }
@@ -549,7 +631,7 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'fix') S.lenEdit.fix = b.dataset.v;
   else if (a === 'lenx') { S.lenEdit = null; S.kbuf = ''; }
   else if (a === 'lenok') { applyLen(); return; }
-  else if (a === 'cont') { const id = S.sel.nodes[0]; setTool('cizgi'); S.chain = { first: id, last: id, n: 0, lines: [], firstLine: null }; render(); toast('Bu köşeden devam'); return; }
+  else if (a === 'cont') { const id = S.sel.nodes[0]; setTool('cizgi'); S.chain = { first: id, last: id, n: 0, lines: [], firstLine: null, nodes: [id] }; render(); toast('Bu köşeden devam'); return; }
   else if (a === 'rname') { const r = roomById(S.sel.room); const n = prompt('Oda adı', r.name); if (n) { snap(); r.name = n.trim(); commit(); return; } }
   render();
 });
@@ -587,7 +669,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit();
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>
