@@ -342,6 +342,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
   - HATA bulundu ve düzeltildi: ☰ menüsü dokunuşla açılıp aynı dokunuşun tıklamasıyla hemen kapanıyordu (600 ms koruma).
   - Testler depoda: test/t1..t15.py, `python3 test/run_all.py` (CHROME ortam değişkeni ya da playwright chromium).
 
+- v9.3 Kapı/Pencere (Ekle → 🚪 Kapı/Pen.): duvar çizgisine (ya da dış yüzüne) dokun (köşeye yakınsa köşe) → isteğe bağlı "Köşeden" cm + "Genişlik" cm → yön oku; ya da bitiş noktasına dokun. Duvar çizerken alt satırda 🚪Kapı / ▤Pen.: sonraki parça açıklık olur. Kapı: söveler + kanat + kesik çeyrek daire yay (kullanıcı onayı); varsayılan oda tarafına açılır. Pencere: duvar içinde 3 çizgi (iki yüz + orta). Etiket K90 / P120. Seç → açıklığa dokun: ⇄ Menteşe, ⇅ Açılış yönü, Genişlik, tür değiştir, Sil. Veri P.openings {type, ha, hb (aynı doğrultudaki duvarın uç düğümleri), s, w, hinge, sw}; düğümler birlikte kayarsa açıklık gider, duvar tek ucundan uzarsa açıklık yerinde kalır; ev sahibi çizgi silinirse açıklık silinir. Alanı etkilemez. Ayrıca: araç değişince tuş takımı kapanır (çizim alanını kapatıyordu). t16.py 18 kontrol.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?

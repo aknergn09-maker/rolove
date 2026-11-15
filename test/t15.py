@@ -37,7 +37,7 @@ async def main():
         RA = "Object.fromEntries(RK.P.rooms.map(r=>[r.name, RK.rA(r)==null?null:+RK.rA(r).toFixed(3)]))"
         STEPS = "RK.P.lines.filter(l=>l.step).map(l=>[l.a,l.b].map(id=>{const n=RK.P.nodes.find(x=>x.id===id); return [+n.x.toFixed(3),+n.y.toFixed(3)]})).sort((p,q)=>p[0][1]-q[0][1])"
         await ev("""(()=>{const P=RK.P; const C=[[0,0],[6,0],[6,5],[0,5]]; const ids=C.map(([x,y],i)=>{const id='a'+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<4;i++) P.lines.push({id:'A'+i,a:ids[i],b:ids[(i+1)%4],kind:'typed'}); P.rooms.push({id:'rA',name:'A',ax:3,ay:2.5}); RK.commit(); RK.view.s=48; RK.view.ox=20; RK.view.oy=330; RK.commit();})()""")
-        ck('sürüm görünür (v9.2)', await ev("RK.VER")=='v9.2')
+        ck('sürüm görünür', (await ev("RK.VER")).startswith('v'))
         await btn('#cats button[data-cat=ekle]'); await btn('#tools button[data-tool=merdiven]')
         q = await W(6,1); await ctap(*q); await typ(100); await btn('#sheet button[data-a=ar][data-v="2"]'); await typ(300); await btn('#sheet button[data-a=ar][data-v="1"]'); q = await W(6,4); await ctap(*q)
         await btn('#sheet button[data-a=mkm][data-v=bas]')
@@ -72,7 +72,7 @@ async def main():
         await ev("RK.P.backupAt=0; RK.P.saved=Date.now(); RK.commit()")
         ck('yedeği olmayan projede ☰ kırmızı nokta', await ev("document.getElementById('bMenu').classList.contains('warn')"))
         await btn('#bMenu'); await pg.wait_for_timeout(300); ck('☰ dokunuşla menü AÇIK kalır', not await ev("document.querySelector('#modal').classList.contains('hid')"))
-        ck('menüde sürüm ve yedek bilgisi', await ev("document.querySelector('#mbox').textContent.includes('v9.2') && document.querySelector('#mbox').textContent.includes('yedeği yok')"))
+        ck('menüde sürüm ve yedek bilgisi', await ev("document.querySelector('#mbox').textContent.includes(RK.VER) && document.querySelector('#mbox').textContent.includes('yedeği yok')"))
         r = await ev("(()=>{const r=document.querySelector('#modal').getBoundingClientRect(); return [r.left+8, r.top+8]})()"); await pg.wait_for_timeout(700); await pg.touchscreen.tap(*r); await pg.wait_for_timeout(200)
         ck('boşluğa dokununca menü kapanır', await ev("document.querySelector('#modal').classList.contains('hid')"))
         await ev("document.querySelector('#modal').classList.add('hid')")
