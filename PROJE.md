@@ -355,6 +355,16 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
   - Dengeleme (adjustGeometry): ağırlıklı en küçük kareler (CGLS, Gauss-Newton). Her çizgi yönü güçlü (300) korunur; lazer boyu 3000, yazılan 30, eskiz boyu ortak ölçek k ile 1. Sonuç: ilk ölçümde her şey aynı oranla ölçeklenir, sonrakiler yalnızca gerekeni değiştirir, açılar korunur. Çelişkili ölçüde (>2 mm kalıntı) uyarı.
   - Lazer etiketleri 3 hane; çizgi sonradan bozulursa kırmızı "≠ gerçek"; "Yeniden hesapla". Ölçülü çizgi bölünürse (kapı) parça ölçüleri oranla dağıtılır, toplam korunur. t18.py 17 kontrol.
 
+- ÖNİZLEME (onizleme.html, ana uygulamaya ALINMADI, onay bekliyor; kayıt alanı ayrı: rk3p_*, ilk açılışta ana projeler kopyalanır):
+  - Üstte 3 sekme: Çizim (Çiz/Düzenle/Ekle) · Ölçüm (Lazer/Elle, Kontrol, Yükseklik) · Kroki (Nokta adı, DXF/Dışa).
+  - Kroki nokta adları: ilk dokunuşta başlangıç sorulur (ör. 101), her dokunuş sıradaki adı alır (sondaki sayı artar, sıfır dolgusu korunur). Köşe, kapı kenarı, duvar dış köşesi (en yakın düğüme ofsetle bağlı; ölçeklemede kalınlık korunur). Seç: adını değiştir / buradan devam / sil. Otomatik ad YOK.
+  - DXF (R12, metre, ezdxf ile doğrulandı): katmanlar CIZGI_ESKIZ/YAZILAN/LAZER, DUVAR, KAPI (yay ARC), PENCERE, ODA (ad+alan), ELEMAN, MERDIVEN, NOKTA (POINT+ad), OLCU. Türkçe harfler \U+XXXX. ☰ menüde ve Kroki → DXF/Dışa.
+  - 5. aşama Kontrol: köşegen yalnız oda içinden (iki köşe), lazer/elle; "Geometriyi hesapla" yeşil kesik önizleme → Onayla/Vazgeç; köşegenler dengelemeye girer. Ölçü raporu (oda, alan, çevre, kenarlar, köşegenler, açıklıklar, yükseklikler, nokta adları) paylaş/kaydet.
+  - 6. aşama Yükseklik: oda taban–tavan; pencere denizlik (0 olur) + yükseklik; kapı yükseklik; üstten tavana = H − denizlik − yükseklik (negatifse kırmızı). Lazer ölçüsü seçili alana yazılır.
+  - Duvar birleşimleri: tüm bantlar tek parça çizilir (iç kesişim çizgileri yok, tarama ekrana sabit desen).
+  - 3. aşama: Daire (merkez+r, 2 nokta, 3 nokta; canlı önizleme; ≤4 mm kirişle çokgen), Buda/Uzat/Birleştir (Düzenle → ✂), Dairesel merdiven (3 nokta başlangıç-ara-bitiş + genişlik içe/dışa + rıh; ışınsal basamaklar, merdiven alanı).
+  - Testler: test/p1..p4.py (PAGE=onizleme.html ile t1..t18 de geçiyor).
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
