@@ -103,7 +103,7 @@ let SET = Object.assign({}, defSet, readJSON(LS_S, {}));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const newProject = name => ({ v: 8, name: name || ('Kroki ' + new Date().toLocaleDateString('tr-TR')), nodes: [], lines: [], rooms: [], walls: [], roomSeq: 0, created: Date.now() });
 let P = null;
-const S = { ms: { sel: null, buf: '', pend: null }, op: { type: 'kapi', step: 1, f: 'w', d: '', w: '' }, pendOpen: null, mk: { mode: 'ciz', l1: null, l2: null, pts: [] }, elName: 'Kolon', cik: { mode: 'el', step: 1 }, offEdit: null, cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
+const S = { kt: { mode: 'kos', a: null, b: null }, hs: { kind: null, id: null, f: null }, calc: null, ms: { sel: null, buf: '', pend: null }, op: { type: 'kapi', step: 1, f: 'w', d: '', w: '' }, pendOpen: null, mk: { mode: 'ciz', l1: null, l2: null, pts: [] }, elName: 'Kolon', cik: { mode: 'el', step: 1 }, offEdit: null, cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
 let G = { faces: [], comps: [] };
 let undoSt = [], redoSt = [];
 let view = { s: 40, ox: 0, oy: 0 };
@@ -273,7 +273,7 @@ const COL = { sketch: '#f5a524', typed: '#e6e9ee', laser: '#4ade80', total: '#c0
 function label(t, X, Y, ang, col, sz) { ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a); ctx.font = '600 ' + (sz || 11) + 'px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(t).width + 6; ctx.fillStyle = 'rgba(11,13,16,.82)'; ctx.fillRect(-w / 2, -8, w, 16); ctx.fillStyle = col; ctx.fillText(t, 0, 0); ctx.restore(); }
 function draw() {
   if (!W || !P) return; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
-  drawGrid(); drawRooms(); drawWalls(); drawLines(); if (S.tool === 'olc' && S.ms.sel && lineById(S.ms.sel)) { const l = lineById(S.ms.sel); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 6; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(...ns(l.a)); ctx.lineTo(...ns(l.b)); ctx.stroke(); ctx.globalAlpha = 1; } drawOpenings(); drawLenLabels(); drawArrows(); drawPts(); drawSel(); drawAim(); drawStroke(); drawScale();
+  drawGrid(); drawRooms(); drawWalls(); drawLines(); if (S.tool === 'olc' && S.ms.sel && lineById(S.ms.sel)) { const l = lineById(S.ms.sel); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 6; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(...ns(l.a)); ctx.lineTo(...ns(l.b)); ctx.stroke(); ctx.globalAlpha = 1; } drawOpenings(); drawLenLabels(); drawArrows(); drawPts(); drawCalc(); drawSel(); drawAim(); drawStroke(); drawScale();
 }
 function drawGrid() {
   let st = 1; while (st * view.s < 18) st *= 5; while (st * view.s > 120) st /= 5;
@@ -291,7 +291,7 @@ function drawRooms() {
     if (f) { ctx.beginPath(); pathPoly(f.poly); f.holes.forEach(pathPoly); ctx.fillStyle = sel ? 'rgba(59,130,246,.2)' : r.kind === 'merdiven' ? 'rgba(148,163,184,.10)' : r.kind === 'eleman' ? 'rgba(148,163,184,.16)' : COL.room; ctx.fill('evenodd');
       if (r.kind === 'eleman') { ctx.save(); ctx.beginPath(); pathPoly(f.poly); ctx.clip(); ctx.strokeStyle = 'rgba(203,213,225,.45)'; ctx.lineWidth = 1; const xs = f.poly.map(p => w2s(...p)); const x0 = Math.min(...xs.map(q => q[0])), x1 = Math.max(...xs.map(q => q[0])), y0 = Math.min(...xs.map(q => q[1])), y1 = Math.max(...xs.map(q => q[1])); ctx.beginPath(); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); } ctx.stroke(); ctx.restore(); } }
     const [X, Y] = w2s(r.ax, r.ay); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 12px -apple-system,sans-serif'; ctx.fillStyle = sel ? '#93c5fd' : COL.roomTx; ctx.fillText(r.name, X, Y - 7);
-    ctx.font = '11px -apple-system,sans-serif'; ctx.fillStyle = f ? '#64748b' : COL.sketch; ctx.fillText(f ? rA(r).toFixed(2) + ' m²' : 'açık (kapalı değil)', X, Y + 8); });
+    ctx.font = '11px -apple-system,sans-serif'; ctx.fillStyle = f ? '#64748b' : COL.sketch; ctx.fillText(f ? rA(r).toFixed(2) + ' m²' + (r.h ? ' · h ' + fmtM(r.h, 2) : '') : 'açık (kapalı değil)', X, Y + 8); });
 }
 function drawLines() {
   const selL = new Set(S.sel && S.sel.lines || []);
@@ -439,9 +439,9 @@ function realize(c) { // hedefi düğüme çevir (gerekirse çizgiyi böl)
 const CATS = [['ciz', 'Çiz'], ['duz', 'Düzenle'], ['ekle', 'Ekle'], ['olc', 'Ölç'], ['kroki', 'Kroki']];
 const TABS = [['cizim', 'Çizim', ['ciz', 'duz', 'ekle']], ['olcum', 'Ölçüm', ['olc']], ['kroki', 'Kroki', ['kroki']]];
 const tabOf = c => (TABS.find(t => t[2].includes(c)) || TABS[0])[0];
-const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['cikinti', '⊓', 'Çıkıntı'], ['sil', '⌫', 'Sil']], olc: [['olc', '📏', 'Lazer / Elle']], kroki: [['nokta', '⌖', 'Nokta adı'], ['disa', '⤓', 'DXF / Dışa']], ekle: [['aciklik', '🚪', 'Kapı/Pen.'], ['oda', '▦', 'Oda'], ['eleman', '▣', 'Eleman'], ['merdiven', '☰', 'Merdiven']] };
+const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['cikinti', '⊓', 'Çıkıntı'], ['sil', '⌫', 'Sil']], olc: [['olc', '📏', 'Lazer / Elle'], ['kontrol', '✓', 'Kontrol'], ['yukseklik', '↕', 'Yükseklik']], kroki: [['nokta', '⌖', 'Nokta adı'], ['disa', '⤓', 'DXF / Dışa']], ekle: [['aciklik', '🚪', 'Kapı/Pen.'], ['oda', '▦', 'Oda'], ['eleman', '▣', 'Eleman'], ['merdiven', '☰', 'Merdiven']] };
 function setCat(c) { S.cat = c; if (!TOOLS[c].some(t => t[0] === S.tool)) setTool(TOOLS[c][0][0]); else render(); }
-function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.op = { type: S.op ? S.op.type : 'kapi', step: 1, f: 'w', d: '', w: '' }; S.pendOpen = null; S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.np = false; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
+function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.kt = { mode: 'kos', a: null, b: null }; S.hs = { kind: null, id: null, f: null }; S.calc = null; S.op = { type: S.op ? S.op.type : 'kapi', step: 1, f: 'w', d: '', w: '' }; S.pendOpen = null; S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.np = false; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null;
 
 /* ---- Çizgi ---- */
@@ -559,8 +559,14 @@ function drawWallGeom(g, sel, prev) {
     ctx.strokeStyle = sel ? 'rgba(147,197,253,.55)' : prev ? 'rgba(244,114,182,.35)' : 'rgba(148,163,184,.35)'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs) - 60, x1 = Math.max(...xs) + 60, y0 = Math.min(...ys), y1 = Math.max(...ys); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.beginPath(); ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); ctx.stroke(); } ctx.restore();
     ctx.strokeStyle = sel ? COL.sel : prev ? '#f472b6' : '#cbd5e1'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); if (q.capA) { ctx.moveTo(...pts[0]); ctx.lineTo(...pts[3]); } if (q.capB) { ctx.moveTo(...pts[1]); ctx.lineTo(...pts[2]); } ctx.stroke(); });
 }
-function drawWalls() {
-  (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) drawWallGeom(g, S.sel && S.sel.wall === w.id, false); });
+function drawWalls() { // birleşimler temiz: önce tüm kenarlar kalın, sonra tüm bantlar opak dolgu (iç kesişim çizgileri kaybolur), tarama ekrana sabit desen
+  const Q = []; (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) g.quads.forEach(q => Q.push({ q, pts: q.poly.map(p => w2s(...p)) })); });
+  const path = pts => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); };
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 3.2; Q.forEach(({ q, pts }) => { ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); if (q.capA) { ctx.moveTo(...pts[0]); ctx.lineTo(...pts[3]); } if (q.capB) { ctx.moveTo(...pts[1]); ctx.lineTo(...pts[2]); } ctx.stroke(); });
+  ctx.fillStyle = '#1b1f24'; Q.forEach(({ pts }) => { path(pts); ctx.fill(); });
+  ctx.strokeStyle = '#454d58'; ctx.lineWidth = 1; Q.forEach(({ pts }) => { ctx.save(); path(pts); ctx.clip(); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    ctx.beginPath(); for (let C = Math.floor((x0 + y0) / 7) * 7; C <= x1 + y1; C += 7) { ctx.moveTo(C - y1, y1); ctx.lineTo(C - y0, y0); } ctx.stroke(); ctx.restore(); });
+  (P.walls || []).forEach(w => { if (S.sel && S.sel.wall === w.id) { const g = wallGeom(w); if (g) drawWallGeom(g, true, false); } });
   if (S.tool === 'duvar' && S.chain && S.chain.nodes && S.chain.nodes.length >= 2) { const g = wallGeom({ nodes: S.chain.nodes, closed: false, t: SET.wallT, side: SET.wallSide * chainOrient(S.chain.nodes), preview: true }); if (g) drawWallGeom(g, false, true); }
 }
 function recentWalls() { if (S.chain) return []; const ids = (S.tool === 'serbest' && S.lastWalls) ? S.lastWalls : (S.lastWall ? [S.lastWall] : []); return (P.walls || []).filter(w => ids.includes(w.id)); }
@@ -834,6 +840,7 @@ function adjustGeometry() {
       rows.push({ c: [[2 * j, px], [2 * j + 1, py], [2 * i, -px], [2 * i + 1, -py]], r: px * dx + py * dy, w: 300 }); // yön (açı) güçlü korunur
       if (!ms) rows.push({ c: [[2 * j, ex], [2 * j + 1, ey], [2 * i, -ex], [2 * i + 1, -ey], [K, -L0]], r: ex * dx + ey * dy - x[K] * L0, w: 1 }); // boy: ortak ölçekle zayıf
       else { const L = Math.hypot(dx, dy) || 1e-9, ux = dx / L, uy = dy / L; rows.push({ c: [[2 * j, ux], [2 * j + 1, uy], [2 * i, -ux], [2 * i + 1, -uy]], r: L - ms.m, w: ms.w }); } });
+    (P.diags || []).forEach(dg => { const i = ids.get(dg.a), j = ids.get(dg.b); if (i == null || j == null) return; const dx = x[2 * j] - x[2 * i], dy = x[2 * j + 1] - x[2 * i + 1]; const L = Math.hypot(dx, dy) || 1e-9, ux = dx / L, uy = dy / L; rows.push({ c: [[2 * j, ux], [2 * j + 1, uy], [2 * i, -ux], [2 * i + 1, -uy]], r: L - dg.m, w: 3000 }); });
     for (let v = 0; v < 2 * N; v++) rows.push({ c: [[v, 1]], r: x[v] - x0[v], w: 1e-6 });
     rows.push({ c: [[K, 1]], r: x[K] - 1, w: 1e-6 });
     // CGLS: min Σ w (J δ + r)²
@@ -844,7 +851,7 @@ function adjustGeometry() {
     let mx = 0; for (let i = 0; i < nv; i++) { x[i] += d[i]; mx = Math.max(mx, Math.abs(d[i])); } if (mx < 1e-7) break;
   }
   let shift = 0; ids.forEach((i, id) => { const n = nodeById(id); shift = Math.max(shift, Math.hypot(x[2 * i] - n.x, x[2 * i + 1] - n.y)); n.x = x[2 * i]; n.y = x[2 * i + 1]; });
-  let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); });
+  let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); }); (P.diags || []).forEach(dg => { if (nodeById(dg.a) && nodeById(dg.b)) worst = Math.max(worst, Math.abs(V.dist(nw(dg.a), nw(dg.b)) - dg.m)); });
   return { k: x[K], shift, worst };
 }
 function applyMeasure(l, m) {
@@ -855,7 +862,7 @@ function applyMeasure(l, m) {
 const GLM_SVC = '02a6c0d0-0451-4000-b000-fb3210111989', GLM_CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
 const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null };
 function laserParse(dv) { if (dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10 || b(3) !== 0x06) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0 && v < 300 ? v : null; }
-function laserValue(m) { LZ.last = m; const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { applyMeasure(l, m); S.ms.sel = null; S.ms.pend = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
+function laserValue(m) { LZ.last = m; if (S.tool === 'yukseklik' && S.hs.f) { hsSet(m); return; } if (S.tool === 'kontrol' && S.kt.a && S.kt.b) { diagSet(m); return; } const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { applyMeasure(l, m); S.ms.sel = null; S.ms.pend = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
 async function laserConnect() {
   if (!navigator.bluetooth) return alert('Bu tarayıcıda Bluetooth yok.\niPhone\'da uygulamayı Bluefy tarayıcısında aç. Değeri elle de yazabilirsin.');
   try { LZ.state = 'bağlanıyor'; render(); const dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'GLM' }, { services: [GLM_SVC] }], optionalServices: [GLM_SVC] });
@@ -920,6 +927,43 @@ function makeDXF() {
 }
 async function shareOrDownload(text, name, type) { const blob = new Blob([text], { type }); const fl = new File([blob], name, { type }); try { if (navigator.canShare && navigator.canShare({ files: [fl] })) { await navigator.share({ files: [fl] }); return true; } } catch (er) { if (er.name === 'AbortError') return false; } const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; }
 function exportDXF() { const n = P.name.replace(/[\\/:*?"<>|]+/g, '_') + '.dxf'; window._lastDXF = makeDXF(); shareOrDownload(window._lastDXF, n, 'application/dxf').then(ok => { if (ok) toast('DXF hazır: ' + n); }); }
+
+/* =================== 5. aşama: kontrol (köşegen, hesapla, rapor) =================== */
+function roomOfSeg(a, b) { // a–b doğrusu tamamen bir odanın içinden geçiyor mu
+  const A = nw(a), B = nw(b); const f = faceAt(V.mul(V.add(A, B), 0.5)); if (!f) return null; const r = P.rooms.find(q => q._f === f); if (!r) return null;
+  const onB = p => f.poly.some((q, i) => segDist(p, q, f.poly[(i + 1) % f.poly.length]) < 1e-6); if (!onB(A) || !onB(B)) return null;
+  for (let k = 1; k < 40; k++) { const p = V.add(A, V.mul(V.sub(B, A), k / 40)); if (!inPoly(p, f.poly) || f.holes.some(h => inPoly(p, h)) || onB(p)) return null; }
+  return r;
+}
+function kontrolTap(X, Y) { const c = candidate(X, Y, {}); if (!(c.type === 'end' && c.node)) return toast('Odanın köşesine dokun');
+  const k = S.kt; if (!k.a || k.b) { S.kt = { mode: 'kos', a: c.node, b: null }; S.ms.buf = ''; render(); return; }
+  if (c.node === k.a) return; const r = roomOfSeg(k.a, c.node); if (!r) { toast('Bu köşegen oda içinden geçmiyor (duvarı ya da başka odayı kesiyor)'); return; }
+  k.b = c.node; k.room = r.name; S.ms.buf = ''; render(); }
+function diagSet(m) { const k = S.kt; if (!k.a || !k.b || !(m > 0)) return; snap(); P.diags = P.diags || []; P.diags = P.diags.filter(d => !((d.a === k.a && d.b === k.b) || (d.a === k.b && d.b === k.a))); P.diags.push({ id: uid('d'), a: k.a, b: k.b, m: Math.round(m * 1000) / 1000 }); S.kt = { mode: 'kos', a: null, b: null }; S.ms.buf = ''; S.np = false; commit(); toast('Köşegen ' + fmtM(m, 3) + ' m kaydedildi · uygulamak için "Geometriyi hesapla"'); }
+function calcPreview() { const saved = JSON.stringify(P); const r = adjustGeometry(); const pos = new Map(P.nodes.map(n => [n.id, [n.x, n.y]])); P = JSON.parse(saved); afterLoad(); commit(); S.calc = { pos, ...r }; render(); }
+function calcApply() { if (!S.calc) return; snap(); S.calc.pos.forEach((p, id) => { const n = nodeById(id); if (n) { n.x = p[0]; n.y = p[1]; } }); const r = S.calc; S.calc = null; commit(); toast('Geometri güncellendi · en büyük kayma ' + Math.round(r.shift * 1000) + ' mm'); }
+function drawCalc() { if (S.calc) { ctx.save(); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); P.lines.forEach(l => { if (l.step) return; const a = S.calc.pos.get(l.a), b = S.calc.pos.get(l.b); if (!a || !b) return; ctx.beginPath(); ctx.moveTo(...w2s(...a)); ctx.lineTo(...w2s(...b)); ctx.stroke(); }); ctx.restore(); }
+  (P.diags || []).forEach(d => { if (!nodeById(d.a) || !nodeById(d.b)) return; const a = ns(d.a), b = ns(d.b); const L = V.dist(nw(d.a), nw(d.b)); const bad = Math.abs(L - d.m) > 0.0015; ctx.save(); ctx.strokeStyle = bad ? '#f87171' : '#c084fc'; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.restore();
+    const m = V.mul(V.add(a, b), 0.5); label('⤡' + fmtM(d.m, 3) + (bad ? ' ≠' + fmtM(L, 3) : ''), m[0], m[1] - 8, Math.atan2(b[1] - a[1], b[0] - a[0]), bad ? '#f87171' : '#c084fc', 10); });
+  if (S.tool === 'kontrol' && S.kt.a && nodeById(S.kt.a)) { const a = ns(S.kt.a); ctx.fillStyle = '#c084fc'; ctx.beginPath(); ctx.arc(a[0], a[1], 6, 0, 7); ctx.fill(); if (S.kt.b && nodeById(S.kt.b)) { const b = ns(S.kt.b); ctx.beginPath(); ctx.arc(b[0], b[1], 6, 0, 7); ctx.fill(); ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); } } }
+function reportText() {
+  const L = []; const t = l => l.kind === 'laser' ? 'lazer' : l.kind === 'typed' ? 'yazılan' : 'eskiz'; L.push(P.name + ' · ölçü raporu · ' + new Date().toLocaleString('tr-TR')); L.push('');
+  P.rooms.filter(r => r._f).forEach(r => { L.push((r.kind === 'merdiven' ? '[Merdiven] ' : r.kind === 'eleman' ? '[Eleman] ' : '') + r.name + ' · alan ' + rA(r).toFixed(2) + ' m²' + (r.h ? ' · yükseklik ' + fmtM(r.h, 3) + ' m' : ''));
+    const ls = [...r._f.lids].map(id => lineById(id)).filter(Boolean); let per = 0; ls.forEach(l => { per += lineLen(l); L.push('   ' + (l.kind === 'laser' ? fmtM(l.m, 3) : '~' + fmtM(lineLen(l), 2)) + ' m  (' + t(l) + ')' + (l.kind === 'laser' && Math.abs(lineLen(l) - l.m) > 0.0015 ? '  UYUMSUZ çizim ' + fmtM(lineLen(l), 3) : '')); });
+    L.push('   çevre ' + per.toFixed(2) + ' m'); (P.diags || []).filter(d => { const rr = nodeById(d.a) && nodeById(d.b) && roomOfSeg(d.a, d.b); return rr && rr.id === r.id; }).forEach(d => L.push('   köşegen ' + fmtM(d.m, 3) + ' m (çizim ' + fmtM(V.dist(nw(d.a), nw(d.b)), 3) + ')'));
+    L.push(''); });
+  (P.openings || []).forEach(o => { const g = opGeom(o); if (!g) return; const rs = opRooms(o); const r = rs.find(q => q.h) || rs[0]; const H = opRoomH(o);
+    L.push((o.type === 'kapi' ? 'Kapı ' + (doorHand(o, g) === 'sag' ? 'Sağ' : 'Sol') : 'Pencere') + ' ' + Math.round(o.w * 100) + ' cm' + (rs.length ? ' · ' + rs.map(q => q.name).join(' / ') : '') + (o.sill != null ? ' · denizlik ' + Math.round(o.sill * 100) : '') + (o.oh != null ? ' · yükseklik ' + Math.round(o.oh * 100) : '') + (H && o.oh != null ? ' · üstten tavana ' + Math.round((H - (o.sill || 0) - o.oh) * 100) + ' cm' : '')); });
+  (P.pts || []).length && L.push('', 'Total noktaları: ' + P.pts.map(t => t.name).join(', '));
+  return L.join('\n');
+}
+function showReport() { const t = reportText(); window._lastRep = t; openModal(`<h3>Ölçü raporu</h3><pre style="white-space:pre-wrap;font-size:12px;max-height:55vh;overflow:auto;background:#0b0d10;padding:8px;border-radius:8px">${esc(t)}</pre><div class="row"><button class="p" data-m="repsh">Paylaş / kaydet</button><button data-m="ok0">Kapat</button></div>`); }
+/* =================== 6. aşama: yükseklikler =================== */
+function yukTap(X, Y) { const o = opHit(X, Y); if (o) { S.hs = { kind: 'op', id: o.id, f: o.type === 'kapi' ? 'oh' : 'sill' }; S.ms.buf = ''; render(); return; } const f = faceAt(s2w(X, Y)); const r = f && P.rooms.find(q => q._f === f); if (!r) return toast('Odaya ya da kapı/pencereye dokun'); S.hs = { kind: 'room', id: r.id, f: 'h' }; S.ms.buf = ''; render(); }
+function hsTarget() { const h = S.hs; return h.kind === 'room' ? roomById(h.id) : h.kind === 'op' ? opById(h.id) : null; }
+function hsSet(m) { const t = hsTarget(); if (!t || !(m >= 0)) return; snap(); t[S.hs.f] = Math.round(m * 1000) / 1000; const o = S.hs; if (o.kind === 'op' && o.f === 'sill') o.f = 'oh'; S.ms.buf = ''; S.np = false; commit(); toast('Kaydedildi: ' + fmtM(m, 3) + ' m'); }
+function opRooms(o) { const g = opGeom(o); if (!g) return []; return [V.sub(g.mid, V.mul(g.nB, 0.3)), V.add(g.mid, V.mul(g.nB, g.o0 + g.t + 0.3))].map(p => P.rooms.find(q => !q.kind && q._f && inPoly(p, q._f.poly) && !q._f.holes.some(h => inPoly(p, h)))).filter(Boolean); }
+function opRoomH(o) { const r = opRooms(o).filter(q => q.h); return r.length ? Math.min(...r.map(q => q.h)) : null; }
 
 /* =================== Serbest çizim =================== */
 function drawStroke() { if (!stroke || stroke.length < 2) return; ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); stroke.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); }
@@ -1019,7 +1063,7 @@ function endPtr(e, cancel) {
     commit(); return; }
   if (g.t === 'box') { const b = box; box = null; if (!cancel) boxSelect(b); else draw(); return; }
   if (g.t === 'pan') return;
-  if (g.t === 'pend' && !cancel) { if (S.tool === 'sec') selTap(X, Y); else if (S.tool === 'sil') silTap(X, Y); else if (S.tool === 'oda') odaTap(X, Y); else if (S.tool === 'merdiven' || S.tool === 'eleman') mkTap(X, Y); else if (S.tool === 'aciklik') opTap(X, Y); else if (S.tool === 'olc') olcTap(X, Y); else if (S.tool === 'nokta') noktaTap(X, Y); }
+  if (g.t === 'pend' && !cancel) { if (S.tool === 'sec') selTap(X, Y); else if (S.tool === 'sil') silTap(X, Y); else if (S.tool === 'oda') odaTap(X, Y); else if (S.tool === 'merdiven' || S.tool === 'eleman') mkTap(X, Y); else if (S.tool === 'aciklik') opTap(X, Y); else if (S.tool === 'olc') olcTap(X, Y); else if (S.tool === 'nokta') noktaTap(X, Y); else if (S.tool === 'kontrol') kontrolTap(X, Y); else if (S.tool === 'yukseklik') yukTap(X, Y); }
 }
 cv.addEventListener('pointerup', e => endPtr(e, false));
 cv.addEventListener('pointercancel', e => endPtr(e, true));
@@ -1046,6 +1090,8 @@ function renderCmd() {
   else if (S.tool === 'sil') s = 'SİL  Çizgiye dokun = sil · köşeye dokun = kırığı sil (çizgiler birleşir)';
   else if (S.tool === 'cikinti') s = S.cik.mode === 'el' ? (!S.chain ? 'ÇIKINTI  Oda çizgisinin üstünde başlangıca dokun' : 'ÇIKINTI  Nokta koy / cm + ok · aynı duvara dönünce hesaplanır') : (S.cik.step === 1 ? 'ÇIKINTI  1) Duvarda başlangıç noktasına dokun' : S.cik.step === 2 ? 'ÇIKINTI  2) Bitiş noktasına dokun ya da genişlik yaz + ok' : 'ÇIKINTI  3) Derinlik yaz (cm), yön okuna bas');
   else if (S.tool === 'oda') s = 'ODA  Kapalı alanın içine dokun = oda (alan hesaplanır)';
+  else if (S.tool === 'kontrol') s = 'KONTROL  Köşegen (oda içinden) · Geometriyi hesapla (önizleme + onay) · Rapor';
+  else if (S.tool === 'yukseklik') s = 'YÜKSEKLİK  Oda: taban–tavan · Pencere: denizlik + yükseklik → üstten tavana hesaplanır';
   else if (S.tool === 'nokta') s = 'KROKİ  Köşelere sırayla dokun · sıradaki ad: ' + esc(P.ptNext || 'başlangıcı yaz');
   else if (S.tool === 'disa') s = 'DIŞA AKTAR  DXF ya da ölçü raporu';
   else if (S.tool === 'olc') s = 'ÖLÇ  Çizgiye dokun → lazerle ölç ya da yaz · ölçülen çizgi tam oturur, diğerleri en az değişimle uyarlanır';
@@ -1054,9 +1100,23 @@ function renderCmd() {
   else if (S.tool === 'eleman') s = (S.mk.mode === 'ciz' ? 'ELEMAN  Şekli çizgi gibi çiz · kapanınca ' : 'ELEMAN  Alanın içine dokun → ') + esc(S.elName) + ' (alanı yazar, odadan düşülmez)';
   $('#cmd').innerHTML = s + o;
 }
-function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '6', 'C', '1', '2', '3', '00', '', '0', S.tool === 'olc' ? ',' : '', ''].map(k => k ? `<button data-k="${k}">${k}</button>` : '<span></span>').join('')}</div>`; }
+function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '6', 'C', '1', '2', '3', '00', '', '0', ['olc', 'kontrol', 'yukseklik'].includes(S.tool) ? ',' : '', ''].map(k => k ? `<button data-k="${k}">${k}</button>` : '<span></span>').join('')}</div>`; }
 function renderSheet() {
   let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
+  if (S.tool === 'kontrol') { const k = S.kt; const nd = (P.diags || []).length; const nb = P.lines.filter(q => q.kind === 'laser' && Math.abs(lineLen(q) - q.m) > 0.0015).length + (P.diags || []).filter(d => nodeById(d.a) && nodeById(d.b) && Math.abs(V.dist(nw(d.a), nw(d.b)) - d.m) > 0.0015).length;
+    if (S.calc) h += `<div class="row"><span class="inf"><b style="color:#4ade80">Önizleme (yeşil kesik)</b> · en büyük kayma ${Math.round(S.calc.shift * 1000)} mm · ölçek ${((S.calc.k - 1) * 100).toFixed(1)}%${S.calc.worst > 0.002 ? ' · <b style="color:#f87171">ölçüler çelişiyor ' + Math.round(S.calc.worst * 1000) + ' mm</b>' : ''}</span></div><div class="row"><button class="p" data-a="cok">✓ Onayla, uygula</button><button data-a="cx">Vazgeç</button></div>`;
+    else { h += `<div class="row"><span class="inf">${!k.a ? 'Köşegen: odanın bir köşesine dokun' : !k.b ? 'Karşı köşeye dokun (oda içinden geçmeli)' : '<b style="color:#fff">' + esc(k.room) + '</b> köşegeni: lazerle ölç ya da yaz'}</span></div>`;
+      if (k.b) h += `<div class="row"><button class="val ${S.np ? 'act' : ''}" data-a="np">${S.ms.buf ? S.ms.buf + ' cm' : '⌨ cm'}</button><button class="p" data-a="dgok" ${olcBufVal() ? '' : 'disabled'}>Kaydet</button><button data-a="dgx">İptal</button></div>` + (S.np ? numpad() : '');
+      h += `<div class="row"><button class="p" data-a="calc">Geometriyi hesapla</button><button data-a="rep">📄 Rapor</button>${nd ? '<button class="dng" data-a="dgdel">Köşegenleri sil</button>' : ''}</div><div class="row"><span class="inf">${nd} köşegen${nb ? ' · <b style="color:#f87171">' + nb + ' uyumsuz ölçü</b>' : ''}</span></div>`; }
+  }
+  if (S.tool === 'yukseklik') { const t = hsTarget(); const hs = S.hs;
+    if (!t) h += `<div class="row"><span class="inf">Odaya dokun → taban–tavan · pencere/kapıya dokun → denizlik ve yükseklik</span></div>`;
+    else if (hs.kind === 'room') h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(t.name)}</b> taban–tavan: <b style="color:#fff">${t.h != null ? fmtM(t.h, 3) + ' m' : '—'}</b></span></div>`;
+    else { const H = opRoomH(t); const top = H != null && t.oh != null ? H - (t.sill || 0) - t.oh : null;
+      h += `<div class="row"><span class="inf"><b style="color:#fff">${t.type === 'kapi' ? 'Kapı' : 'Pencere'} ${Math.round(t.w * 100)}</b> · üstten tavana: <b style="color:${top != null && top < 0 ? '#f87171' : '#fff'}">${top != null ? Math.round(top * 100) + ' cm' : (H == null ? 'oda yüksekliği yok' : '—')}</b></span></div>
+      <div class="row">${t.type === 'pencere' ? `<button class="${hs.f === 'sill' ? 'on' : ''}" data-a="hsf" data-v="sill">Denizlik ${t.sill != null ? Math.round(t.sill * 100) : '—'}</button>` : ''}<button class="${hs.f === 'oh' ? 'on' : ''}" data-a="hsf" data-v="oh">Yükseklik ${t.oh != null ? Math.round(t.oh * 100) : '—'}</button></div>`; }
+    if (t) h += `<div class="row"><button class="val ${S.np ? 'act' : ''}" data-a="np">${S.ms.buf ? S.ms.buf + ' cm' : '⌨ cm'}</button><button class="p" data-a="hsok" ${olcBufVal() != null || S.ms.buf === '0' ? '' : 'disabled'}>Kaydet</button><span class="inf">ya da lazerle ölç</span></div>` + (S.np ? numpad() : '');
+  }
   if (S.tool === 'nokta') { const t = S.ptSel && (P.pts || []).find(q => q.id === S.ptSel);
     h += `<div class="row"><span class="inf">Sıradaki ad</span><button class="val act" data-a="ptn">${esc(P.ptNext || '— (başlangıcı yaz)')}</button><button data-a="ptu" ${undoSt.length ? '' : 'disabled'}>↶ Son nokta</button></div>`;
     if (t) h += `<div class="row"><span class="inf">Seçili: <b style="color:#fff">${esc(t.name)}</b></span><button data-a="ptr">Adını değiştir</button><button data-a="ptc">Buradan devam</button><button class="dng" data-a="ptd">Sil</button></div>`;
@@ -1122,12 +1182,21 @@ $('#tabs').addEventListener('click', e => { const b = e.target.closest('button')
 $('#bar').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.tab) { const t = TABS.find(x => x[0] === b.dataset.tab); S.lastCat = S.lastCat || {}; S.lastCat[tabOf(S.cat)] = S.cat; setCat((S.lastCat[t[0]]) || t[2][0]); } else if (b.dataset.cat) setCat(b.dataset.cat); else if (b.dataset.tool) setTool(b.dataset.tool); });
 $('#sheet').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) { if (e.target.closest('.hd')) { S.np = !S.np; render(); } return; }
-  if (b.dataset.k) { const k = b.dataset.k; if (S.tool === 'olc') { let v = S.ms.buf || ''; if (k === '⌫') v = v.slice(0, -1); else if (k === 'C') v = ''; else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; } else if (v.length < 8) v = v + k; S.ms.buf = v; render(); return; }
+  if (b.dataset.k) { const k = b.dataset.k; if (['olc', 'kontrol', 'yukseklik'].includes(S.tool)) { let v = S.ms.buf || ''; if (k === '⌫') v = v.slice(0, -1); else if (k === 'C') v = ''; else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; } else if (v.length < 8) v = v + k; S.ms.buf = v; render(); return; }
     const tgt = S.tool === 'dikdortgen' ? (S.field || 'w') : (S.tool === 'aciklik' && S.op.step === 2) ? S.op.f : null; let v = tgt ? (S.tool === 'aciklik' ? S.op[tgt] : S.rect[tgt]) : S.kbuf;
     if (k === '⌫') v = v.slice(0, -1); else if (k === 'C') v = ''; else if (v.length < 6) v = (v + k).replace(/^0+/, '');
     if (tgt) { if (S.tool === 'aciklik') S.op[tgt] = v; else S.rect[tgt] = v; } else S.kbuf = v; render(); return; }
   const a = b.dataset.a;
   if (a === 'np') S.np = !S.np;
+  else if (a === 'dgok') { diagSet(olcBufVal()); return; }
+  else if (a === 'dgx') S.kt = { mode: 'kos', a: null, b: null };
+  else if (a === 'dgdel') { snap(); P.diags = []; commit(); return; }
+  else if (a === 'calc') { calcPreview(); return; }
+  else if (a === 'cok') { calcApply(); return; }
+  else if (a === 'cx') S.calc = null;
+  else if (a === 'rep') { showReport(); return; }
+  else if (a === 'hsf') S.hs.f = b.dataset.v;
+  else if (a === 'hsok') { hsSet(S.ms.buf === '0' ? 0 : olcBufVal()); return; }
   else if (a === 'ptn') { const n = prompt('Sıradaki nokta adı', P.ptNext || '1'); if (n && n.trim()) { P.ptNext = n.trim(); commit(); return; } }
   else if (a === 'ptu') { undo(); return; }
   else if (a === 'ptr' || a === 'ptd' || a === 'ptc') { const t = (P.pts || []).find(q => q.id === S.ptSel); if (!t) return;
@@ -1233,13 +1302,14 @@ $('#mbox').addEventListener('click', async e => {
   else if (m === 'json') { const blob = new Blob([JSON.stringify(P)], { type: 'application/json' }); const f = new File([blob], P.name.replace(/[\\/:*?"<>|]+/g, '_') + '.json', { type: 'application/json' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); P.backupAt = Date.now() + 5; save(); closeModal(); toast('Yedek alındı'); return; } } catch (er) { if (er.name === 'AbortError') return; } const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); P.backupAt = Date.now() + 5; save(); closeModal(); toast('Yedek indirildi'); }
   else if (m === 'imp') $('#fileIn').click();
   else if (m === 'dxf') { closeModal(); exportDXF(); }
+  else if (m === 'repsh') { shareOrDownload(window._lastRep || '', P.name.replace(/[\\/:*?"<>|]+/g, '_') + '-rapor.txt', 'text/plain'); }
 });
 $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.nodes)) throw new Error('Bu dosya yeni sürümün yedeği değil'); save(); P = d; if (allProjects()[P.name]) P.name = uniqName(P.name); undoSt = []; redoSt = []; commit(); fit(); closeModal(); toast('Yüklendi · ' + P.name); } catch (er) { alert('Okunamadı: ' + er.message); } e.target.value = ''; });
 
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>

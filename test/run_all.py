@@ -2,7 +2,9 @@
 Gerekli: pip install playwright && playwright install chromium (ya da CHROME=/yol/chrome)"""
 import subprocess, sys, pathlib, re
 d = pathlib.Path(__file__).resolve().parent
+import os
 files = sorted(d.glob('t*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem)))
+if os.environ.get('PAGE', 'index.html') != 'index.html': files += sorted(d.glob('p*.py'))
 bad = 0
 for f in files:
     r = subprocess.run([sys.executable, str(f)], capture_output=True, text=True, timeout=600)
