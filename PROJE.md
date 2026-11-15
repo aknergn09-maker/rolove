@@ -234,6 +234,24 @@ Programda:
 - Kalınlık: araçta cm + ✓, ya da Ölç'te dış yüz kenarı seç → "kalınlık" → lazer.
 - Pline devamı: Çizgi aracında açık uçlar yeşil halkayla gösterilir (30 px yakalama). Serbest/Düzenle'de açık pline'ın kenarı ya da noktası seçilince "╱ Devam" düğmesi.
 
+### v7 notları (16 istek)
+
+- Hizalama kılavuzları: basılı tutunca ya da çizgi aracında imleç, ekrandaki noktaların x/y hizasına (çizimin eksen açısında) 9 px içinde oturur, pembe kesikli kılavuz çizilir. Zincirde aks izi (track) başlangıç noktasına öncelik verir, kapanış köşesi tam yakalanır.
+- Seçim: daire içine dokununca seçilir; fillet yayı kenar olarak seçilir; ofset/duvar dış çizgisi seçilince "∥ Grup", "⇅", "Ayır" düğmeleri.
+- Ofset/duvar önizleme: dokununca önizleme olur; cm yazınca canlı değişir, ✓ uygular, ✕ / araç / sekme değişimi iptal eder ve iz bırakmaz. Araç değişince seçim, tampon, yerleştirme izleri temizlenir.
+- Gerçek fillet: köşe silinir, iki teğet nokta gerçek (adlandırılabilir, yakalanır) olur, yay kenarı (`arc`) ve yardımcı merkez noktası (`aux`, adsız, DXF'e yazılmaz) eklenir. Kısıtlar: yarıçap (`radius`), teğetlik (`perp` + `tan`, 0.2°). Köşeden ölçülmüş kenar varsa sanal köşe `aux` olarak kalır ve iki çizgi üzerinde tutulur. Eski `P.fillets` açılışta dönüştürülür.
+- Pencere: `window` kenar türü, duvarı kapı gibi böler, söveler gerçek köşe. `P.windows [{id,e,sill,h,sillM,hM}]`. Kroki'de cm + "Parapet"/"Yükseklik" düğmeleri; Ölç'te Genişlik → Parapet → Yükseklik lazerle sırayla. Ayar: "Pencere parapet/yükseklik sor". DXF katmanı PENCERE.
+- Kapı açılışı: yerleştirince 4 seçenek (İçe/Dışa × menteşe noktası adı), son seçim yeni kapılara uygulanır (`SET.doorSide/doorHinge`).
+- Join: açık pline'ların uçları aynı nokta ya da 2 cm içindeyse Bitir'de ve ofset/duvar öncesinde birleşir; uç uca kapanırsa oda olur. Ofset bir kenara dokununca tüm pline'a uygulanır; açık ofsetin uçları kapatılır.
+- Çıkıntı: zincir bir oda duvarının üstünden başlayıp aynı düz duvara dönerse (en az 2 parça) uç noktalar duvara eklenir, aradaki duvar parçası silinir, zincir odanın halkasına katılır.
+- Eksen kilidi: zincirin ilk noktası bir kenarın üstündeyse o kenarın açısı; boşta başlıyorsa ilk parça serbest, sonraki parçalar ilk parçaya göre kilitli.
+- Lazer: seçim yoksa ölçü odaklı şeklin sıradaki ölçülmemiş kenarına otomatik yazılır (↶ ile geri). Çizgi/araç modunda ölçü cm tamponuna gider.
+- Bosch paketleri: bayt 3 = mod. 0x04 (ön referans), 0x06 (arka), 0x08 → uzaklık. Değer 0 olan paket = ayar (yok sayma penceresi 1.5 sn). Diğer modlar (0x0A min/max, eğim vb.) @7/@11/@15 float olarak çözülür, ilk değer yazılır, Ölç panelinde diğerleri düğme olur. Eğim modunun gerçek paketi henüz görülmedi; günlük ekranından alınacak.
+- Çapraz önerisi: sadece gönye belirsizse ve (oda için hiç çapraz yoksa ya da gönyesizlik/sapma > tolerans görüldüyse). Aday çapraz oda içinden görünmeli (duvar kesmez, köşeye sürtmez, orta noktası içeride), ≤ 30 m, en uzunu. Kontrol çaprazı ayara bağlı (varsayılan kapalı). Kalan köşeler "90° kabul" olarak raporlanır.
+- İlk ölçü ölçeği: bir bağlı grupta ilk kenar ölçülünce grup (oda içindeki ölçülmemiş detaylar dahil) o kenarın ilk ucuna göre orantılı ölçeklenir; yazılan kapı/pencere genişliği, yazılmış yarıçaplar ve duvar kalınlığı korunur. Ekran ölçeği de aynı oranda değişir, köşe ekranda yerinde kalır.
+- Grup taşıma: Düzenle'de kenar/daire/oda içinden sürükleme, birbirine bağlı (kenar, kısıt, ofset) her şeyi birlikte taşır.
+- Test: work/t8.py 40 kontrol (16 maddenin hepsi) + t4–t7 güncellendi.
+
 ## 9. Açık sorular
 
 - [ ] 3° TM dilimi
@@ -241,5 +259,5 @@ Programda:
 - [ ] Nokta kodlama listesi (B = bina, …)
 - [ ] Kapanma toleransı (öneri: 2 cm)
 - [ ] GitHub hesabı ve depo adı
-- [ ] Bosch paketindeki bayt 3 (mod: 06 = ölçüm, 02 = ayar?) ve bayt 4–5'in anlamı. Referans değişince ölçü yeniden gönderiliyor.
+- [ ] Bosch eğim modu paketi (günlük ekran görüntüsü bekleniyor). Bilinen: 04 ön, 06 arka referans, 0A üç değer, değer 0 = ayar.
 - [ ] Köşe ucu adaptörü: tasarım ve uzunluk
