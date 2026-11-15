@@ -326,6 +326,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - v8.15: Duvarın diğer yüzü (iç/dış fark etmez) oda tespitinde sınır sayılır (sanal çizgi). Duvar bandının içindeki parçalar (halka) oda olmaz. Sanal yüz, kendi duvarı olmayan başka bir odanın alanına giriyorsa sayılmaz. Sonuç: dıştan iskelet çiz, içten (iç yüzden) oda doldur → oda oluşur, alan iç yüzden. Serbest çizim uçları duvar yüzüne de yakalanır. Not: komşu odaya taşan duvar bandı (ötele/çıkıntı "Hayır") o odanın alanından düşer (t8 C 8.95, t9 B 8.3). t11.py 6 kontrol.
 
+- v8.16: Sanal yüzün atılma kuralı değişti: yalnızca duvar bandı (referans çizgi → yüz) başka bir gerçek çizgiyi aşıyorsa yüz sayılmaz (komşu odaya taşma). Başka odanın duvarının dış yüzü, iskeletin içinde olsa da sınırdır. Çizgi/duvar zinciri bir duvar yüzüne düşünce oda kontrolü yapılır (önceden sadece mevcut düğüm/çizgiye düşünce). Yön fark etmez. t12.py 6 kontrol.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
