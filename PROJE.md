@@ -244,7 +244,8 @@ Programda:
 - Kapı açılışı: yerleştirince 4 seçenek (İçe/Dışa × menteşe noktası adı), son seçim yeni kapılara uygulanır (`SET.doorSide/doorHinge`).
 - Join: açık pline'ların uçları aynı nokta ya da 2 cm içindeyse Bitir'de ve ofset/duvar öncesinde birleşir; uç uca kapanırsa oda olur. Ofset bir kenara dokununca tüm pline'a uygulanır; açık ofsetin uçları kapatılır.
 - Çıkıntı: zincir bir oda duvarının üstünden başlayıp aynı düz duvara dönerse (en az 2 parça) uç noktalar duvara eklenir, aradaki duvar parçası silinir, zincir odanın halkasına katılır.
-- Eksen kilidi: zincirin ilk noktası bir kenarın üstündeyse o kenarın açısı; boşta başlıyorsa ilk parça serbest, sonraki parçalar ilk parçaya göre kilitli.
+- İki eksen kilidi (v7b): ⊥ objeye göre, ✛ X-Y (ekran ekseni, açı 0). Aktif olana tekrar basınca kilit kapanır. `SET.orthoMode` = 'obj' | 'xy'. X-Y'de el çizimi de 0/90'a oturur.
+- Eksen kilidi (obje): zincirin ilk noktası bir kenarın üstündeyse o kenarın açısı; boşta başlıyorsa ilk parça serbest, sonraki parçalar ilk parçaya göre kilitli.
 - Lazer: seçim yoksa ölçü odaklı şeklin sıradaki ölçülmemiş kenarına otomatik yazılır (↶ ile geri). Çizgi/araç modunda ölçü cm tamponuna gider.
 - Bosch paketleri: bayt 3 = mod. 0x04 (ön referans), 0x06 (arka), 0x08 → uzaklık. Değer 0 olan paket = ayar (yok sayma penceresi 1.5 sn). Diğer modlar (0x0A min/max, eğim vb.) @7/@11/@15 float olarak çözülür, ilk değer yazılır, Ölç panelinde diğerleri düğme olur. Eğim modunun gerçek paketi henüz görülmedi; günlük ekranından alınacak.
 - Çapraz önerisi: sadece gönye belirsizse ve (oda için hiç çapraz yoksa ya da gönyesizlik/sapma > tolerans görüldüyse). Aday çapraz oda içinden görünmeli (duvar kesmez, köşeye sürtmez, orta noktası içeride), ≤ 30 m, en uzunu. Kontrol çaprazı ayara bağlı (varsayılan kapalı). Kalan köşeler "90° kabul" olarak raporlanır.
