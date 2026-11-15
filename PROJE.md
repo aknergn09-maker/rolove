@@ -251,7 +251,9 @@ Programda:
 - Çapraz önerisi: sadece gönye belirsizse ve (oda için hiç çapraz yoksa ya da gönyesizlik/sapma > tolerans görüldüyse). Aday çapraz oda içinden görünmeli (duvar kesmez, köşeye sürtmez, orta noktası içeride), ≤ 30 m, en uzunu. Kontrol çaprazı ayara bağlı (varsayılan kapalı). Kalan köşeler "90° kabul" olarak raporlanır.
 - İlk ölçü ölçeği: bir bağlı grupta ilk kenar ölçülünce grup (oda içindeki ölçülmemiş detaylar dahil) o kenarın ilk ucuna göre orantılı ölçeklenir; yazılan kapı/pencere genişliği, yazılmış yarıçaplar ve duvar kalınlığı korunur. Ekran ölçeği de aynı oranda değişir, köşe ekranda yerinde kalır.
 - Grup taşıma: Düzenle'de kenar/daire/oda içinden sürükleme, birbirine bağlı (kenar, kısıt, ofset) her şeyi birlikte taşır.
-- Test: work/t8.py 40 kontrol (16 maddenin hepsi) + t4–t7 güncellendi.
+- v7c — Daire/yay kesme: Trim'de daireye dokununca dokunulan parça silinir, kalan yay kenar olur (uçlar çizgi üstünde gerçek nokta). Yay da çizgilerle kırpılır; çizgi de daire/yayla kırpılır. Yakalama: çizgi–daire kesişimi (`cint`), daire üstü (`cnear`); nokta `oncirc` kısıtıyla (merkeze uzaklık = yarıçap) daire/yay üstünde kalır. Yaylar artık düz çizgi gibi yakalanmıyor.
+- v7c — Nokta adı: yeni noktalara otomatik ad verilmez (ayar: "Yeni noktalara otomatik ad ver"). Nokta No ile ad verilen nokta total noktası sayılır (`p.tot`, mor üçgen): analizde koordinatı bilinir; iki total noktası arasındaki kenar ölçü istemez, çapraz önerisine girmez. Boş tamponla noktaya dokunmak adı ve total işaretini siler. Nokta No hat, yay ve daire üstüne basılı tutarak da konur.
+- Test: work/t8.py 40 kontrol, t9 (eksen kilidi) 6, t10 (daire kesme/total) 13 (16 maddenin hepsi) + t4–t7 güncellendi.
 
 ## 9. Açık sorular
 
