@@ -504,11 +504,12 @@ function mkTap(X, Y) {
 }
 function stepsApply() {
   const m = S.mk; const N = Math.round(kval() * 100); const l1 = lineById(m.l1), l2 = lineById(m.l2); if (!l1 || !l2) return toast('Önce karşılıklı iki çizgiyi seç'); if (!(N >= 2)) return toast('Rıh sayısını yaz (en az 2)');
-  const a1 = nw(l1.a), b1 = nw(l1.b); let a2 = nw(l2.a), b2 = nw(l2.b); if (V.dist(a1, a2) + V.dist(b1, b2) > V.dist(a1, b2) + V.dist(b1, a2)) [a2, b2] = [b2, a2];
-  snap(); let made = 0; for (let i = 0; i < N; i++) { const t = i / (N - 1); const p = V.add(a1, V.mul(V.sub(b1, a1), t)), q = V.add(a2, V.mul(V.sub(b2, a2), t));
+  // kısa kenar esas: kısa kenar N-1 eşit aralığa bölünür, her noktadan kısa kenara dik çıkılıp karşı kenarın doğrultusuna kadar çizilir
+  const [ks, kl] = lineLen(l1) <= lineLen(l2) + 1e-9 ? [l1, l2] : [l2, l1]; const a1 = nw(ks.a), b1 = nw(ks.b), u = V.unit(V.sub(b1, a1)), nr = [-u[1], u[0]]; const c = nw(kl.a), d = nw(kl.b);
+  snap(); let made = 0; for (let i = 0; i < N; i++) { const t = i / (N - 1); const p = V.add(a1, V.mul(V.sub(b1, a1), t)); const q = lineInt(p, nr, c, V.unit(V.sub(d, c))); if (!q) continue;
     if (P.lines.some(l => !l.step && ((V.dist(nw(l.a), p) < 1e-4 && V.dist(nw(l.b), q) < 1e-4) || (V.dist(nw(l.a), q) < 1e-4 && V.dist(nw(l.b), p) < 1e-4)))) continue; // kenar zaten var
     const l = { id: uid('l'), a: addNode(...p), b: addNode(...q), kind: 'sketch', step: true }; P.lines.push(l); made++; }
-  S.mk = { mode: 'bas', l1: null, l2: null, pts: [] }; S.sel = null; S.kbuf = ''; S.np = false; commit(); toast(N + ' rıh · ' + (N - 1) + ' basamak aralığı · ' + fmtM(V.dist(a1, b1) / (N - 1) * 100, 1) + ' cm');
+  S.mk = { mode: 'bas', l1: null, l2: null, pts: [] }; S.sel = null; S.kbuf = ''; S.np = false; commit(); toast(N + ' rıh · basamak genişliği ' + fmtM(V.dist(a1, b1) / (N - 1) * 100, 1) + ' cm (kısa kenar esas)');
 }
 /* ---- Oda ---- */
 function odaTap(X, Y) { const p = s2w(X, Y); const f = faceAt(p); if (!f) return toast('Kapalı bir alanın içine dokun'); const ex = P.rooms.find(r => r._f === f); if (ex) { S.sel = { room: ex.id }; render(); return; } snap(); const r = makeRoomAt(p, true); S.sel = { room: r.id }; commit(); toast(r.name + ' · ' + f.net.toFixed(2) + ' m²'); }
@@ -848,7 +849,7 @@ function renderSheet() {
     h += `<div class="row">${md.map(([k, t]) => `<button class="${m.mode === k ? 'on' : ''}" data-a="mkm" data-v="${k}">${t}</button>`).join('')}</div>`;
     if (S.tool === 'eleman') h += `<div class="row"><span class="inf">Ad</span>${['Kolon', 'Şömine', 'Baca', 'Şaft'].map(n => `<button class="${S.elName === n ? 'on' : ''}" data-a="eln" data-v="${n}">${n}</button>`).join('')}<button data-a="elx">Diğer…</button></div>`;
     if (m.mode === 'alan') h += `<div class="row"><span class="inf">Kapalı bir alanın içine dokun → ${S.tool === 'merdiven' ? 'Merdiven' : esc(S.elName)} olur (oda ise dönüşür)</span></div>`;
-    if (m.mode === 'bas') { h += `<div class="row"><span class="inf">${!m.l1 ? '1) Kolun bir kenar çizgisine dokun' : !m.l2 ? '2) Karşı kenar çizgisine dokun' : '3) Rıh (alın) sayısını yaz · başlangıç ve bitiş çizgisi dahil'}</span></div><div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' rıh' : '⌨ rıh'}</button><button class="p" data-a="stp" ${m.l1 && m.l2 && S.kbuf ? '' : 'disabled'}>Basamakları at</button><button data-a="mkr">Seçimi sıfırla</button></div>` + (S.np ? numpad() : ''); }
+    if (m.mode === 'bas') { h += `<div class="row"><span class="inf">${!m.l1 ? '1) Kolun bir kenar çizgisine dokun' : !m.l2 ? '2) Karşı kenar çizgisine dokun' : '3) Rıh sayısını yaz · başlangıç ve bitiş dahil · kısa kenar esas alınır, dik çıkılır'}</span></div><div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' rıh' : '⌨ rıh'}</button><button class="p" data-a="stp" ${m.l1 && m.l2 && S.kbuf ? '' : 'disabled'}>Basamakları at</button><button data-a="mkr">Seçimi sıfırla</button></div>` + (S.np ? numpad() : ''); }
     if (m.mode === 'yon') h += `<div class="row"><span class="inf">${m.pts.length ? m.pts.length + ' nokta · kırılma noktalarına dokun, sonra Bitir' : 'Çıkışın başladığı yere dokun (L/U için dönüşlere de dokun)'}</span></div><div class="row"><button data-a="yonb" ${m.pts.length ? '' : 'disabled'}>↶ Son</button><button data-a="yonx" ${m.pts.length ? '' : 'disabled'}>İptal</button><button class="p" data-a="yonok" ${m.pts.length >= 2 ? '' : 'disabled'}>Bitir</button></div>`;
   }
   if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz()) {
