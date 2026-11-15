@@ -1,6 +1,6 @@
 import os, pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-URL = (ROOT / 'index.html').as_uri()
+URL = (ROOT / os.environ.get('PAGE', 'index.html')).as_uri()
 OUT = ROOT / 'test' / 'out'; OUT.mkdir(exist_ok=True); os.chdir(OUT)
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome' if os.path.exists('/usr/bin/google-chrome') else None)
 import asyncio, sys
@@ -32,7 +32,7 @@ async def main():
         await ev("""(()=>{const P=RK.P; const N=(id,x,y)=>P.nodes.push({id,x,y}); const L=(id,a,b)=>P.lines.push({id,a,b,kind:'sketch'});
           N('a',0,0);N('b',4,0);N('c',4,3);N('d',0,3);N('e',7,0);N('f',7,3); L('AB','a','b');L('BC','b','c');L('CD','c','d');L('DA','d','a');L('BE','b','e');L('EF','e','f');L('FC','f','c');
           P.rooms.push({id:'r1',name:'A',ax:2,ay:1.5},{id:'r2',name:'B',ax:5.5,ay:1.5}); RK.commit(); RK.view.s=45; RK.view.ox=30; RK.view.oy=300; RK.commit();})()""")
-        await btn('#cats button[data-cat=olc]')
+        (await btn('#cats button[data-cat=olc]')) or (await btn('#tabs button[data-tab=olcum]'))
         ck('Ölç sekmesi ve aracı', await ev("RK.S.tool")=='olc')
         await btn('#sheet button[data-a=lzc]'); await pg.wait_for_timeout(200)
         ck('lazer bağlandı (sahte GLM), cihaza C0 55 02 01 00 1A yazıldı', await ev("RK.LZ.state")=='bağlı' and await ev("window._glmWrites[0]")==[0xC0,0x55,0x02,0x01,0x00,0x1A], [await ev("RK.LZ.state"), await ev("window._glmWrites")])

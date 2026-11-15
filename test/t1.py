@@ -1,6 +1,6 @@
 import os, pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-URL = (ROOT / 'index.html').as_uri()
+URL = (ROOT / os.environ.get('PAGE', 'index.html')).as_uri()
 OUT = ROOT / 'test' / 'out'; OUT.mkdir(exist_ok=True); os.chdir(OUT)
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome' if os.path.exists('/usr/bin/google-chrome') else None)
 import asyncio, sys, json

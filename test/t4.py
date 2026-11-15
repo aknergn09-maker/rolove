@@ -1,6 +1,6 @@
 import os, pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-URL = (ROOT / 'index.html').as_uri()
+URL = (ROOT / os.environ.get('PAGE', 'index.html')).as_uri()
 OUT = ROOT / 'test' / 'out'; OUT.mkdir(exist_ok=True); os.chdir(OUT)
 CHROME = os.environ.get('CHROME', '/usr/bin/google-chrome' if os.path.exists('/usr/bin/google-chrome') else None)
 import asyncio, sys
@@ -29,7 +29,7 @@ async def main():
         q = await ev("RK.w2s(4.15, 3.15)"); c = await ev(f"RK.candidate({q[0]+3},{q[1]+2},{{}})"); w = await ev(f"RK.s2w({c['X']},{c['Y']})")
         ck('kapalı duvar köşesinde aks–aks noktası verilmez', c.get('lab') not in ('Aks ucu','Aks kesişimi'), [c,w])
         # dışarıdan (2,5) başla, aşağı doğru üst duvarın aksına dik otur
-        q = await ev("RK.w2s(2, 5)"); await ctap(q[0], q[1])
+        q = await ev("RK.w2s(2, 4.8)"); await ctap(q[0], q[1])
         q = await ev("RK.w2s(2.02, 3.13)"); c = await ev(f"RK.candidate({q[0]},{q[1]},{{fromId: RK.S.chain.last}})"); w = await ev(f"RK.s2w({c['X']},{c['Y']})")
         ck('orto yönünde aksa dik oturur', c.get('lab')=='Aksa dik' and abs(w[1]-3.15)<1e-6 and abs(w[0]-2)<1e-6, [c, w])
         q = await ev("RK.w2s(2.03, 3.32)"); c = await ev(f"RK.candidate({q[0]},{q[1]},{{fromId: RK.S.chain.last}})"); w = await ev(f"RK.s2w({c['X']},{c['Y']})")
