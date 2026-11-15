@@ -311,6 +311,11 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 6. Yükseklikler sekmesi
 7. Nokta adı / total noktaları, DXF
 
-### Konuşulan öneriler (onay bekliyor)
+- v8.9: Oda düzenle
+  - Ötele (Seç → çizgi → Ötele → cm → yön oku): duvarın düz devamı (aynı doğrultudaki bitişik parçalar) paralel kayar; uçlara bağlı çizgiler kendi doğrultusunda uzar/kısalır; 60 cm içinde paralel ve arası oda olmayan karşı yüz (komşu odanın duvarı) aynı miktarda kayar, kalınlık korunur. Karşı yüzün düğümü kaymayan paralel bir çizgiye de bağlıysa (C odası) düğüm ayrılır, yeni köşe bağlı duvarın üstüne oturur; C'ye dokunulmaz. Kural (kullanıcı onayı): başka hiçbir şey kaymaz.
+  - Çıkıntı/Girinti (Ekle → Çıkıntı): Ölçüyle (başlangıca dokun → bitişe dokun ya da en yaz + ok → derinlik yaz + yön oku) ve Elle çiz (duvardan başla, aynı düz duvara dön). Aradaki duvar parçası silinir, duvar bandı zinciri yeni yolu izler, oda alanı güncellenir. Komşuya dokunulmaz; aradaki parçaya bağlı boşta kalan çizgiler kendi doğrultusunda yeni hatta uzatılır/kısaltılır ve bağlanır.
+  - Çizerken nokta kendi son noktasına yakalanmaz.
+  - t8.py 11 kontrol.
+### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
