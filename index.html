@@ -100,7 +100,7 @@ let SET = Object.assign({}, defSet, readJSON(LS_S, {}));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const newProject = name => ({ v: 8, name: name || ('Kroki ' + new Date().toLocaleDateString('tr-TR')), nodes: [], lines: [], rooms: [], walls: [], roomSeq: 0, created: Date.now() });
 let P = null;
-const S = { cik: { mode: 'el', step: 1 }, offEdit: null, cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
+const S = { mk: { mode: 'ciz', l1: null, l2: null, pts: [] }, elName: 'Kolon', cik: { mode: 'el', step: 1 }, offEdit: null, cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
 let G = { faces: [], comps: [] };
 let undoSt = [], redoSt = [];
 let view = { s: 40, ox: 0, oy: 0 };
@@ -153,6 +153,7 @@ function splitLine(l, nid) { // l çizgisini nid düğümünde böl
   P.lines = P.lines.filter(x => x !== l); const l1 = addLine(l.a, nid, l.kind), l2 = addLine(nid, l.b, l.kind); return [l1, l2];
 }
 function cleanup() { // sıfır boy, çift çizgi, yetim düğüm
+  P.arrows = P.arrows || [];
   P.lines = P.lines.filter(l => l.a !== l.b && nodeById(l.a) && nodeById(l.b));
   const seen = new Set(); P.lines = P.lines.filter(l => { const k = [l.a, l.b].sort().join('|'); if (seen.has(k)) return false; seen.add(k); return true; });
   const used = new Set(); P.lines.forEach(l => { used.add(l.a); used.add(l.b); });
@@ -172,7 +173,7 @@ function deleteLine(l) { P.lines = P.lines.filter(x => x !== l); }
 function computeFaces(realOnly) {
   const vk = new Map(), verts = []; const key = p => Math.round(p[0] * 1e5) + '|' + Math.round(p[1] * 1e5);
   const vid = p => { const k = key(p); if (vk.has(k)) return vk.get(k); const i = verts.length; verts.push({ x: p[0], y: p[1], out: [] }); vk.set(k, i); return i; };
-  const segs = P.lines.map(l => ({ a: nw(l.a), b: nw(l.b), l, ts: [{ t: 0, p: nw(l.a) }, { t: 1, p: nw(l.b) }] }));
+  const segs = P.lines.filter(l => !l.step).map(l => ({ a: nw(l.a), b: nw(l.b), l, ts: [{ t: 0, p: nw(l.a) }, { t: 1, p: nw(l.b) }] }));
   // duvarın diğer yüzü de sınırdır (iç/dış fark etmez): sanal çizgi olarak eklenir
   const nw0 = NOWALL; NOWALL = realOnly; const WQ = []; (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) g.quads.forEach(q => WQ.push(q.poly)); });
   wallFaces().forEach((f, i) => { if (V.dist(f.a, f.b) < 1e-6) return; const qd = f.k === 'out' ? (wallGeom(f.w).quads.find(q => q.i === f.i) || {}).poly : null; segs.push({ a: f.a, b: f.b, w: f.w, ref: qd ? [qd[0], qd[1]] : null, l: { id: 'wf:' + f.w.id + ':' + f.k + ':' + f.i + ':' + i, a: null, b: null }, ts: [{ t: 0, p: f.a }, { t: 1, p: f.b }] }); }); NOWALL = nw0;
@@ -182,7 +183,7 @@ function computeFaces(realOnly) {
     if (x.t > e && x.t < 1 - e) s.ts.push({ t: x.t, p: x.p }); if (x.u > e && x.u < 1 - e) r.ts.push({ t: x.u, p: x.p });
   }
   // nokta-çizgi temasları (T) için: düğüm bir çizginin üstündeyse
-  const tpts = P.nodes.map(n => [n.x, n.y]); segs.forEach(r => { if (r.ref !== undefined || r.w) tpts.push(r.a, r.b); }); // sanal yüz uçları da (üst üste binen kolinear parçalar bölünsün)
+  const stepN = new Set(); P.lines.forEach(l => { if (l.step) { stepN.add(l.a); stepN.add(l.b); } }); const tpts = P.nodes.filter(n => !stepN.has(n.id) || P.lines.some(l => !l.step && (l.a === n.id || l.b === n.id))).map(n => [n.x, n.y]); segs.forEach(r => { if (r.ref !== undefined || r.w) tpts.push(r.a, r.b); }); // sanal yüz uçları da (üst üste binen kolinear parçalar bölünsün)
   segs.forEach(s => tpts.forEach(p => { const f = footT(p, s.a, s.b); if (f.t > 1e-7 && f.t < 1 - 1e-7 && V.dist(f.q, p) < 1e-6) s.ts.push({ t: f.t, p }); }));
   const intrudes = (s, m) => { // duvar bandı başka bir gerçek çizgiyi aşıyorsa (komşu odaya taşma) o yüz sınır sayılmaz
     const r = footT(m, s.ref[0], s.ref[1]).q; if (V.dist(r, m) < 1e-6) return false; return P.lines.some(l => { const x = segX(r, m, nw(l.a), nw(l.b)); return x && x.t > 1e-4 && x.t < 1 - 1e-4 && x.u > -1e-6 && x.u < 1 + 1e-6; }); };
@@ -211,18 +212,27 @@ function computeFaces(realOnly) {
 }
 function faceAt(p) { let best = null; G.faces.forEach(f => { if (!inPoly(p, f.poly) || f.holes.some(h => inPoly(p, h))) return; if (!best || f.area < best.area) best = f; }); return best; }
 function setF(r, f) { Object.defineProperty(r, '_f', { value: f, writable: true, enumerable: false, configurable: true }); }
+function rA(r) { return r._f ? (r._a != null ? r._a : r._f.net) : null; }
 function updateRooms() {
   const used = new Set();
-  P.rooms.forEach(r => { const f = faceAt([r.ax, r.ay]); setF(r, null); if (f && !used.has(f)) { used.add(f); setF(r, f); const ip = interiorPt(f.poly); if (!f.holes.some(h => inPoly(ip, h))) { r.ax = ip[0]; r.ay = ip[1]; } } });
+  const ord = P.rooms.slice().sort((a, b) => (b.kind ? 1 : 0) - (a.kind ? 1 : 0)); ord.forEach(r => { let f = faceAt([r.ax, r.ay]); setF(r, null);
+    if (f && used.has(f) && !r.kind) { const a = [r.ax, r.ay]; const fr = G.faces.filter(g => !used.has(g)); const c1 = fr.filter(g => inPoly(a, g.poly)).sort((x, y) => x.area - y.area)[0]; // anchor bir merdiven/elemanın içinde kaldı
+      if (c1) f = c1; else { let best = 0, bf = null; fr.forEach(g => { const n = [...g.lids].filter(id => f.lids.has(id)).length; if (n > best) { best = n; bf = g; } }); f = bf; } }
+    if (f && !used.has(f)) { used.add(f); setF(r, f); const ip = interiorPt(f.poly); if (!f.holes.some(h => inPoly(ip, h))) { r.ax = ip[0]; r.ay = ip[1]; } } });
+  P.rooms.forEach(r => { r._a0 = undefined; Object.defineProperty(r, '_a', { value: r._f ? r._f.net : null, writable: true, enumerable: false, configurable: true }); });
+  P.rooms.filter(e => e.kind === 'eleman' && e._f).forEach(e => { const ef = e._f; const ip = interiorPt(ef.poly); const host = P.rooms.filter(r => !r.kind && r._f);
+    let h = host.find(r => inPoly(ip, r._f.poly) && r._f.holes.some(q => inPoly(ip, q))); if (!h) { let best = 0; host.forEach(r => { const n = [...ef.lids].filter(id => r._f.lids.has(id) && !String(id).startsWith('wf:')).length; if (n > best) { best = n; h = r; } }); }
+    if (h) h._a += ef.net; });
+  P.rooms.forEach(r => { delete r._a0; });
 }
 function makeRoomAt(p, quiet) {
   const f = faceAt(p); if (!f) { if (!quiet) toast('Burada kapalı alan yok'); return null; }
   const ex = P.rooms.find(r => r._f === f); if (ex) { if (!quiet) { S.sel = { room: ex.id }; render(); } return ex; }
-  const ip = interiorPt(f.poly); const r = { id: uid('r'), name: 'Oda ' + (++P.roomSeq), ax: ip[0], ay: ip[1] }; P.rooms.push(r); setF(r, f); return r;
+  const ip = interiorPt(f.poly); const kind = S.tool === 'merdiven' ? 'merdiven' : S.tool === 'eleman' ? 'eleman' : null; const r = { id: uid('r'), name: kind === 'merdiven' ? 'Merdiven' : kind === 'eleman' ? S.elName : 'Oda ' + (++P.roomSeq), ax: ip[0], ay: ip[1] }; if (kind) r.kind = kind; P.rooms.push(r); setF(r, f); return r;
 }
 function autoRooms(lineIds) { // yeni çizgilerle kapanan ve odası olmayan alanlara oda
   if (!SET.autoRoom) return []; const out = [];
-  G.faces.forEach(f => { if (f.net < 0.3) return; const ip0 = interiorPt(f.poly); if (G.faces.some(g => g !== f && g.holes.some(h => inPoly(ip0, h)))) return; if (![...f.lids].some(id => lineIds.includes(id))) return; if (P.rooms.some(r => r._f === f)) return; const r = makeRoomAt(interiorPt(f.poly), true); if (r) out.push(r); });
+  const mkT = S.tool === 'merdiven' || S.tool === 'eleman'; G.faces.forEach(f => { if (f.net < (mkT ? 0.005 : 0.3)) return; const ip0 = interiorPt(f.poly); if (!mkT && G.faces.some(g => g !== f && g.holes.some(h => inPoly(ip0, h)))) return; if (![...f.lids].some(id => lineIds.includes(id))) return; if (P.rooms.some(r => r._f === f)) return; const r = makeRoomAt(interiorPt(f.poly), true); if (r) out.push(r); });
   return out;
 }
 
@@ -240,7 +250,7 @@ const COL = { sketch: '#f5a524', typed: '#e6e9ee', laser: '#4ade80', total: '#c0
 function label(t, X, Y, ang, col, sz) { ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a); ctx.font = '600 ' + (sz || 11) + 'px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(t).width + 6; ctx.fillStyle = 'rgba(11,13,16,.82)'; ctx.fillRect(-w / 2, -8, w, 16); ctx.fillStyle = col; ctx.fillText(t, 0, 0); ctx.restore(); }
 function draw() {
   if (!W || !P) return; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
-  drawGrid(); drawRooms(); drawWalls(); drawLines(); drawSel(); drawAim(); drawStroke(); drawScale();
+  drawGrid(); drawRooms(); drawWalls(); drawLines(); drawArrows(); drawSel(); drawAim(); drawStroke(); drawScale();
 }
 function drawGrid() {
   let st = 1; while (st * view.s < 18) st *= 5; while (st * view.s > 120) st /= 5;
@@ -250,17 +260,21 @@ function drawGrid() {
 }
 function drawScale() { let st = 1; while (st * view.s < 40) st *= 5; while (st * view.s > 160) st /= 5; const L = st * view.s; const y = H - sheetH() - 12; ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, y); ctx.lineTo(10 + L, y); ctx.moveTo(10, y - 4); ctx.lineTo(10, y + 4); ctx.moveTo(10 + L, y - 4); ctx.lineTo(10 + L, y + 4); ctx.stroke(); ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText((+st.toFixed(3)) + ' m', 16 + L, y); }
 function pathPoly(pts) { pts.forEach((p, i) => { const [X, Y] = w2s(p[0], p[1]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+function drawArrow(pts, col) { if (pts.length < 1) return; const S2 = pts.map(p => w2s(...p)); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(S2[0][0], S2[0][1], 4, 0, 7); ctx.stroke(); if (S2.length < 2) return; ctx.beginPath(); S2.forEach((q, i) => i ? ctx.lineTo(...q) : ctx.moveTo(...q)); ctx.stroke();
+  const a = S2[S2.length - 2], b = S2[S2.length - 1]; const u = V.unit(V.sub(b, a)); const n = [-u[1], u[0]]; ctx.beginPath(); ctx.moveTo(...b); ctx.lineTo(...V.add(V.sub(b, V.mul(u, 11)), V.mul(n, 5))); ctx.lineTo(...V.sub(V.sub(b, V.mul(u, 11)), V.mul(n, 5))); ctx.closePath(); ctx.fill(); }
+function drawArrows() { (P.arrows || []).forEach(a => drawArrow(a.pts, S.sel && S.sel.arrow === a.id ? COL.sel : '#e2e8f0')); if (S.tool === 'merdiven' && S.mk.mode === 'yon' && S.mk.pts.length) drawArrow(S.mk.pts, '#22c55e'); }
 function drawRooms() {
   P.rooms.forEach(r => { const f = r._f; const sel = S.sel && S.sel.room === r.id;
-    if (f) { ctx.beginPath(); pathPoly(f.poly); f.holes.forEach(pathPoly); ctx.fillStyle = sel ? 'rgba(59,130,246,.2)' : COL.room; ctx.fill('evenodd'); }
+    if (f) { ctx.beginPath(); pathPoly(f.poly); f.holes.forEach(pathPoly); ctx.fillStyle = sel ? 'rgba(59,130,246,.2)' : r.kind === 'merdiven' ? 'rgba(148,163,184,.10)' : r.kind === 'eleman' ? 'rgba(148,163,184,.16)' : COL.room; ctx.fill('evenodd');
+      if (r.kind === 'eleman') { ctx.save(); ctx.beginPath(); pathPoly(f.poly); ctx.clip(); ctx.strokeStyle = 'rgba(203,213,225,.45)'; ctx.lineWidth = 1; const xs = f.poly.map(p => w2s(...p)); const x0 = Math.min(...xs.map(q => q[0])), x1 = Math.max(...xs.map(q => q[0])), y0 = Math.min(...xs.map(q => q[1])), y1 = Math.max(...xs.map(q => q[1])); ctx.beginPath(); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); } ctx.stroke(); ctx.restore(); } }
     const [X, Y] = w2s(r.ax, r.ay); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 12px -apple-system,sans-serif'; ctx.fillStyle = sel ? '#93c5fd' : COL.roomTx; ctx.fillText(r.name, X, Y - 7);
-    ctx.font = '11px -apple-system,sans-serif'; ctx.fillStyle = f ? '#64748b' : COL.sketch; ctx.fillText(f ? f.net.toFixed(2) + ' m²' : 'açık (kapalı değil)', X, Y + 8); });
+    ctx.font = '11px -apple-system,sans-serif'; ctx.fillStyle = f ? '#64748b' : COL.sketch; ctx.fillText(f ? rA(r).toFixed(2) + ' m²' : 'açık (kapalı değil)', X, Y + 8); });
 }
 function drawLines() {
   const selL = new Set(S.sel && S.sel.lines || []);
   P.lines.forEach(l => { const a = ns(l.a), b = ns(l.b); const sel = selL.has(l.id);
-    ctx.strokeStyle = sel ? COL.sel : (COL[l.kind] || COL.sketch); ctx.lineWidth = sel ? 3 : 2; ctx.setLineDash(sel ? [8, 5] : []); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]); });
-  if (SET.showLen) P.lines.forEach(l => { const a = ns(l.a), b = ns(l.b); const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 42) return; const sd = 11; const nx = -dy / L * sd, ny = dx / L * sd; const v = lineLen(l); label((l.kind === 'sketch' ? '~' : '') + fmtM(v, l.kind === 'laser' ? 3 : 2), (a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny, Math.atan2(dy, dx), COL[l.kind] || COL.sketch, 10.5); });
+    ctx.strokeStyle = sel ? COL.sel : l.step ? '#cbd5e1' : (COL[l.kind] || COL.sketch); ctx.lineWidth = sel ? 3 : l.step ? 1.2 : 2; ctx.setLineDash(sel ? [8, 5] : []); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]); });
+  if (SET.showLen) P.lines.forEach(l => { if (l.step) return; const a = ns(l.a), b = ns(l.b); const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 42) return; const sd = 11; const nx = -dy / L * sd, ny = dx / L * sd; const v = lineLen(l); label((l.kind === 'sketch' ? '~' : '') + fmtM(v, l.kind === 'laser' ? 3 : 2), (a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny, Math.atan2(dy, dx), COL[l.kind] || COL.sketch, 10.5); });
   // düğümler
   const showN = ['sec', 'sil'].includes(S.tool); P.nodes.forEach(n => { const [X, Y] = w2s(n.x, n.y); if (X < -10 || Y < -10 || X > W + 10 || Y > H + 10) return; ctx.fillStyle = showN ? '#94a3b8' : '#64748b'; ctx.fillRect(X - 2, Y - 2, 4, 4); });
   // zincir
@@ -319,7 +333,7 @@ function frameBase(fromId) { // orto eksen açısı (derece)
   const l = P.lines[0]; return l ? norm90(headDeg(nw(l.a), nw(l.b))) : 0;
 }
 function aimFrom() { // lastik bandın başlangıcı
-  if ((S.tool === 'cizgi' || S.tool === 'duvar' || S.tool === 'cikinti') && S.chain) return { id: S.chain.last };
+  if ((S.tool === 'cizgi' || S.tool === 'duvar' || S.tool === 'cikinti' || mkCiz()) && S.chain) return { id: S.chain.last };
   if (S.tool === 'sec' && S.move && S.move.base) return { w: S.move.base };
   if (S.tool === 'sec' && gest && gest.t === 'grip' && gest.g.k === 'n') return null;
   return null;
@@ -401,9 +415,9 @@ function realize(c) { // hedefi düğüme çevir (gerekirse çizgiyi böl)
 
 /* =================== Araçlar =================== */
 const CATS = [['ciz', 'Çiz'], ['duz', 'Düzenle'], ['ekle', 'Ekle']];
-const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['cikinti', '⊓', 'Çıkıntı'], ['sil', '⌫', 'Sil']], ekle: [['oda', '▦', 'Oda']] };
+const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['cikinti', '⊓', 'Çıkıntı'], ['sil', '⌫', 'Sil']], ekle: [['oda', '▦', 'Oda'], ['eleman', '▣', 'Eleman'], ['merdiven', '☰', 'Merdiven']] };
 function setCat(c) { S.cat = c; if (!TOOLS[c].some(t => t[0] === S.tool)) setTool(TOOLS[c][0][0]); else render(); }
-function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.cikAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
+function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null;
 
 /* ---- Çizgi ---- */
@@ -413,10 +427,10 @@ function chainAdd(c, kind) {
   if (n === S.chain.last) { undoSt.pop(); return; }
   const l = addLine(S.chain.last, n, kind); if (!S.chain.firstLine) S.chain.firstLine = l.id; S.chain.lines.push(l.id); S.chain.n++; S.chain.last = n; (S.chain.nodes = S.chain.nodes || [S.chain.first]).push(n); S.kbuf = '';
   commit();
-  if (S.chain.n >= 2) { const wa = faceWallAt(nw(S.chain.first)), wb = faceWallAt(nw(n)); if (wa && wa === wb) { const fl = closeAlongFace(wa, S.chain.first, n); if (fl) { commit(); const rs = autoRooms(S.chain.lines.concat(fl)); endChain(false); commit(); toast('Oda ortak duvarın dış yüzünden kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? r._f.net.toFixed(2) : '?') + ' m²').join(', ') : '')); return; } } }
+  if (S.chain.n >= 2) { const wa = faceWallAt(nw(S.chain.first)), wb = faceWallAt(nw(n)); if (wa && wa === wb) { const fl = closeAlongFace(wa, S.chain.first, n); if (fl) { commit(); const rs = autoRooms(S.chain.lines.concat(fl)); endChain(false); commit(); toast('Oda ortak duvarın dış yüzünden kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ') : '')); return; } } }
   if (S.tool === 'cikinti' && cikChainCheck()) return;
-  if (n === S.chain.first && S.chain.n >= 2) { const rs = autoRooms(S.chain.lines); endChain(true); commit(); toast('Kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? r._f.net.toFixed(2) : '?') + ' m²').join(', ') : '')); return; }
-  if (((existed && degreeOf(n) >= 2) || onWallFace(n)) && S.chain.n >= 1) { const rs = autoRooms(S.chain.lines); if (rs.length) { endChain(false); commit(); toast(rs.map(r => r.name + ' oluştu · ' + (r._f ? r._f.net.toFixed(2) : '?') + ' m²').join(', ')); } }
+  if (n === S.chain.first && S.chain.n >= 2) { const rs = autoRooms(S.chain.lines); endChain(true); commit(); toast('Kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ') : '')); return; }
+  if (((existed && degreeOf(n) >= 2) || onWallFace(n)) && S.chain.n >= 1) { const rs = autoRooms(S.chain.lines); if (rs.length) { endChain(false); commit(); toast(rs.map(r => r.name + ' oluştu · ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ')); } }
 }
 function endChain(closed) { const c = S.chain; S.chain = null; if (c && S.tool === 'duvar' && c.n >= 1) { const ns2 = (c.nodes || []).slice(); if (closed && ns2.length > 1 && ns2[ns2.length - 1] === ns2[0]) ns2.pop(); const side = closed && ns2.length >= 3 ? SET.wallSide : SET.wallSide * chainOrient(ns2); const w = { id: uid('w'), nodes: ns2, closed: !!closed && ns2.length >= 3, t: SET.wallT, side }; P.walls.push(w); S.lastWall = w.id; } }
 function finishChain() { if (!S.chain) return; const c = S.chain; endChain(false); if (c.n === 0) { cleanup(); } commit(); }
@@ -474,12 +488,28 @@ function moveTap(c) {
   S.move = null; S.kbuf = ''; commit(); toast('Taşındı · ' + fmtM(V.len(d)) + ' m');
 }
 /* ---- Sil aracı ---- */
-function silTap(X, Y) { const h = hitTest(X, Y); if (!h) return toast('Silinecek çizgiye, köşeye ya da odaya dokun'); snap();
+function arrowAt(X, Y) { return (P.arrows || []).find(a => a.pts.some((p, i) => i && segDist([X, Y], w2s(...a.pts[i - 1]), w2s(...p)) < 10)); }
+function silTap(X, Y) { const ar = arrowAt(X, Y); if (ar) { snap(); P.arrows = P.arrows.filter(a => a !== ar); commit(); return toast('Yön oku silindi'); } const h = hitTest(X, Y); if (!h) return toast('Silinecek çizgiye, köşeye ya da odaya dokun'); snap();
   if (h.node) { const dg = degreeOf(h.node); deleteNode(h.node); toast(dg === 2 ? 'Kırık silindi, çizgiler birleşti' : 'Köşe silindi'); }
   else if (h.line) { deleteLine(lineById(h.line)); toast('Çizgi silindi'); }
   else if (h.wall || h.wface) { const id = h.wall || h.wface.w; P.walls = P.walls.filter(w => w.id !== id); toast('Duvar kalınlığı kaldırıldı'); }
-  else { P.rooms = P.rooms.filter(r => r.id !== h.room); toast('Oda adı silindi'); }
+  else { const r = roomById(h.room); P.rooms = P.rooms.filter(q => q.id !== h.room); toast(r && r.kind ? r.name + ' işareti kaldırıldı' : 'Oda adı silindi'); }
   commit(); }
+/* ---- Eleman / Merdiven ---- */
+function mkTap(X, Y) {
+  const m = S.mk; const kind = S.tool;
+  if (m.mode === 'alan') { const p = s2w(X, Y); const f = faceAt(p); if (!f) return toast('Kapalı bir alanın içine dokun'); snap(); let r = P.rooms.find(q => q._f === f); if (!r) { r = makeRoomAt(p, true); } else { r.kind = kind; r.name = kind === 'merdiven' ? 'Merdiven' : S.elName; } r.kind = kind; commit(); return toast(r.name + ' · ' + rA(r).toFixed(2) + ' m²'); }
+  if (m.mode === 'bas') { const h = hitTest(X, Y); const l = h && h.line && lineById(h.line); if (!l || l.step) return toast('Merdivenin kenar çizgisine dokun'); if (!m.l1 || m.l2) { m.l1 = l.id; m.l2 = null; } else if (l.id !== m.l1) m.l2 = l.id; S.sel = { lines: [m.l1, m.l2].filter(Boolean) }; render(); return; }
+  if (m.mode === 'yon') { const c = candidate(X, Y, {}); m.pts.push(s2w(c.X, c.Y)); render(); }
+}
+function stepsApply() {
+  const m = S.mk; const N = Math.round(kval() * 100); const l1 = lineById(m.l1), l2 = lineById(m.l2); if (!l1 || !l2) return toast('Önce karşılıklı iki çizgiyi seç'); if (!(N >= 2)) return toast('Rıh sayısını yaz (en az 2)');
+  const a1 = nw(l1.a), b1 = nw(l1.b); let a2 = nw(l2.a), b2 = nw(l2.b); if (V.dist(a1, a2) + V.dist(b1, b2) > V.dist(a1, b2) + V.dist(b1, a2)) [a2, b2] = [b2, a2];
+  snap(); let made = 0; for (let i = 0; i < N; i++) { const t = i / (N - 1); const p = V.add(a1, V.mul(V.sub(b1, a1), t)), q = V.add(a2, V.mul(V.sub(b2, a2), t));
+    if (P.lines.some(l => !l.step && ((V.dist(nw(l.a), p) < 1e-4 && V.dist(nw(l.b), q) < 1e-4) || (V.dist(nw(l.a), q) < 1e-4 && V.dist(nw(l.b), p) < 1e-4)))) continue; // kenar zaten var
+    const l = { id: uid('l'), a: addNode(...p), b: addNode(...q), kind: 'sketch', step: true }; P.lines.push(l); made++; }
+  S.mk = { mode: 'bas', l1: null, l2: null, pts: [] }; S.sel = null; S.kbuf = ''; S.np = false; commit(); toast(N + ' rıh · ' + (N - 1) + ' basamak aralığı · ' + fmtM(V.dist(a1, b1) / (N - 1) * 100, 1) + ' cm');
+}
 /* ---- Oda ---- */
 function odaTap(X, Y) { const p = s2w(X, Y); const f = faceAt(p); if (!f) return toast('Kapalı bir alanın içine dokun'); const ex = P.rooms.find(r => r._f === f); if (ex) { S.sel = { room: ex.id }; render(); return; } snap(); const r = makeRoomAt(p, true); S.sel = { room: r.id }; commit(); toast(r.name + ' · ' + f.net.toFixed(2) + ' m²'); }
 
@@ -539,7 +569,7 @@ function closeSelected() {
   const t = closeTarget(); if (!t) return toast('Kapatılacak açık çizgi yok'); snap(); let nl;
   if (t.wall) { const w = t.wall; const a = w.nodes[0], b = w.nodes[w.nodes.length - 1]; nl = addLine(b, a, 'sketch'); const ccw = polyArea(w.nodes.map(nw)) > 0; w.side = w.side * (ccw ? -1 : 1); w.closed = true; }
   else nl = addLine(t.chain.b, t.chain.a, 'sketch');
-  commit(); const rs = autoRooms([nl.id]); commit(); toast('Kapatıldı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? r._f.net.toFixed(2) : '?') + ' m²').join(', ') : ''));
+  commit(); const rs = autoRooms([nl.id]); commit(); toast('Kapatıldı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ') : ''));
 }
 
 /* =================== Oda düzenle: duvar ötele, çıkıntı/girinti =================== */
@@ -727,19 +757,20 @@ function processStroke(raw, opt) {
   S.strokeAsk = (!closed && ids.length >= 3 && ids[0] !== ids[ids.length - 1] && onOld(ids[0], lids) && onOld(ids[ids.length - 1], lids)) ? { ids: ids.slice(), lids: lids.slice() } : null;
   if (!closed && ids.length >= 3) { const wa = faceWallAt(nw(ids[0])), wb = faceWallAt(nw(ids[ids.length - 1])); if (wa && wa === wb) { const fl = closeAlongFace(wa, ids[0], ids[ids.length - 1]); if (fl) lids.push(...fl); } }
   S.lastStroke = lids.slice(); S.lastWall = null; S.lastWalls = null; commit(); const rs = autoRooms(lids); if (S.strokeAsk) S.strokeAsk.rooms = rs.map(r => r.id); commit();
-  toast(lids.length + ' çizgi' + (closed ? ' · kapalı' : '') + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? r._f.net.toFixed(2) : '?') + ' m²').join(', ') : ''));
+  toast(lids.length + ' çizgi' + (closed ? ' · kapalı' : '') + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ') : ''));
 }
 
 /* =================== Dokunma =================== */
 const ptrs = new Map(); let gest = null; let box = null; let stroke = null;
 const evXY = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 function aimOpts() {
-  if (S.tool === 'cizgi' || S.tool === 'duvar' || (S.tool === 'cikinti' && S.cik.mode === 'el')) return { fromId: S.chain ? S.chain.last : null, L: S.chain ? kval() : null };
+  if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || (S.tool === 'cikinti' && S.cik.mode === 'el')) return { fromId: S.chain ? S.chain.last : null, L: S.chain ? kval() : null };
   if (S.tool === 'sec' && S.move) return { fromW: S.move.base, L: S.move.base ? kval() : null, excl: S.move.base ? selNodes() : [] };
   if (S.tool === 'dikdortgen') return {};
   return {};
 }
-function needsAim() { return S.tool === 'cizgi' || S.tool === 'duvar' || S.tool === 'cikinti' || S.tool === 'dikdortgen' || (S.tool === 'sec' && S.move); }
+function mkCiz() { return (S.tool === 'merdiven' || S.tool === 'eleman') && S.mk.mode === 'ciz'; }
+function needsAim() { return S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || S.tool === 'cikinti' || S.tool === 'dikdortgen' || (S.tool === 'sec' && S.move); }
 cv.addEventListener('pointerdown', e => {
   const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   if (ptrs.size === 2) { if (gest && gest.t === 'grip' && gest.moved) { P = JSON.parse(undoSt.pop()); } aim = null; box = null; stroke = null; const [a, b] = [...ptrs.values()]; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; draw(); return; }
@@ -771,7 +802,7 @@ function endPtr(e, cancel) {
   gest = null;
   if (g.t === 'stroke') { stroke = null; if (!cancel) processStroke(g.pts); else draw(); return; }
   if (g.t === 'aim') { const c = aim && aim.c; aim = null; if (cancel || !c) return draw();
-    if (S.tool === 'cizgi' || S.tool === 'duvar' || (S.tool === 'cikinti' && S.cik.mode === 'el')) chainAdd(c, c.type === 'len' ? 'typed' : 'sketch');
+    if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || (S.tool === 'cikinti' && S.cik.mode === 'el')) chainAdd(c, c.type === 'len' ? 'typed' : 'sketch');
     else if (S.tool === 'cikinti') cikTap(c);
     else if (S.tool === 'dikdortgen') rectPlace(c);
     else if (S.tool === 'sec' && S.move) moveTap(c);
@@ -782,7 +813,7 @@ function endPtr(e, cancel) {
     commit(); return; }
   if (g.t === 'box') { const b = box; box = null; if (!cancel) boxSelect(b); else draw(); return; }
   if (g.t === 'pan') return;
-  if (g.t === 'pend' && !cancel) { if (S.tool === 'sec') selTap(X, Y); else if (S.tool === 'sil') silTap(X, Y); else if (S.tool === 'oda') odaTap(X, Y); }
+  if (g.t === 'pend' && !cancel) { if (S.tool === 'sec') selTap(X, Y); else if (S.tool === 'sil') silTap(X, Y); else if (S.tool === 'oda') odaTap(X, Y); else if (S.tool === 'merdiven' || S.tool === 'eleman') mkTap(X, Y); }
 }
 cv.addEventListener('pointerup', e => endPtr(e, false));
 cv.addEventListener('pointercancel', e => endPtr(e, true));
@@ -806,12 +837,21 @@ function renderCmd() {
   else if (S.tool === 'sil') s = 'SİL  Çizgiye dokun = sil · köşeye dokun = kırığı sil (çizgiler birleşir)';
   else if (S.tool === 'cikinti') s = S.cik.mode === 'el' ? (!S.chain ? 'ÇIKINTI  Oda çizgisinin üstünde başlangıca dokun' : 'ÇIKINTI  Nokta koy / cm + ok · aynı duvara dönünce hesaplanır') : (S.cik.step === 1 ? 'ÇIKINTI  1) Duvarda başlangıç noktasına dokun' : S.cik.step === 2 ? 'ÇIKINTI  2) Bitiş noktasına dokun ya da genişlik yaz + ok' : 'ÇIKINTI  3) Derinlik yaz (cm), yön okuna bas');
   else if (S.tool === 'oda') s = 'ODA  Kapalı alanın içine dokun = oda (alan hesaplanır)';
+  else if (S.tool === 'merdiven') s = { ciz: 'MERDİVEN  Dış hattı çizgi gibi çiz · kapanınca Merdiven olur (odadan düşülür)', bas: 'MERDİVEN  Karşılıklı iki kenar → rıh sayısı', yon: 'MERDİVEN  Çıkış yönü: başlangıca, dönüşlere, bitişe dokun', alan: 'MERDİVEN  Alanın içine dokun' }[S.mk.mode];
+  else if (S.tool === 'eleman') s = (S.mk.mode === 'ciz' ? 'ELEMAN  Şekli çizgi gibi çiz · kapanınca ' : 'ELEMAN  Alanın içine dokun → ') + esc(S.elName) + ' (alanı yazar, odadan düşülmez)';
   $('#cmd').innerHTML = s + o;
 }
 function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '6', 'C', '1', '2', '3', '00', '', '0', '', ''].map(k => k ? `<button data-k="${k}">${k}</button>` : '<span></span>').join('')}</div>`; }
 function renderSheet() {
   let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
-  if (S.tool === 'cizgi' || S.tool === 'duvar') {
+  if (S.tool === 'merdiven' || S.tool === 'eleman') { const m = S.mk; const md = S.tool === 'merdiven' ? [['ciz', 'Çerçeve çiz'], ['bas', 'Basamak'], ['yon', 'Yön'], ['alan', 'Alana dokun']] : [['ciz', 'Çiz'], ['alan', 'Alana dokun']];
+    h += `<div class="row">${md.map(([k, t]) => `<button class="${m.mode === k ? 'on' : ''}" data-a="mkm" data-v="${k}">${t}</button>`).join('')}</div>`;
+    if (S.tool === 'eleman') h += `<div class="row"><span class="inf">Ad</span>${['Kolon', 'Şömine', 'Baca', 'Şaft'].map(n => `<button class="${S.elName === n ? 'on' : ''}" data-a="eln" data-v="${n}">${n}</button>`).join('')}<button data-a="elx">Diğer…</button></div>`;
+    if (m.mode === 'alan') h += `<div class="row"><span class="inf">Kapalı bir alanın içine dokun → ${S.tool === 'merdiven' ? 'Merdiven' : esc(S.elName)} olur (oda ise dönüşür)</span></div>`;
+    if (m.mode === 'bas') { h += `<div class="row"><span class="inf">${!m.l1 ? '1) Kolun bir kenar çizgisine dokun' : !m.l2 ? '2) Karşı kenar çizgisine dokun' : '3) Rıh (alın) sayısını yaz · başlangıç ve bitiş çizgisi dahil'}</span></div><div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' rıh' : '⌨ rıh'}</button><button class="p" data-a="stp" ${m.l1 && m.l2 && S.kbuf ? '' : 'disabled'}>Basamakları at</button><button data-a="mkr">Seçimi sıfırla</button></div>` + (S.np ? numpad() : ''); }
+    if (m.mode === 'yon') h += `<div class="row"><span class="inf">${m.pts.length ? m.pts.length + ' nokta · kırılma noktalarına dokun, sonra Bitir' : 'Çıkışın başladığı yere dokun (L/U için dönüşlere de dokun)'}</span></div><div class="row"><button data-a="yonb" ${m.pts.length ? '' : 'disabled'}>↶ Son</button><button data-a="yonx" ${m.pts.length ? '' : 'disabled'}>İptal</button><button class="p" data-a="yonok" ${m.pts.length >= 2 ? '' : 'disabled'}>Bitir</button></div>`;
+  }
+  if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz()) {
     if (S.tool === 'duvar') h += wallRow(SET.wallT, 'wt');
     h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button><button data-a="ar" data-v="2" ${S.chain ? '' : 'disabled'}>←</button><button data-a="ar" data-v="1" ${S.chain ? '' : 'disabled'}>↑</button><button data-a="ar" data-v="3" ${S.chain ? '' : 'disabled'}>↓</button><button data-a="ar" data-v="0" ${S.chain ? '' : 'disabled'}>→</button></div>`;
     if (S.np) h += numpad();
@@ -828,7 +868,7 @@ function renderSheet() {
     else if (S.lenEdit) { const l = lineById(S.lenEdit.id); h += `<div class="row"><span class="inf">Şimdi ${fmtM(lineLen(l))} m</span><span class="val act">${S.kbuf ? S.kbuf + ' cm' : '— cm'}</span></div><div class="row"><button class="${S.lenEdit.fix === 'A' ? 'on' : ''}" data-a="fix" data-v="A">A sabit</button><button class="${S.lenEdit.fix === 'B' ? 'on' : ''}" data-a="fix" data-v="B">B sabit</button></div>` + numpad() + `<div class="row"><button data-a="lenx">İptal</button><button class="p" data-a="lenok" ${S.kbuf ? '' : 'disabled'}>✓ Uygula</button></div>`; }
     else if (!sel) h += `<div class="row"><span class="inf">Objeye dokun · boş yerde sürükle = kutu seçim</span></div>`;
     else if (sel.wall) { const w = P.walls.find(x => x.id === sel.wall); const f = sel.face && wallFaces().find(x => x.w.id === sel.face.w && x.i === sel.face.i && x.k === sel.face.k); h += `<div class="row"><span class="inf"><b style="color:#fff">${f ? (f.k.startsWith('cap') ? 'Duvar ucu' : 'Duvar dış yüzü') + ' · ' + fmtM(V.dist(f.a, f.b), 3) + ' m' : 'Duvar'}</b> · ${Math.round(w.t * 100)} cm</span></div>` + wallRow(w.t, 'swt') + `<div class="row">${closeTarget() ? '<button class="p" data-a="closeSel">Kapat</button>' : ''}<button data-a="wsplit">Çizgilere çevir</button><button class="dng" data-a="del">Kalınlığı kaldır</button><button data-a="unsel">✕</button></div>`; }
-    else if (sel.room) { const r = roomById(sel.room); h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(r.name)}</b> · ${r._f ? (r._f ? r._f.net.toFixed(2) : '?') + ' m²' : 'açık'}</span></div><div class="row"><button data-a="rname">Adlandır</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Oda adını sil</button><button data-a="unsel">✕</button></div>`; }
+    else if (sel.room) { const r = roomById(sel.room); h += `<div class="row"><span class="inf"><b style="color:#fff">${esc(r.name)}</b> · ${r._f ? (r._f ? rA(r).toFixed(2) : '?') + ' m²' : 'açık'}</span></div><div class="row"><button data-a="rname">Adlandır</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Oda adını sil</button><button data-a="unsel">✕</button></div>`; }
     else if (sel.lines && sel.lines.length === 1 && !(sel.nodes || []).length) { const l = lineById(sel.lines[0]); const a = headDeg(nw(l.a), nw(l.b)); h += `<div class="row"><span class="inf">Çizgi · <b style="color:#fff">${fmtM(lineLen(l), 3)} m</b> · ${{ sketch: 'eskiz', typed: 'yazılan', laser: 'lazer', total: 'total' }[l.kind]} · ${(((a % 180) + 180) % 180).toFixed(1)}°</span></div><div class="row">${closeTarget() ? '<button class="p" data-a="closeSel">Kapat</button>' : ''}<button data-a="len">Uzunluk</button><button data-a="ofs">Ötele</button><button data-a="mv">Taşı</button>${wallOfLine(l) ? '' : '<button data-a="mkwall">▥ Duvar</button>'}<button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>` + (wallOfLine(l) ? wallRow(wallOfLine(l).t, 'swt') : ''); }
     else if (sel.nodes && sel.nodes.length === 1 && !(sel.lines || []).length) { const d = degreeOf(sel.nodes[0]); h += `<div class="row"><span class="inf">Köşe · ${d} çizgi bağlı</span></div><div class="row"><button data-a="cont">╱ Buradan devam</button><button data-a="mv">Taşı</button><button class="dng" data-a="del">${d === 2 ? 'Kırığı sil' : 'Sil'}</button><button data-a="unsel">✕</button></div>`; }
     else { const n = (sel.lines || []).length; h += `<div class="row"><span class="inf">${n} çizgi${(sel.nodes || []).length ? ' + ' + sel.nodes.length + ' köşe' : ''} seçili</span></div><div class="row"><button data-a="mv">Taşı</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
@@ -841,7 +881,7 @@ function renderSheet() {
       if (k.step === 1) h += `<div class="row"><span class="inf">Duvar çizgisinin üstüne dokun (başlangıç)</span></div>`;
       else if (k.step === 2) h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ en'}</button><button data-a="cikw" data-v="1">${arrowFor(u)}</button><button data-a="cikw" data-v="-1">${arrowFor(V.mul(u, -1))}</button><button data-a="cikx">İptal</button></div>` + (S.np ? numpad() : '');
       else h += `<div class="row"><span class="inf">En ${fmtM(V.dist(k.s, k.e))} m · derinlik:</span></div><div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ derinlik'}</button><button class="p" data-a="cikd" data-v="1">${arrowFor(nrm)}</button><button class="p" data-a="cikd" data-v="-1">${arrowFor(V.mul(nrm, -1))}</button><button data-a="cikx">İptal</button></div>` + (S.np ? numpad() : ''); } }
-  else if (S.tool === 'oda') h += `<div class="row"><span class="inf">${P.rooms.length ? P.rooms.map(r => esc(r.name) + ' ' + (r._f ? (r._f ? r._f.net.toFixed(2) : '?') + ' m²' : 'açık')).join(' · ') : 'Henüz oda yok'}</span></div>`;
+  else if (S.tool === 'oda') h += `<div class="row"><span class="inf">${P.rooms.length ? P.rooms.map(r => esc(r.name) + ' ' + (r._f ? (r._f ? rA(r).toFixed(2) : '?') + ' m²' : 'açık')).join(' · ') : 'Henüz oda yok'}</span></div>`;
   $('#sheet').innerHTML = h ? `<div class="hd"><span></span></div>` + h : '';
 }
 $('#bar').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.cat) setCat(b.dataset.cat); else if (b.dataset.tool) setTool(b.dataset.tool); });
@@ -852,6 +892,14 @@ $('#sheet').addEventListener('click', e => {
     if (tgt) S.rect[tgt] = v; else S.kbuf = v; render(); return; }
   const a = b.dataset.a;
   if (a === 'np') S.np = !S.np;
+  else if (a === 'mkm') { if (S.chain) finishChain(); S.mk = { mode: b.dataset.v, l1: null, l2: null, pts: [] }; S.sel = null; S.kbuf = ''; }
+  else if (a === 'eln') S.elName = b.dataset.v;
+  else if (a === 'elx') { const n = prompt('Eleman adı', S.elName); if (n && n.trim()) S.elName = n.trim(); }
+  else if (a === 'mkr') { S.mk.l1 = S.mk.l2 = null; S.sel = null; }
+  else if (a === 'stp') { stepsApply(); return; }
+  else if (a === 'yonb') S.mk.pts.pop();
+  else if (a === 'yonx') S.mk.pts = [];
+  else if (a === 'yonok') { if (S.mk.pts.length >= 2) { snap(); P.arrows.push({ id: uid('a'), pts: S.mk.pts.slice() }); S.mk.pts = []; commit(); toast('Çıkış yönü çizildi'); return; } }
   else if (a === 'ar') { arrowAdd(+b.dataset.v); return; }
   else if (a === 'back') { chainBack(); return; }
   else if (a === 'close') { if (S.chain) chainAdd({ type: 'end', node: S.chain.first, X: 0, Y: 0 }, 'sketch'); return; }
@@ -930,7 +978,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit();
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>
