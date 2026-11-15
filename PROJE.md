@@ -318,6 +318,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
   - t8.py 11 kontrol.
 - v8.11: Çıkıntı "Çizerek" = parmakla serbest çizim (duvardan başla, aynı düz duvarda bitir). Sonra komşu dış yüz varsa soru: "Evet, kalınlık korunsun" (komşu duvar çizgisi aynı kalınlıkla yeni şekli izler) / "Hayır, sabit kalsın". Yeni oda, komşu duvarın dış yüzünden başlayıp yine o dış yüzde bitince dış yüz boyunca kapanır (ortak duvar; çizgiler l.face ile işaretli). Serbest çizimde de geçerli. t9.py 10 kontrol.
 
+- v8.12: Çıkıntı "Çizerek" yeniden çizgi gibi (nokta koy / cm + ok); her noktada aynı düz duvara dönüp dönmediği kontrol edilir. Çıkıntı aracında duvar yüzü/aks yakalanmaz (son nokta oda çizgisine oturur — önceki hata: dışa çıkıntıda dönüş duvarın dış yüzüne yakalanıyordu). Tam çizgi üstüne düşen her nokta çizgiyi böler. Serbest çizimde aynı duvarda başlayıp biten çizim için soru: "Çıkıntı mı? Evet / Hayır" (Hayır = yeni oda/çizgi, bitişik oda çizimi bozulmasın). Karşı yüz aranırken yeni çizilen çizgiler hariç.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
