@@ -300,6 +300,7 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - v8.5: Kesişim yakalama birleşik: gerçek çizgiler + duvar yüzleri + (uçları uzatılmış) duvar aksları; yakın parçalarla sınırlı (40 px). Türetilmiş noktalar (aks/yüz) gerçek çizginin üstüne düşerse çizgi bölünür ve bağlanır. t5.py 5 kontrol.
 - v8.6: Aks–aks kesişimi ve kapalı köşedeki aks ucu verilmez; aks yalnızca çizgi ve duvar yüzleriyle (kendi duvarı hariç) kesiştirilir; aks ucu sadece açık uçlarda.
 - v8.7: "Uzantı kesişimi": çizgi ve duvar yüzlerinin 1 m uzantısı başka çizgi/yüzle kesişince yakalanır (oda çizgisinin uzantısı × komşu duvarın dış yüzü); yeşil noktalı kılavuz çizilir. Aks artık uzatılmıyor. t6.py 5 kontrol.
+- v8.8: Seç → açık duvar ya da açık çizgi zinciri → "Kapat" (uçları birleştirir, kalınlık aynı tarafta kalır, oda oluşur). t7.py 5 kontrol.
 
 ### Aşama planı (v8) — kullanıcı isteğiyle sıra değişti: önce çizim, sonra ölçme
 1. Arayüz, çizgi/dikdörtgen/duvar/serbest, yakalama (aks, dik), seç-taşı-sil, çok oda — TAMAM (onay bekliyor)
@@ -309,3 +310,7 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 5. Kontrol sekmesi: yazılı rapor, oda içinden çapraz önerisi, "Geometriyi hesapla" (önizleme + onay)
 6. Yükseklikler sekmesi
 7. Nokta adı / total noktaları, DXF
+
+### Konuşulan öneriler (onay bekliyor)
+- Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
+- Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
