@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v10.6';
+const VER = 'v10.7';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -414,8 +414,9 @@ function guides(X, Y, fromId, excl) {
   if (!gx && !gy) return null; const fx = gx ? gx.v : q[0], fy = gy ? gy.v : q[1]; const w = [fx * c - fy * s, fx * s + fy * c]; const [X2, Y2] = w2s(w[0], w[1]);
   return { type: 'guide', X: X2, Y: Y2, gu: [gx && gx.id, gy && gy.id].filter(Boolean) };
 }
-function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti'; let c; try { c = candidate0(X, Y, opts); } finally { NOWALL = false; } if (S.tool === 'cikinti' && S.cik.mode !== 'yay' && !(opts && opts.L != null) && !(c && (c.node || c.l || c.rl || c.l1))) { const m = cikFaceMap(X, Y, c, opts); if (m) return m; } return c; }
+function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti'; let c; try { c = candidate0(X, Y, opts); } finally { NOWALL = false; } if (S.tool === 'cikinti' && S.cik.mode !== 'yay' && !(opts && opts.L != null) && (!(c && (c.node || c.l || c.rl || c.l1)) || (S.cik.mode === 'el' && cikFaceCloser(X, Y)))) { const m = cikFaceMap(X, Y, c, opts); if (m) return m; } return c; }
 /* çıkıntı: duvarın diğer yüzüne dokunuş → referans çizgisindeki karşılığı (ölçüler yüzden alınır; yüz kalınlıkla birlikte paralel taşınır) */
+function cikFaceCloser(X, Y) { let df = 1e9, dl = 1e9; wallFaces().forEach(f => { if (f.k === 'out') df = Math.min(df, segDist([X, Y], w2s(...f.a), w2s(...f.b))); }); P.lines.forEach(l => { if (!l.step) dl = Math.min(dl, segDist([X, Y], ns(l.a), ns(l.b))); }); return df < 24 && df < dl; }
 function cikFaceMap(X, Y, c, opts) { if (!P.walls || !P.walls.length) return null; let best = null, bd = 24;
   wallFaces().forEach(f => { if (f.k !== 'out') return; const d = segDist([X, Y], w2s(...f.a), w2s(...f.b)); if (d < bd) { const qd = (wallGeom(f.w).quads.find(q => q.i === f.i) || {}).poly; if (qd) { bd = d; best = { f, r0: qd[0], r1: qd[1] }; } } });
   if (!best) return null; const tap = c ? s2w(c.X, c.Y) : s2w(X, Y); const fromW = opts && (opts.fromW || (opts.fromId ? nw(opts.fromId) : null)); let p;
@@ -426,10 +427,13 @@ function cikFaceMap(X, Y, c, opts) { if (!P.walls || !P.walls.length) return nul
   const [X2, Y2] = w2s(...p); return { type: 'near', X: X2, Y: Y2, l: l.id, lab: 'Duvar yüzü → çizgi' }; }
 /* çıkıntı duvarın DİĞER YÜZÜNDEN çizilir: çizilen yol yeni yüzdür; referans çizgisi yolun kalınlık kadar ötelenmişidir (uçlar eski referans çizgisine oturur) */
 function faceInfoAt(p) { for (const w of P.walls || []) { const g = wallGeom(w); if (!g) continue; for (const q of g.quads) { if (segDist(p, q.poly[3], q.poly[2]) < 1e-4) return { w, i: q.i, fa: q.poly[3], fb: q.poly[2], r0: q.poly[0], r1: q.poly[1] }; } } return null; }
-function cikFaceCheck() { const c = S.chain; if (!c || c.n < 2) return false; const A = nw(c.first), B = nw(c.last); const fa = faceInfoAt(A), fb = faceInfoAt(B); if (!fa || !fb || fa.w !== fb.w) return false;
-  const u = V.unit(V.sub(fa.r1, fa.r0)); const onL = (p, o) => Math.abs((p[0] - o[0]) * u[1] - (p[1] - o[1]) * u[0]) < 1e-4; if (!onL(B, fa.fa) || !onL(fb.r0, fa.r0)) return false;
+function cikFaceCheck() { const c = S.chain; if (!c || c.n < 2) return false; const pts0 = c.nodes.map(nw); const k1 = pts0.length - 1; const fa = faceInfoAt(pts0[0]) || faceInfoAt(pts0[k1]); if (!fa) return false;
+  const u = V.unit(V.sub(fa.r1, fa.r0)); const onL = (p, o) => Math.abs((p[0] - o[0]) * u[1] - (p[1] - o[1]) * u[0]) < 1e-4;
+  // uçlardan biri beyaz çizgide, diğeri aynı duvarın turuncu çizgisindeyse: o ucu son parçanın doğrultusunda beyaz çizgiye taşı
+  const fix = (k, kn) => { const p = pts0[k]; if (onL(p, fa.fa)) return p; if (!onL(p, fa.r0)) return null; const x = segX(pts0[kn], p, fa.fa, fa.fb); return x ? x.p : null; };
+  const A = fix(0, 1), B = fix(k1, k1 - 1); if (!A || !B || V.dist(A, B) < 1e-3) return false; pts0[0] = A; pts0[k1] = B;
   const nr = V.sub(footT(A, fa.r0, fa.r1).q, A); const t = V.dist([0, 0], nr); if (t < 1e-4) return false; const sgn = (-u[1] * nr[0] + u[0] * nr[1]) > 0 ? 1 : -1;
-  let ids = c.nodes.slice(); if ((B[0] - A[0]) * u[0] + (B[1] - A[1]) * u[1] < 0) ids.reverse(); const pts = ids.map(nw); if (pts.length < 3) return false;
+  let ids = c.nodes.slice(); let pts = pts0.slice(); if ((B[0] - A[0]) * u[0] + (B[1] - A[1]) * u[1] < 0) { ids.reverse(); pts.reverse(); } if (pts.length < 3) return false;
   const off = []; for (let k = 0; k + 1 < pts.length; k++) { const d = V.unit(V.sub(pts[k + 1], pts[k])); const n = V.mul([-d[1], d[0]], sgn * t); off.push([V.add(pts[k], n), V.add(pts[k + 1], n)]); }
   const R0 = fa.r0, R1 = V.add(fa.r0, u); const X = (s1, s2) => { const x = segX(s1[0], s1[1], s2[0], s2[1]); return x ? x.p : null; };
   const np = [X(off[0], [R0, R1])]; for (let k = 1; k < off.length; k++) np.push(X(off[k - 1], off[k]) || off[k][0]); np.push(X(off[off.length - 1], [R0, R1])); if (np.some(q => !q)) return false;

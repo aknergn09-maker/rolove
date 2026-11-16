@@ -44,6 +44,14 @@ async def main():
             yy = fy + (-0.5 if out else 0.5)
             ck(f'  yeni yüz tam çizilen yerde: köşeler (0.8,{yy:.1f}) ve (1.8,{yy:.1f})', await ev(f"RK.P.walls.length===1 && RK.P.walls[0].closed && [[0.8,{yy}],[1.8,{yy}]].every(p=>RK.wallGeom(RK.P.walls[0]).Q.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<1e-6))"), await ev("RK.wallGeom(RK.P.walls[0]).Q.map(q=>q.map(v=>+v.toFixed(2)))"))
             await pg.screenshot(path=f't21_{"dis" if out else "ic"}.png')
+        # normal zoom (yüz çizgiye 12 px), sadece dokunarak: beyaz → dışarı → beyaz; ve karışık: turuncu → dışarı → beyaz
+        for nm, start, sl, zs in (('beyaz→beyaz', -0.2, 0, 60), ('turuncu→beyaz', 0.0, 0, 60), ('özensiz dokunuş', -0.2, 0.1, 60), ('zoom 66', -0.2, 0, 66), ('zoom 90', -0.2, 0, 90)):
+            await ev(SETUP + "(1)"); await ev(f"RK.view.s={zs}; RK.view.ox=60; RK.view.oy=250; RK.commit()"); await btn('#sheet button[data-a=cikm][data-v=el]')
+            for x,y in [(0.8+sl*0.5,start-sl),(0.8+sl,-0.8-sl*0.6),(1.8-sl*0.7,-0.8+sl*0.5),(1.8+sl*0.6,-0.2-sl*0.9)]: q = await W(x,y); await ctap(*q); await pg.wait_for_timeout(150)
+            if await ev("!!document.querySelector('#sheet button[data-a=askN]')"): await btn('#sheet button[data-a=askN]')
+            a1 = await ev(AR); ok = (abs(a1-12.36)<1e-3 or (sl and 12.2<a1<12.45 and 'diğer yüz' in await ev("document.querySelector('#toast').textContent"))) and (sl or await ev("[[0.8,-0.8],[1.8,-0.8]].every(p=>RK.wallGeom(RK.P.walls[0]).Q.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<1e-6))"))
+            ck(f'normal zoom, dokunarak {nm}: çıkıntı oldu, yeni beyaz çizgi çizilen yerde, alan 12.36', ok, [a1, await ev("document.querySelector('#toast').textContent"), not await ev("!!RK.S.chain")])
+            await pg.screenshot(path=f't21_{nm[0]}.png')
         # Ölçü yazarak: başlangıç/bitiş yüzden
         out = await ev(SETUP + "(1)"); await btn('#sheet button[data-a=cikm][data-v=olcu]')
         q = await W(0.8, -0.2); await ctap(*q); s1 = await ev("JSON.stringify(RK.S.cik)")
