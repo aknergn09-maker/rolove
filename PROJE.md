@@ -378,3 +378,9 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
+
+## v10.3 / önizleme (16.11)
+- Açık bina + daire: daire açık uçları birleştiriyorsa dış yay kalır, duvar zinciri yay boyunca devam edip kapanır, tek oda oluşur (circlePlan close grubu, linePath, wallJoinArc).
+- Buda: yay, sadece içinden geçen değil, dokunan çizgilerden de kesilir (arcBuda). Buda sonrası yüzü kaybolan oda silinir.
+- ORTO ekseni yay kirişinden alınmıyor (frameBase, index + önizleme) → v10.3.
+- Test: p8.

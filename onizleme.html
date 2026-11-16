@@ -376,8 +376,9 @@ function drawAim() {
 /* =================== Yakalama (osnap), orto, kılavuz =================== */
 function frameBase(fromId) { // orto eksen açısı (derece)
   if (SET.ortho === 'xy') return 0;
-  if (S.chain && S.chain.firstLine) { const l = lineById(S.chain.firstLine); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
-  if (fromId) { const l = P.lines.find(q => q.a === fromId || q.b === fromId); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
+  const arcN0 = new Set((P.arcs || []).flatMap(a => a.ids)); const isArcL = l => l && arcN0.has(l.a) && arcN0.has(l.b); // yay parçası eksen olmaz
+  if (S.chain && S.chain.firstLine) { const l = lineById(S.chain.firstLine); if (l && !isArcL(l)) return norm90(headDeg(nw(l.a), nw(l.b))); }
+  if (fromId) { const l = P.lines.find(q => (q.a === fromId || q.b === fromId) && !q.step && !isArcL(q)); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
   // bağlı çizgi yoksa: binanın baskın yönü (düz çizgilerin boyla ağırlıklı en yaygın açısı; yay parçaları ve basamaklar hariç)
   const arcN = new Set((P.arcs || []).flatMap(a => a.ids)); const bins = new Map(); P.lines.forEach(l => { if (l.step || (arcN.has(l.a) && arcN.has(l.b))) return; const a = Math.round(norm90(headDeg(nw(l.a), nw(l.b))) * 2) / 2; bins.set(a, (bins.get(a) || 0) + lineLen(l)); });
   let best = 0, bw = 0; bins.forEach((w, a) => { if (w > bw) { bw = w; best = a; } }); return best;
@@ -1031,10 +1032,26 @@ function drawDairePrev() { if (S.tool === 'buda' && S.bu.mode === 'yuvarla' && S
 // Buda: dokunulan çizginin, diğer çizgilerle kesişimleri arasındaki parçasını siler. Uzat: dokunulan uca en yakın kesişime kadar uzatır. Birleştir: iki çizgiyi kesişimlerinde köşe yapar (AutoCAD r=0 köşe).
 function lineHitW(X, Y) { let best = null, bd = 22; P.lines.forEach(l => { if (l.step) return; const d = segDist([X, Y], ns(l.a), ns(l.b)); if (d < bd) { bd = d; best = l; } }); return best; }
 function cutsOf(l) { const A = nw(l.a), B = nw(l.b); const ts = [0, 1]; P.lines.forEach(q => { if (q === l || q.step) return; const x = segX(A, B, nw(q.a), nw(q.b)); if (x && x.t > 1e-6 && x.t < 1 - 1e-6 && x.u > -1e-6 && x.u < 1 + 1e-6) ts.push(x.t); }); P.nodes.forEach(n => { if (n.id === l.a || n.id === l.b) return; const f = footT([n.x, n.y], A, B); if (f.t > 1e-6 && f.t < 1 - 1e-6 && V.dist(f.q, [n.x, n.y]) < 1e-6) ts.push(f.t); }); return [...new Set(ts.map(t => +t.toFixed(9)))].sort((a, b) => a - b); }
-function budaTap(X, Y) {
+function arcBuda(l, X, Y) { // dokunulan yay parçası: zincir boyunca, kesen ya da dokunan çizgilere kadar sil
+  const arc = (P.arcs || []).find(a => { for (let i = 0; i + 1 < a.ids.length + (a.closed ? 1 : 0); i++) { const x = a.ids[i], y = a.ids[(i + 1) % a.ids.length]; if ((x === l.a && y === l.b) || (x === l.b && y === l.a)) return true; } return false; }); if (!arc) return false;
+  snap(); const segOf = () => { const out = []; for (let i = 0; i + 1 < arc.ids.length + (arc.closed ? 1 : 0); i++) out.push([arc.ids[i], arc.ids[(i + 1) % arc.ids.length]]); return out; };
+  // önce yayı kesen çizgilerle kesişimleri düğüm yap (yay dizisine de ekle)
+  let guard = 0; for (let again = true; again && guard++ < 50;) { again = false; for (const [x, y] of segOf()) { const A = nw(x), B = nw(y); for (const q of P.lines) { if (q.step || [q.a, q.b].includes(x) || [q.a, q.b].includes(y) || arc.ids.includes(q.a) && arc.ids.includes(q.b)) continue; const s2 = segX(A, B, nw(q.a), nw(q.b)); if (s2 && s2.t > 1e-6 && s2.t < 1 - 1e-6 && s2.u > -1e-9 && s2.u < 1 + 1e-9) { const n = nodeAt(s2.p); const k = arc.ids.indexOf(x); arc.ids.splice(k + 1, 0, n); again = true; break; } } if (again) break; } }
+  const deg = id => P.lines.filter(q => !q.step && (q.a === id || q.b === id)).length; const isCut = id => deg(id) > 2 || P.lines.some(q => !q.step && (q.a === id || q.b === id) && !(arc.ids.includes(q.a) && arc.ids.includes(q.b)));
+  const p = s2w(X, Y); let si = 0, bd = Infinity; segOf().forEach(([x, y], i) => { const d = segDist(p, nw(x), nw(y)); if (d < bd) { bd = d; si = i; } }); const n = arc.ids.length;
+  const idx = i => arc.closed ? ((i % n) + n) % n : i; let lo = si, hi = si + 1; // düğüm indisleri
+  while ((arc.closed || lo > 0) && !isCut(arc.ids[idx(lo)]) && hi - lo < n) lo--; while ((arc.closed || hi < n - 1) && !isCut(arc.ids[idx(hi)]) && hi - lo < n) hi++;
+  if (hi - lo >= n && arc.closed) { undoSt.pop(); toast('Bu daireyi kesen ya da ona dokunan çizgi yok · silmek için Sil'); return true; }
+  const rm = []; for (let i = lo; i < hi; i++) { const ln = findLine(arc.ids[idx(i)], arc.ids[idx(i + 1)]); if (ln) rm.push(ln); } rm.forEach(deleteLine);
+  // yay kaydını kalan parçalara böl
+  const keepIds = []; if (arc.closed) { for (let i = hi; i <= lo + n; i++) keepIds.push(arc.ids[idx(i)]); P.arcs = P.arcs.filter(a => a !== arc); if (keepIds.length >= 3) P.arcs.push({ id: uid('c'), ids: keepIds, closed: false }); }
+  else { const A1 = arc.ids.slice(0, lo + 1), A2 = arc.ids.slice(hi); P.arcs = P.arcs.filter(a => a !== arc); [A1, A2].forEach(ids => { if (ids.length >= 3) P.arcs.push({ id: uid('c'), ids, closed: false }); }); }
+  commit(); toast('Yay budandı (' + rm.length + ' parça)'); return true; }
+function budaTap(X, Y) { const had = new Set(P.rooms.filter(r => r._f).map(r => r.id)); budaTap0(X, Y); const gone = P.rooms.filter(r => !r._f && had.has(r.id)); if (gone.length) { P.rooms = P.rooms.filter(r => !gone.includes(r)); commit(); } }
+function budaTap0(X, Y) {
   if (S.bu.mode === 'yuvarla') { let best = null, bd = 26; P.nodes.forEach(n => { const d = Math.hypot(...V.sub(w2s(n.x, n.y), [X, Y])); if (d < bd && P.lines.filter(l => !l.step && (l.a === n.id || l.b === n.id)).length === 2) { bd = d; best = n.id; } }); if (!best) return toast('Köşeye dokun (iki çizginin birleştiği yer)'); S.bu.fc = best; render(); return; }
   const l = lineHitW(X, Y); if (!l) return toast('Çizgiye dokun'); const A = nw(l.a), B = nw(l.b); const t = footT(s2w(X, Y), A, B).t;
-  if (S.bu.mode === 'buda') { const ts = cutsOf(l); let k = 0; while (k + 1 < ts.length - 1 && ts[k + 1] < t) k++; const t0 = ts[k], t1 = ts[k + 1]; if (t0 === 0 && t1 === 1) return toast('Bu çizgiyi kesen başka çizgi yok · silmek için Sil'); snap();
+  if (S.bu.mode === 'buda') { if (arcBuda(l, X, Y)) return; const ts = cutsOf(l); let k = 0; while (k + 1 < ts.length - 1 && ts[k + 1] < t) k++; const t0 = ts[k], t1 = ts[k + 1]; if (t0 === 0 && t1 === 1) return toast('Bu çizgiyi kesen başka çizgi yok · silmek için Sil'); snap();
     const p0 = V.add(A, V.mul(V.sub(B, A), t0)), p1 = V.add(A, V.mul(V.sub(B, A), t1)); const n0 = nodeAt(p0), n1 = nodeAt(p1); const seg = findLine(n0, n1); if (seg) deleteLine(seg); commit(); return toast('Budandı · ' + fmtM(V.dist(p0, p1), 2) + ' m silindi'); }
   if (S.bu.mode === 'uzat') { const endId = t < 0.5 ? l.a : l.b, fix = t < 0.5 ? B : A; const E = nw(endId); const u = V.unit(V.sub(E, fix)); let best = null;
     P.lines.forEach(q => { if (q === l || q.step) return; const x = segX(E, V.add(E, u), nw(q.a), nw(q.b)); if (!x || x.t <= 1e-6 || x.u < -1e-6 || x.u > 1 + 1e-6) return; if (!best || x.t < best.t) best = { t: x.t, p: x.p }; });
@@ -1074,13 +1091,29 @@ function circlePlan(ci, keepAng) { // önizleme ve uygulama aynı plandan: hangi
   const H = circleHits(ci); if (H.length < 2) return null; const n = H.length; const norm = x => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); const all = [];
   for (let i = 0; i < n; i++) { const a0 = H[i].ang, a1 = i + 1 < n ? H[i + 1].ang : H[0].ang + 2 * Math.PI; const sw = a1 - a0; if (sw < 1e-6) continue; const am = a0 + sw / 2; const pm = V.add(ci.c, V.mul([Math.cos(am), Math.sin(am)], ci.r));
     const keep = keepAng != null ? norm(keepAng - a0) <= sw : !P.rooms.some(r => r._f && !r.kind && inPoly(pm, r._f.poly) && !r._f.holes.some(h => inPoly(pm, h))); all.push({ p0: H[i].p, p1: (i + 1 < n ? H[i + 1] : H[0]).p, a0, sw, keep }); }
+  // aynı iki uca bağlanan birden fazla tutulan yay varsa (açık dış hattı kapatma): mevcut çizgilerle uçlar arası yolu bul, hattı dışa büyüten yayı tut
+  const nid = p => { const n = P.nodes.find(q => Math.hypot(q.x - p[0], q.y - p[1]) < 1e-6); return n && n.id; };
+  const groups = new Map(); all.filter(x => x.keep).forEach(x => { const k = [nid(x.p0), nid(x.p1)].sort().join('|'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+  groups.forEach((g, k) => { if (g.length < 2) return; const [a, b] = k.split('|'); if (!a || !b || a === 'undefined' || b === 'undefined') return; const path = linePath(a, b); if (!path) return; const poly = path.map(nw);
+    g.forEach(x => { const am = x.a0 + x.sw / 2; const pm = V.add(ci.c, V.mul([Math.cos(am), Math.sin(am)], ci.r)); if (inPoly(pm, poly)) x.keep = false; else x.close = true; }); });
   return { all, pieces: all.filter(x => x.keep) }; }
+function linePath(a, b) { const prev = new Map([[a, null]]); const q = [a]; while (q.length) { const u = q.shift(); if (u === b) break; P.lines.forEach(l => { if (l.step || (l.a !== u && l.b !== u)) return; const v = l.a === u ? l.b : l.a; if (!prev.has(v)) { prev.set(v, u); q.push(v); } }); } if (!prev.has(b)) return null; const out = []; let c = b; while (c) { out.unshift(c); c = prev.get(c); } return out.length >= 3 ? out : null; }
+/* duvar zincirini yay boyunca uzat / kapat (açık hattın uçları a ve b) */
+function wallJoinArc(a, b, path) { const inner = path.slice(1, -1); const ends = w => !w.closed && w.nodes.length ? [w.nodes[0], w.nodes[w.nodes.length - 1]] : [];
+  const flip = w => { w.nodes.reverse(); w.side = -w.side; }; const wa = (P.walls || []).find(w => ends(w).includes(a)), wb = (P.walls || []).find(w => ends(w).includes(b));
+  if (wa && wa === wb) { if (wa.nodes[0] === a) flip(wa); wa.nodes = wa.nodes.concat(inner); const ccw = polyArea(wa.nodes.map(nw)) > 0; wa.side = wa.side * (ccw ? -1 : 1); wa.closed = true; return true; }
+  if (wa && wb) { if (wa.nodes[0] === a) flip(wa); if (wb.nodes[wb.nodes.length - 1] === b) flip(wb); wa.nodes = wa.nodes.concat(inner, wb.nodes); P.walls = P.walls.filter(w => w !== wb); return true; }
+  if (wa) { if (wa.nodes[0] === a) flip(wa); wa.nodes = wa.nodes.concat(inner, [b]); return true; }
+  if (wb) { if (wb.nodes[wb.nodes.length - 1] === b) flip(wb); wb.nodes = [a].concat(inner, wb.nodes); return true; }
+  return false; }
 function circleCut(ci, keepAng) { // keepAng: tutulacak yayın açısı (null → odaların dışındaki yaylar)
   const pl = circlePlan(ci, keepAng); if (!pl) return null; const pieces = pl.pieces;
   if (!pieces.length) return { made: 0, failed: 0 }; let made = 0, failed = 0;
   pieces.forEach(pc => { const a = nodeAt(pc.p0), b = nodeAt(pc.p1); const mids = arcPts(ci.c, ci.r, pc.a0, pc.sw).slice(1, -1).map(q => addNode(...q)); const path = [a].concat(mids, [b]); const nl = [];
     for (let i = 0; i + 1 < path.length; i++) { const l = addLine(path[i], path[i + 1], 'sketch'); if (l) nl.push(l.id); }
-    const saved = JSON.stringify(P); if (applyDetour(a, b, path, nl)) made++; else { P = JSON.parse(saved); failed++; }
+    const onRoom = P.rooms.some(r => r._f && !r.kind && [pc.p0, pc.p1].every(q => r._f.poly.some((v, i) => segDist(q, v, r._f.poly[(i + 1) % r._f.poly.length]) < 1e-6))); // iki uç aynı odanın sınırında mı
+    if (pc.close || !onRoom) { if (wallJoinArc(a, b, path) || linePath(a, b)) made++; else failed++; } // açık hattı kapatma: hiçbir şey silinmez
+    else { const saved = JSON.stringify(P); if (applyDetour(a, b, path, nl)) made++; else { P = JSON.parse(saved); failed++; } }
     P.arcs = P.arcs || []; P.arcs.push({ id: uid('c'), ids: path.slice(), closed: false }); });
   return { made, failed };
 }
@@ -1483,7 +1516,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { circlePlan, filletGeom, daireMake, circleHits, circleCut, get LB() { return LB; }, polyHit, triOf, circ3, arcThrough, reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { wallJoinArc, linePath, circlePlan, filletGeom, daireMake, circleHits, circleCut, get LB() { return LB; }, polyHit, triOf, circ3, arcThrough, reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>
