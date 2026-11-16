@@ -431,7 +431,15 @@ function guides(X, Y, fromId, excl) {
   if (!gx && !gy) return null; const fx = gx ? gx.v : q[0], fy = gy ? gy.v : q[1]; const w = [fx * c - fy * s, fx * s + fy * c]; const [X2, Y2] = w2s(w[0], w[1]);
   return { type: 'guide', X: X2, Y: Y2, gu: [gx && gx.id, gy && gy.id].filter(Boolean) };
 }
-function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti' || S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire') || (S.tool === 'merdiven' && S.mk.mode === 'yuv') || !!(S.chArc && S.chArc.mid == null && S.chain); try { return candidate0(X, Y, opts); } finally { NOWALL = false; } }
+function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti' || S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire') || (S.tool === 'merdiven' && S.mk.mode === 'yuv') || !!(S.chArc && S.chArc.mid == null && S.chain); let c; try { c = candidate0(X, Y, opts); } finally { NOWALL = false; } if (S.tool === 'cikinti' && S.cik.mode !== 'yay' && !(opts && opts.L != null) && !(c && (c.node || c.l || c.rl || c.l1))) { const m = cikFaceMap(X, Y, c, opts); if (m) return m; } return c; }
+/* çıkıntı: duvarın diğer yüzüne dokunuş → referans çizgisindeki karşılığı (ölçüler yüzden alınır; yüz kalınlıkla birlikte paralel taşınır) */
+function cikFaceMap(X, Y, c, opts) { if (!P.walls || !P.walls.length) return null; let best = null, bd = 24;
+  wallFaces().forEach(f => { if (f.k !== 'out') return; const d = segDist([X, Y], w2s(...f.a), w2s(...f.b)); if (d < bd) { const qd = (wallGeom(f.w).quads.find(q => q.i === f.i) || {}).poly; if (qd) { bd = d; best = { f, r0: qd[0], r1: qd[1] }; } } });
+  if (!best) return null; const tap = c ? s2w(c.X, c.Y) : s2w(X, Y); const fromW = opts && (opts.fromW || (opts.fromId ? nw(opts.fromId) : null)); let p;
+  if (fromW && V.dist(fromW, tap) > 1e-6) { const x = segX(fromW, tap, best.r0, best.r1); p = x && x.t > 0 && x.u > -0.02 && x.u < 1.02 ? x.p : null; } if (!p) p = footT(tap, best.r0, best.r1).q;
+  const l = P.lines.find(q => !q.step && segDist(p, nw(q.a), nw(q.b)) < 1e-4); if (!l) return null;
+  const nd = [l.a, l.b].find(id => V.dist(w2s(...nw(id)), w2s(...p)) < 14); if (nd) { const [Xn, Yn] = w2s(...nw(nd)); return { type: 'end', node: nd, X: Xn, Y: Yn, lab: 'Duvar yüzü → köşe' }; }
+  const [X2, Y2] = w2s(...p); return { type: 'near', X: X2, Y: Y2, l: l.id, lab: 'Duvar yüzü → çizgi' }; }
 function candidate0(X, Y, opts) { // ekrandaki dokunuştan hedef nokta
   opts = opts || {}; const fromId = opts.fromId || null; const fromW = opts.fromW || (fromId ? nw(fromId) : null); const L = opts.L;
   if (L == null) { const o = osnap(X, Y, fromId, (opts.excl || []).concat(fromId ? [fromId] : [])); if (o) return o; }
