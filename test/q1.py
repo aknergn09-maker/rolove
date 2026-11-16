@@ -67,6 +67,21 @@ async def main():
         ck('  kapı boşluğunda iki yüzde de çizgi yok, kapı dışında var', not await ev(PX+"(1.45,0)") and not await ev(PX+"(1.45,-0.2)") and await ev(PX+"(0.5,0)") and await ev(PX+"(0.5,-0.2)"))
         ck('  odalar kapalı kaldı', sorted(await ev(RM))==[11.2,12], await ev(RM))
         await ev("RK.SET.showLen=true; RK.commit()"); await pg.screenshot(path='q1d.png')
+        sp = await ev("RK.P.nodes.filter(n=>Math.abs(n.y+0.2)<1e-6 && (Math.abs(n.x-1)<1e-6 || Math.abs(n.x-1.9)<1e-6)).length")
+        ck('  karşı çizgi de kapı kenarlarından bölündü (1.00 ve 1.90)', sp==2, sp)
+        # duvar alanı (tarama): iç duvar bandı → tarama kalkar; tekrar → taralı
+        await ev(f"RK.P=JSON.parse({SAVED!r}); RK.commit(); RK.view.s=70; RK.view.ox=-20; RK.view.oy=320; RK.commit()")
+        await btn('#tools button[data-tool=tarama]'); q0 = await ev("RK.P.wq.length")
+        await ctap(2.9, 2); q1 = await ev("RK.P.wq.length"); ck('Duvar alanı aracı: iç duvar bandına dokununca o duvarın taraması kalktı', q1 == q0-1, [q0, q1, await ev(TOAST)])
+        await ctap(2.9, 2); ck('  tekrar dokununca tarama geri geldi, odalar aynı', await ev("RK.P.wq.length")==q0 and sorted(await ev(RM))==[11.2,12], [await ev("RK.P.wq.length"), await ev(RM)])
+        await ctap(4.5, 2); ck('  oda alanına dokununca taralı duvar alanı oldu, oda sayılmadı', await ev("RK.P.fills.length")==1 and await ev(RM)==[11.2], [await ev("RK.P.fills.length"), await ev(RM)])
+        await ctap(4.5, 2); ck('  tekrar dokununca tarama kalktı, alan yine oda', await ev("RK.P.fills.length")==0 and sorted(await ev(RM))==[11.2,12], [await ev("RK.P.fills.length"), await ev(RM)])
+        # alttaki düğmeleri gizle/aç
+        h0 = await ev("document.querySelector('#cv').getBoundingClientRect().height"); await btn('#fBar')
+        h1 = await ev("document.querySelector('#cv').getBoundingClientRect().height"); hid = await ev("getComputedStyle(document.querySelector('#bar')).display")
+        ck('▾ düğmesi alttaki araç düğmelerini gizledi, çizim alanı büyüdü', hid=='none' and h1 > h0 + 40, [hid, h0, h1])
+        await btn('#fBar'); ck('  ▴ ile geri geldi', await ev("getComputedStyle(document.querySelector('#bar')).display")!='none' and abs(await ev("document.querySelector('#cv').getBoundingClientRect().height")-h0)<1)
+        await pg.screenshot(path='q1e.png')
         # 7) lazer: iç çizgi ölçülür, kalınlık korunur
         await ev(f"RK.P=JSON.parse({SAVED!r}); RK.commit(); RK.view.s=40; RK.view.ox=60; RK.view.oy=290; RK.commit()")
         await btn('#tabs button[data-tab=olcum]'); await btn('#tools button[data-tool=olc]'); await ctap(1.4,0); await typ(300); await btn('#sheet button[data-a=msok]')
