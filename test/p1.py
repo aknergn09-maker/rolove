@@ -55,6 +55,8 @@ async def main():
         pts2 = await ev("RK.P.pts.map(t=>[t.name, ...RK.ptPos(t).map(v=>+v.toFixed(3))])")
         ck('ölçekleme sonrası noktalar köşeleriyle gitti, dış köşe kalınlığı korudu', abs([r for r in pts2 if r[0]=='104'][0][1]-[r for r in pts2 if r[0]=='103'][0][1]-0.2)<1e-6, pts2)
         await btn('#tabs button[data-tab=kroki]'); await pg.screenshot(path='p1.png')
+        ov = await ev("(()=>{let n=0; for(let i=0;i<RK.LB.length;i++) for(let j=i+1;j<RK.LB.length;j++) if(RK.polyHit(RK.LB[i],RK.LB[j])) n++; return [RK.LB.length, n]})()")
+        ck('Kroki: yakın nokta adları (103/104) ve ölçüler üst üste binmiyor', ov[1]==0, ov)
         # DXF
         await btn('#tools button[data-tool=disa]'); ck('DXF / Dışa aracı', await ev("!!document.querySelector('#sheet button[data-a=dxf]')"))
         dx = await ev("RK.makeDXF()")

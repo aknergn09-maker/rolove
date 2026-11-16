@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v10.0';
+const VER = 'v10.1';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -269,10 +269,15 @@ function sheetH() { const s = $('#sheet'); return s.innerHTML ? s.getBoundingCli
 function bbox() { if (!P.nodes.length) return null; const xs = P.nodes.map(n => n.x), ys = P.nodes.map(n => n.y); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
 function fit() { const b = bbox(); const top = 48, bot = sheetH() + 16; if (!b) { view.s = 40; view.ox = W / 2; view.oy = (H - bot + top) / 2; return draw(); } const w = Math.max(b[2] - b[0], 1), h = Math.max(b[3] - b[1], 1); view.s = Math.min((W - 100) / w, (H - top - bot - 40) / h, 300); view.ox = (W - 30) / 2 - (b[0] + b[2]) / 2 * view.s; view.oy = top + (H - top - bot) / 2 + (b[1] + b[3]) / 2 * view.s; draw(); }
 const COL = { sketch: '#f5a524', typed: '#e6e9ee', laser: '#4ade80', total: '#c084fc', sel: '#3b82f6', grip: '#3b82f6', snap: '#22c55e', guide: '#22c55e', room: 'rgba(59,130,246,.07)', roomTx: '#94a3b8' };
-function label(t, X, Y, ang, col, sz) { ctx.save(); ctx.translate(X, Y); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.rotate(a); ctx.font = '600 ' + (sz || 11) + 'px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(t).width + 6; ctx.fillStyle = 'rgba(11,13,16,.82)'; ctx.fillRect(-w / 2, -8, w, 16); ctx.fillStyle = col; ctx.fillText(t, 0, 0); ctx.restore(); }
+/* yazı yerleşimi: her karede yazılar sırayla yerleşir, çakışan yazı aday konumlardan ilk boşa geçer */
+let LB = [];
+function rectPoly(cx, cy, w, h, a) { const c = Math.cos(a || 0), s = Math.sin(a || 0); return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]); }
+function polyHit(A, B) { for (const P2 of [A, B]) for (let i = 0; i < P2.length; i++) { const p = P2[i], q = P2[(i + 1) % P2.length]; const ax = [q[1] - p[1], p[0] - q[0]]; const pr = Q => Q.map(v => v[0] * ax[0] + v[1] * ax[1]); const a = pr(A), b = pr(B); if (Math.max(...a) <= Math.min(...b) + 0.5 || Math.max(...b) <= Math.min(...a) + 0.5) return false; } return true; }
+function lbPick(cands, w, h) { for (const c of cands) { const poly = rectPoly(c[0], c[1], w, h, c[2]); if (!LB.some(q => polyHit(q, poly))) { LB.push(poly); return c; } } LB.push(rectPoly(cands[0][0], cands[0][1], w, h, cands[0][2])); return cands[0]; }
+function label(t, X, Y, ang, col, sz, alts) { ctx.save(); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.font = '600 ' + (sz || 11) + 'px -apple-system,sans-serif'; const w = ctx.measureText(t).width + 6; const pk = lbPick([[X, Y, a]].concat((alts || []).map(q => [q[0], q[1], a])), w, 16); ctx.translate(pk[0], pk[1]); ctx.rotate(a); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(11,13,16,.82)'; ctx.fillRect(-w / 2, -8, w, 16); ctx.fillStyle = col; ctx.fillText(t, 0, 0); ctx.restore(); }
 function draw() {
-  if (!W || !P) return; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
-  drawGrid(); drawRooms(); drawWalls(); drawLines(); if (S.tool === 'olc' && S.ms.sel && lineById(S.ms.sel)) { const l = lineById(S.ms.sel); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 6; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(...ns(l.a)); ctx.lineTo(...ns(l.b)); ctx.stroke(); ctx.globalAlpha = 1; } drawOpenings(); drawLenLabels(); drawArrows(); drawSel(); drawAim(); drawStroke(); drawScale();
+  if (!W || !P) return; LB = []; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
+  drawGrid(); drawRooms(); drawWalls(); drawLines(); if (S.tool === 'olc' && S.ms.sel && lineById(S.ms.sel)) { const l = lineById(S.ms.sel); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 6; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(...ns(l.a)); ctx.lineTo(...ns(l.b)); ctx.stroke(); ctx.globalAlpha = 1; } drawOpenings(); drawLenLabels(); drawRoomLabels(); drawArrows(); drawSel(); drawAim(); drawStroke(); drawScale();
 }
 function drawGrid() {
   let st = 1; while (st * view.s < 18) st *= 5; while (st * view.s > 120) st /= 5;
@@ -289,8 +294,14 @@ function drawRooms() {
   P.rooms.forEach(r => { const f = r._f; const sel = S.sel && S.sel.room === r.id;
     if (f) { ctx.beginPath(); pathPoly(f.poly); f.holes.forEach(pathPoly); ctx.fillStyle = sel ? 'rgba(59,130,246,.2)' : r.kind === 'merdiven' ? 'rgba(148,163,184,.10)' : r.kind === 'eleman' ? 'rgba(148,163,184,.16)' : COL.room; ctx.fill('evenodd');
       if (r.kind === 'eleman') { ctx.save(); ctx.beginPath(); pathPoly(f.poly); ctx.clip(); ctx.strokeStyle = 'rgba(203,213,225,.45)'; ctx.lineWidth = 1; const xs = f.poly.map(p => w2s(...p)); const x0 = Math.min(...xs.map(q => q[0])), x1 = Math.max(...xs.map(q => q[0])), y0 = Math.min(...xs.map(q => q[1])), y1 = Math.max(...xs.map(q => q[1])); ctx.beginPath(); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); } ctx.stroke(); ctx.restore(); } }
-    const [X, Y] = w2s(r.ax, r.ay); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 12px -apple-system,sans-serif'; ctx.fillStyle = sel ? '#93c5fd' : COL.roomTx; ctx.fillText(r.name, X, Y - 7);
-    ctx.font = '11px -apple-system,sans-serif'; ctx.fillStyle = f ? '#64748b' : COL.sketch; ctx.fillText(f ? rA(r).toFixed(2) + ' m²' : 'açık (kapalı değil)', X, Y + 8); });
+  });
+}
+function drawRoomLabels() {
+  P.rooms.forEach(r => { const f = r._f; const sel = S.sel && S.sel.room === r.id;
+    const [X0, Y0] = w2s(r.ax, r.ay); const t2 = f ? rA(r).toFixed(2) + ' m²' : 'açık (kapalı değil)'; ctx.font = '600 12px -apple-system,sans-serif'; const w1 = ctx.measureText(r.name).width; ctx.font = '11px -apple-system,sans-serif'; const w = Math.max(w1, ctx.measureText(t2).width) + 4;
+    const [X, Y] = lbPick([[X0, Y0], [X0, Y0 + 26], [X0, Y0 - 26], [X0 + w * 0.6, Y0], [X0 - w * 0.6, Y0], [X0, Y0 + 52], [X0, Y0 - 52], [X0, Y0 + 80], [X0, Y0 - 80], [X0 + w * 0.9, Y0 + 40], [X0 - w * 0.9, Y0 - 40], [X0, Y0 + 110], [X0, Y0 - 110]].map(c => [c[0], c[1], 0]), w, 30);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 12px -apple-system,sans-serif'; ctx.fillStyle = sel ? '#93c5fd' : COL.roomTx; ctx.fillText(r.name, X, Y - 7);
+    ctx.font = '11px -apple-system,sans-serif'; ctx.fillStyle = f ? '#64748b' : COL.sketch; ctx.fillText(t2, X, Y + 8); });
 }
 function drawLines() {
   const selL = new Set(S.sel && S.sel.lines || []);
@@ -769,7 +780,7 @@ function addOpening(type, ha, hb, s0, w) {
   const o = { id: uid('o'), type, ha, hb, s: s0, w, hinge: 0, sw: -1, nb: s0 > 1e-6 ? 0 : 1 }; P.openings = P.openings || []; const g = opGeom(o); if (g) o.sw = defaultSwing(g); P.openings.push(o); return o;
 }
 function drawLenLabels() {
-  if (SET.showLen) P.lines.forEach(l => { if (l.step) return; const a = ns(l.a), b = ns(l.b); const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 26) return; const sd = 11; const nx = -dy / L * sd, ny = dx / L * sd; const v = lineLen(l); const mm = l.kind === 'laser' ? l.m : null; const bad = mm != null && Math.abs(v - mm) > 0.0015; label((l.kind === 'sketch' ? '~' : '') + fmtM(mm != null ? mm : v, l.kind === 'laser' ? 3 : 2) + (bad ? ' ≠' + fmtM(v, 3) : ''), (a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny, Math.atan2(dy, dx), bad ? '#f87171' : (COL[l.kind] || COL.sketch), 10.5); });
+  if (SET.showLen) P.lines.forEach(l => { if (l.step) return; const a = ns(l.a), b = ns(l.b); const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 26) return; const sd = 11; const nx = -dy / L * sd, ny = dx / L * sd; const ux = dx / L, uy = dy / L; const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2; const alts = [[mx + nx * 2.2, my + ny * 2.2], [mx - nx, my - ny], [mx + nx + ux * L / 4, my + ny + uy * L / 4], [mx + nx - ux * L / 4, my + ny - uy * L / 4], [mx - nx * 2.2, my - ny * 2.2], [mx + nx * 3.4, my + ny * 3.4]]; const v = lineLen(l); const mm = l.kind === 'laser' ? l.m : null; const bad = mm != null && Math.abs(v - mm) > 0.0015; label((l.kind === 'sketch' ? '~' : '') + fmtM(mm != null ? mm : v, l.kind === 'laser' ? 3 : 2) + (bad ? ' ≠' + fmtM(v, 3) : ''), (a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny, Math.atan2(dy, dx), bad ? '#f87171' : (COL[l.kind] || COL.sketch), 10.5, alts); });
 }
 function drawOpenings() {
   (P.openings || []).forEach(o => { const g = opGeom(o); if (!g) return; const sel = S.sel && S.sel.open === o.id; const off = k => V.mul(g.nB, g.o0 + k);
@@ -783,7 +794,8 @@ function drawOpenings() {
       const H = w2s(...Hw), E = w2s(...Ew), J = w2s(...Jw); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(...H); ctx.lineTo(...E); ctx.stroke();
       const r = Math.hypot(E[0] - H[0], E[1] - H[1]); let a1 = Math.atan2(E[1] - H[1], E[0] - H[0]), a2 = Math.atan2(J[1] - H[1], J[0] - H[0]); let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d <= -Math.PI) d += 2 * Math.PI;
       ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(H[0], H[1], r, a1, a1 + d, d < 0); ctx.stroke(); ctx.setLineDash([]); }
-    if (SET.showLen && Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) > 14) { const m = w2s(...V.add(g.mid, off(o.type === 'kapi' ? (o.sw > 0 ? -0.2 : g.t + 0.2) : -0.2))); ctx.font = '600 10px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = lc; ctx.fillText(o.type === 'kapi' ? 'K ' + (doorHand(o, g) === 'sag' ? 'Sağ' : 'Sol') : 'P', m[0], m[1]); } });
+    if (SET.showLen && Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) > 14) { const k0 = o.type === 'kapi' ? (o.sw > 0 ? -0.2 : g.t + 0.2) : -0.2, k1 = o.type === 'kapi' ? (o.sw > 0 ? g.t + 0.2 : -0.2) : g.t + 0.2; const tx = o.type === 'kapi' ? 'K ' + (doorHand(o, g) === 'sag' ? 'Sağ' : 'Sol') : 'P'; ctx.font = '600 10px -apple-system,sans-serif'; const tw = ctx.measureText(tx).width + 4;
+      const m = lbPick([k0, k1, k0 * 2, k1 * 2].map(k => w2s(...V.add(g.mid, off(k)))).map(c => [c[0], c[1], 0]), tw, 13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = lc; ctx.fillText(tx, m[0], m[1]); } });
 }
 function opLineAt(X, Y) { // dokunulan yerdeki gerçek çizgi (duvar yüzüne dokunulduysa referans çizgisi) ve üstündeki nokta
   let best = null, bd = 26; P.lines.forEach(l => { if (l.step) return; const a = ns(l.a), b = ns(l.b); const d = segDist([X, Y], a, b); if (d < bd) { bd = d; best = { l, q: footT(s2w(X, Y), nw(l.a), nw(l.b)).q }; } });
@@ -1152,7 +1164,7 @@ $('#bMenu').onclick = () => openModal(`<h3>${esc(P.name)}</h3>
   <label>Kapanan alana otomatik oda <input type="checkbox" id="sRoom" ${SET.autoRoom ? 'checked' : ''}></label>
   <h3>Renkler</h3><div class="inf" style="line-height:1.7"><span style="color:${COL.sketch}">■ eskiz (~)</span> · <span style="color:${COL.typed}">■ yazılan</span> · <span style="color:${COL.laser}">■ lazer</span> · <span style="color:${COL.total}">■ total</span></div>
   <div class="row"><button class="p" data-m="ok">Kapat</button></div>
-  <div class="inf" style="margin-top:10px">Sürüm <b style="color:#fff">${VER}</b> · eski sürüm: <a href="eski.html" style="color:#60a5fa">eski.html</a></div>`);
+  <div class="row" style="margin-top:10px"><button class="p" data-m="go" data-v="onizleme.html">🧪 Önizleme</button><button data-m="go" data-v="eski.html">Eski sürüm</button></div><div class="inf">Sürüm <b style="color:#fff">${VER}</b></div>`);
 $('#mbox').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return; const m = b.dataset.m;
   if (m === 'ok') { SET.showLen = $('#sLen').checked; SET.autoRoom = $('#sRoom').checked; writeJSON(LS_S, SET); closeModal(); render(); }
@@ -1163,13 +1175,14 @@ $('#mbox').addEventListener('click', async e => {
   else if (m === 'ren') { const n = prompt('Proje adı', P.name); if (!n || n.trim() === P.name) return; const all = allProjects(); if (all[n.trim()]) return alert('Bu adla bir proje zaten var. Başka bir ad yaz.'); delete all[P.name]; writeJSON(LS_P, all); P.name = n.trim(); commit(); closeModal(); }
   else if (m === 'json') { const blob = new Blob([JSON.stringify(P)], { type: 'application/json' }); const f = new File([blob], P.name.replace(/[\\/:*?"<>|]+/g, '_') + '.json', { type: 'application/json' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); P.backupAt = Date.now() + 5; save(); closeModal(); toast('Yedek alındı'); return; } } catch (er) { if (er.name === 'AbortError') return; } const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); P.backupAt = Date.now() + 5; save(); closeModal(); toast('Yedek indirildi'); }
   else if (m === 'imp') $('#fileIn').click();
+  else if (m === 'go') { save(); location.href = b.dataset.v; }
 });
 $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.nodes)) throw new Error('Bu dosya yeni sürümün yedeği değil'); save(); P = d; if (allProjects()[P.name]) P.name = uniqName(P.name); undoSt = []; redoSt = []; commit(); fit(); closeModal(); toast('Yüklendi · ' + P.name); } catch (er) { alert('Okunamadı: ' + er.message); } e.target.value = ''; });
 
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { get LB() { return LB; }, polyHit, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>

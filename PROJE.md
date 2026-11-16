@@ -365,6 +365,9 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
   - 3. aşama: Daire (merkez+r, 2 nokta, 3 nokta; canlı önizleme; ≤4 mm kirişle çokgen), Buda/Uzat/Birleştir (Düzenle → ✂), Dairesel merdiven (3 nokta başlangıç-ara-bitiş + genişlik içe/dışa + rıh; ışınsal basamaklar, merdiven alanı).
   - Testler: test/p1..p4.py (PAGE=onizleme.html ile t1..t18 de geçiyor).
 
+- v10.1 (ana) + önizleme: yazı yerleşimi (LB): her karede yazılar sırayla yerleşir, çakışan yazı aday konumlara kayar (ölçü: dışa uzak/içe/boyunca; oda adı: alt/üst/yana, gerekirse oda dışına; açıklık etiketi iki yan). Menüde ana ↔ önizleme ↔ eski sürüm düğmeleri (data-m=go). t19.py.
+- Önizleme ek: nokta adları 12 aday konum (uzaksa ince bağlantı çizgisi), köşegen yazısı çizgi boyunca kayar. P.arcs {ids, closed}: daire ve dairesel merdiven yayları; ekranda ara düğümler gizli, yay başına tek "R" yazısı; DXF'te CIRCLE/ARC (düğümler 5 mm içinde daireye uyuyorsa, yoksa çizgi). Dairesel merdiven basamakları iç/dış yay düğümlerinden yeniden üretilir (gerçek daireyse açıyla tam yay üstünde, değilse zincir boyunca oranla) → ölçeklemeye uyar. Yön oku merdiven konturunun 3 köşesine ağırlık koordinatıyla bağlı (afin, ölçeğe uyar); dairesel merdivende ok otomatik orta yay boyunca. DXF'te ok başları.
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?

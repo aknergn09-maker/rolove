@@ -29,6 +29,11 @@ async def main():
         r = await ev("(()=>{const ns=RK.P.nodes; const d=ns.map(n=>Math.hypot(n.x-2,n.y-2)); return [ns.length, Math.min(...d), Math.max(...d)]})()")
         ck('3 noktadan daire: düğümler r=1 üstünde', r[0]>=12 and abs(r[1]-1)<1e-6 and abs(r[2]-1)<1e-6, r)
         a = await ev("RK.P.rooms.map(r=>+RK.rA(r).toFixed(2))"); ck('  kapalı → alan ≈ π (3.14)', any(abs(v-3.14)<0.02 for v in a), a)
+        dx = await ev("RK.makeDXF()"); open('p4c.dxf','w',newline='').write(dx)
+        import ezdxf
+        cs = [e for e in ezdxf.readfile('p4c.dxf').modelspace() if e.dxftype()=='CIRCLE']
+        ck('DXF: daire CIRCLE olarak (r=1.000)', len(cs)==1 and abs(cs[0].dxf.radius-1)<1e-4, [(c.dxf.center, c.dxf.radius) for c in cs])
+        ck('  ekranda yay ara noktaları gizli, yarıçap yazısı var', await ev("RK.LB.length")>0)
         # merkez + yazılan r
         await btn('#sheet button[data-a=drm][data-v=mr]'); q = await W(6,2); await ctap(*q); await btn('#sheet button[data-a=np]'); [await btn(f'#sheet button[data-k="{c}"]') for c in '50']; await btn('#sheet button[data-a=drok]')
         r2 = await ev("(()=>{const ns=RK.P.nodes.filter(n=>n.x>4); const cx=ns.reduce((s,n)=>s+n.x,0)/ns.length, cy=ns.reduce((s,n)=>s+n.y,0)/ns.length; const d=ns.map(n=>Math.hypot(n.x-cx,n.y-cy)); return [Math.min(...d), Math.max(...d)]})()")
@@ -59,6 +64,22 @@ async def main():
         mr = await ev("RK.P.rooms.filter(r=>r.kind==='merdiven').map(r=>+RK.rA(r).toFixed(2))")
         ck('  Merdiven alanı = π(2.5²−1.5²)/2 ≈ 6.28', len(mr)==1 and abs(mr[0]-6.28)<0.03, mr)
         ck('komut satırında undefined yok', 'undefined' not in await ev("document.querySelector('#cmd').textContent"))
+        # yön oku ekle, sonra ölçekle (bir uç çizgisini 1.000 → 1.200 lazer)
+        await btn('#sheet button[data-a=mkm][data-v=yon]'); q = await W(1.0,3.2); await ctap(*q); q = await W(3,5); await ctap(*q); q = await W(5,3.2); await ctap(*q); await btn('#sheet button[data-a=yonok]')
+        ck('dairesel merdivende yön oku kendiliğinden yay boyunca çizildi', await ev("RK.P.arrows.length")==2 and await ev("RK.P.arrows[0].pts.length")>=8)
+        ar0 = await ev("RK.P.arrows[1] && RK.P.arrows[1].tri ? RK.P.arrows[1].pts : null"); ck('elle çizilen ok da merdiven konturuna (3 köşe) bağlı', ar0 is not None)
+        await ev("(()=>{const l=RK.P.lines.find(l=>!l.step&&Math.abs(RK.lineLen(l)-1)<1e-6); RK.applyMeasure(l, 1.2);})()")
+        sc = await ev("""(()=>{const A=RK.P.arcs; const fit=a=>{const ps=a.ids.map(id=>{const n=RK.P.nodes.find(x=>x.id===id); return [n.x,n.y]}); return RK.circ3(ps[0],ps[Math.floor(ps.length/2)],ps[ps.length-1])}; const ci=fit(A[0]), co=fit(A[1]);
+          const st=RK.P.lines.filter(l=>l.step).map(l=>{const a=RK.P.nodes.find(n=>n.id===l.a), b=RK.P.nodes.find(n=>n.id===l.b); return [Math.hypot(a.x-ci.c[0],a.y-ci.c[1]), Math.hypot(b.x-ci.c[0],b.y-ci.c[1])]});
+          const ar=RK.P.arrows.flatMap(a=>a.pts).map(p=>Math.hypot(p[0]-ci.c[0],p[1]-ci.c[1])); return {ri:ci.r, ro:co.r, st, ar}})()""")
+        okst = all(abs(min(x)-sc['ri'])<0.01 and abs(max(x)-sc['ro'])<0.01 for x in sc['st'])
+        ck('ölçekleme sonrası: yaylar büyüdü (genişlik 1.2), basamak uçları yeni yaylarda', abs(sc['ro']-sc['ri']-1.2)<0.01 and okst and len(sc['st'])==10, sc)
+        ck('  yön oku da merdivenle büyüdü (yarıçap oranı korundu)', all(sc['ri']<r<sc['ro'] for r in sc['ar']), sc['ar'])
+        dx = await ev("RK.makeDXF()"); open('p4.dxf','w',newline='').write(dx)
+        import ezdxf
+        msp = ezdxf.readfile('p4.dxf').modelspace(); kinds = [e.dxftype() for e in msp if e.dxf.layer=='MERDIVEN']
+        na = await ev("RK.P.arrows.reduce((s,a)=>s+a.pts.length-1+2,0)")
+        ck('DXF: merdivenin iki yayı ARC; çizgiler yalnız 10 basamak + oklar (ok başlarıyla)', kinds.count('ARC')==2 and kinds.count('LINE')==10+na, [kinds.count('ARC'), kinds.count('LINE'), na])
         await btn('#fFit'); await pg.screenshot(path='p4.png')
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)
