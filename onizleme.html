@@ -1045,8 +1045,13 @@ function adjustGeometry() {
   // başka bir duvarın beyaz çizgisi üstünde duran düğümler (kolon köşesi, iç duvar ucu) o yüzde kalır
   const onF = []; (P.walls || []).forEach(w => { const g = wallGeom(w); if (!g) return; const wid = w.nodes.filter(id => nodeById(id)); g.quads.forEach(q => { const A = wid[q.i], B = wid[(q.i + 1) % wid.length]; if (!ids.has(A) || !ids.has(B)) return; const u = V.unit(V.sub(nw(B), nw(A))), nv = [-u[1], u[0]];
     ids.forEach((k, id) => { if (w.nodes.includes(id) || onF.some(o => o.n === id && Math.abs(o.nv[0] * nv[0] + o.nv[1] * nv[1]) > 0.999)) return; const p = nw(id); if (segDist(p, q.poly[3], q.poly[2]) < 1e-4) onF.push({ n: id, a: A, b: B, w, nv, d: nv[0] * (p[0] - nw(A)[0]) + nv[1] * (p[1] - nw(A)[1]) }); }); }); });
+  // v12: duvar yüzü (taralı dörtgenin kenarı) üstünde duran ara düğümler (T bağlantı, kapı kenarı vb.) o yüzün doğrusunda kalır — yüz kırılıp dış çizginin dışına taşmaz
+  const onQ = []; (P.wq || []).forEach(q => [[0, 1], [3, 2]].forEach(([s0, s1]) => { const A = q.n[s0], B = q.n[s1]; if (!ids.has(A) || !ids.has(B)) return; const pA = nw(A), pB = nw(B); if (V.dist(pA, pB) < 1e-6) return;
+    ids.forEach((k, id) => { if (id === A || id === B || onQ.some(o => o.n === id && o.a === A && o.b === B)) return; if (segDist(nw(id), pA, pB) < 1e-4) onQ.push({ n: id, a: A, b: B }); }); }));
   for (let it = 0; it < 8; it++) {
     const rows = []; // {c:[[i,v]...], r, w}
+    onQ.forEach(o => { const i = ids.get(o.n), a = ids.get(o.a), b = ids.get(o.b); const XA = [x[2 * a], x[2 * a + 1]], XB = [x[2 * b], x[2 * b + 1]], XI = [x[2 * i], x[2 * i + 1]]; const L = V.dist(XA, XB); if (L < 1e-9) return; const u = V.mul(V.sub(XB, XA), 1 / L), n = [-u[1], u[0]]; const t = Math.max(0, Math.min(1, ((XI[0] - XA[0]) * u[0] + (XI[1] - XA[1]) * u[1]) / L));
+      rows.push({ c: [[2 * i, n[0]], [2 * i + 1, n[1]], [2 * a, -n[0] * (1 - t)], [2 * a + 1, -n[1] * (1 - t)], [2 * b, -n[0] * t], [2 * b + 1, -n[1] * t]], r: ((XI[0] - XA[0]) * n[0] + (XI[1] - XA[1]) * n[1]), w: 3000 }); });
     lines.forEach(l => { const i = ids.get(l.a), j = ids.get(l.b); const dx = x[2 * j] - x[2 * i], dy = x[2 * j + 1] - x[2 * i + 1]; const d0 = D0.get(l.id); const ms = meas(l);
       const L0 = Math.hypot(...d0) || 1e-9, ex = d0[0] / L0, ey = d0[1] / L0, px = -ey, py = ex;
       rows.push({ c: [[2 * j, px], [2 * j + 1, py], [2 * i, -px], [2 * i + 1, -py]], r: px * dx + py * dy, w: 300 }); // yön (açı) güçlü korunur
@@ -1075,6 +1080,7 @@ function adjustGeometry() {
       const p1 = ns.map(X1); const c1 = V.mul(p1.reduce((a, q) => V.add(a, q), [0, 0]), 1 / p1.length); const dl = V.sub(tg, c1); ns.forEach(id => { const i = ids.get(id); x[2 * i] += dl[0]; x[2 * i + 1] += dl[1]; }); }); }
   const anc = P.rooms.map(r => { if (!r._f || r.ax == null) return null; const T = triOf(r); if (!T || T.some(id => !nodeById(id))) return null; return { r, T, bc: baryOf([r.ax, r.ay], T.map(nw)) }; }).filter(Boolean); // oda adı (çapa) odasıyla birlikte kayar
   let shift = 0; ids.forEach((i, id) => { const n = nodeById(id); shift = Math.max(shift, Math.hypot(x[2 * i] - n.x, x[2 * i + 1] - n.y)); n.x = x[2 * i]; n.y = x[2 * i + 1]; });
+  onQ.forEach(o => { const n = nodeById(o.n); const f = footT([n.x, n.y], nw(o.a), nw(o.b)).q; n.x = f[0]; n.y = f[1]; }); // tam yüze oturt
   for (let k = 0; k < 3; k++) onF.forEach(o => { const n = nodeById(o.n), g = wallGeom(o.w); if (!n || !g) return; const wid = o.w.nodes.filter(id => nodeById(id)); const q = g.quads.find(q => wid[q.i] === o.a && wid[(q.i + 1) % wid.length] === o.b); if (!q) return; const f = footT([n.x, n.y], q.poly[3], q.poly[2]).q; n.x = f[0]; n.y = f[1]; }); // yüzdeki düğüm tam yüze oturur
   anc.forEach(({ r, T, bc }) => { const T1 = T.map(nw); r.ax = bc[0] * T1[0][0] + bc[1] * T1[1][0] + bc[2] * T1[2][0]; r.ay = bc[0] * T1[0][1] + bc[1] * T1[1][1] + bc[2] * T1[2][1]; });
   let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); }); (P.dims || []).forEach(dm => { if (nodeById(dm.a) && nodeById(dm.b)) worst = Math.max(worst, Math.abs(dm.u[0] * (nw(dm.b)[0] - nw(dm.a)[0]) + dm.u[1] * (nw(dm.b)[1] - nw(dm.a)[1]) - dm.m)); }); (P.diags || []).forEach(dg => { if (nodeById(dg.a) && nodeById(dg.b)) worst = Math.max(worst, Math.abs(V.dist(nw(dg.a), nw(dg.b)) - dg.m)); });
