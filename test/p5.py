@@ -40,7 +40,7 @@ async def main():
         await typ(400); await btn('#sheet button[data-a=ar][data-v="0"]'); await typ(300); await btn('#sheet button[data-a=ar][data-v="1"]'); await typ(400); await btn('#sheet button[data-a=ar][data-v="2"]')
         await btn('#sheet button[data-a=charc]'); ck('zincirde ◠ Yay düğmesi', await ev("!!RK.S.chArc"))
         q = await W(3.5,3.5); await ctap(*q); q = await W(5,2); await ctap(*q)
-        await pg.screenshot(path='p5a.png')
+        await pg.screenshot(path='p5a.png');
         a2 = await ev(RA); exp = 12 + 3.14159*1.5*1.5/2
         ck('yayla kapandı: oda alanı 4×3 + yarım daire (r 1.5) ≈ %.2f' % exp, any(v and abs(v-exp)<0.05 for v in a2.values()) and await ev("RK.S.chain")==None, a2)
         wb = await ev("RK.P.walls.length"); ck('  duvar bandı yayı da izliyor (ikinci duvar, çok köşeli)', wb==2 and await ev("RK.P.walls[1].nodes.length")>10, [wb, await ev("RK.P.walls.map(w=>w.nodes.length)")])

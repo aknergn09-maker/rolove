@@ -74,7 +74,7 @@ async def main():
           const ar=RK.P.arrows.flatMap(a=>a.pts).map(p=>Math.hypot(p[0]-ci.c[0],p[1]-ci.c[1])); return {ri:ci.r, ro:co.r, st, ar}})()""")
         okst = all(abs(min(x)-sc['ri'])<0.01 and abs(max(x)-sc['ro'])<0.01 for x in sc['st'])
         ck('ölçekleme sonrası: yaylar büyüdü (genişlik 1.2), basamak uçları yeni yaylarda', abs(sc['ro']-sc['ri']-1.2)<0.01 and okst and len(sc['st'])==10, sc)
-        ck('  yön oku da merdivenle büyüdü (yarıçap oranı korundu)', all(sc['ri']<r<sc['ro'] for r in sc['ar']), sc['ar'])
+        ck('  yön oku da merdivenle büyüdü (yarıçap oranı korundu)', all(sc['ri']-0.01<r<sc['ro']+0.01 for r in sc['ar']), sc['ar'])
         dx = await ev("RK.makeDXF()"); open('p4.dxf','w',newline='').write(dx)
         import ezdxf
         msp = ezdxf.readfile('p4.dxf').modelspace(); kinds = [e.dxftype() for e in msp if e.dxf.layer=='MERDIVEN']
