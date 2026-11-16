@@ -1088,7 +1088,7 @@ function circleHits(ci) { const out = []; P.lines.forEach(l => { if (l.step) ret
     [(-b - Math.sqrt(D)) / (2 * a), (-b + Math.sqrt(D)) / (2 * a)].forEach(t => { if (t < -1e-9 || t > 1 + 1e-9) return; const p = V.add(A, V.mul(d, t)); if (!out.some(q => V.dist(q.p, p) < 1e-6)) out.push({ p, ang: Math.atan2(p[1] - ci.c[1], p[0] - ci.c[0]) }); }); }); return out.sort((x, y) => x.ang - y.ang); }
 /* daireyi duvarlarla kes: kesişimlerden böl, tutulacak yayları oda sınırına kat (applyDetour → duvar, oda, kapı/pencere yayı izler) */
 function circlePlan(ci, keepAng) { // önizleme ve uygulama aynı plandan: hangi yay kalır, hangisi atılır
-  const H = circleHits(ci); if (H.length < 2) return null; const n = H.length; const norm = x => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); const all = [];
+  const H = circleHits(ci); if (H.length < 2) return null; const n = H.length; let _oc = null; const norm = x => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); const all = [];
   for (let i = 0; i < n; i++) { const a0 = H[i].ang, a1 = i + 1 < n ? H[i + 1].ang : H[0].ang + 2 * Math.PI; const sw = a1 - a0; if (sw < 1e-6) continue; const am = a0 + sw / 2; const pm = V.add(ci.c, V.mul([Math.cos(am), Math.sin(am)], ci.r));
     const keep = keepAng != null ? norm(keepAng - a0) <= sw : !P.rooms.some(r => r._f && !r.kind && inPoly(pm, r._f.poly) && !r._f.holes.some(h => inPoly(pm, h))); all.push({ p0: H[i].p, p1: (i + 1 < n ? H[i + 1] : H[0]).p, a0, sw, keep }); }
   // aynı iki uca bağlanan birden fazla tutulan yay varsa (açık dış hattı kapatma): mevcut çizgilerle uçlar arası yolu bul, hattı dışa büyüten yayı tut
@@ -1096,7 +1096,29 @@ function circlePlan(ci, keepAng) { // önizleme ve uygulama aynı plandan: hangi
   const groups = new Map(); all.filter(x => x.keep).forEach(x => { const k = [nid(x.p0), nid(x.p1)].sort().join('|'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
   groups.forEach((g, k) => { if (g.length < 2) return; const [a, b] = k.split('|'); if (!a || !b || a === 'undefined' || b === 'undefined') return; const path = linePath(a, b); if (!path) return; const poly = path.map(nw);
     g.forEach(x => { const am = x.a0 + x.sw / 2; const pm = V.add(ci.c, V.mul([Math.cos(am), Math.sin(am)], ci.r)); if (inPoly(pm, poly)) x.keep = false; else x.close = true; }); });
+  if (keepAng == null) _oc = openPlan(ci, H, all); if (_oc) return _oc;
   return { all, pieces: all.filter(x => x.keep) }; }
+/* açık dış hat: daire, hattın iki açık ucunu (ya da uçlara giden çizgileri) kesiyorsa → uçları birleştiren dış yay kalır, daire içine taşan uç parçaları budanır, gerisi atılır */
+function openPlan(ci, H, all) { const L = P.lines.filter(l => !l.step); const deg = id => L.filter(l => l.a === id || l.b === id).length;
+  const onS = (p, A, B) => segDist(p, A, B) < 1e-6; const nodeHere = p => P.nodes.find(q => Math.hypot(q.x - p[0], q.y - p[1]) < 1e-6);
+  const endOf = h => { const n0 = nodeHere(h.p); if (n0) return deg(n0.id) === 1 ? { end: n0.id, anchor: n0.id, stub: [] } : null;
+    const l = L.find(x => onS(h.p, nw(x.a), nw(x.b))); if (!l) return null; const res = [];
+    [[l.a, l.b], [l.b, l.a]].forEach(([from, to]) => { let pts = [h.p, nw(to)], cur = to, cameL = l, ok = !H.some(o => o !== h && onS(o.p, h.p, nw(to)));
+      for (let k = 0; ok && k < 500; k++) { const d = deg(cur); if (d === 1) { res.push({ end: cur, anchor: from, stub: pts }); return; } if (d !== 2) return; const nx = L.find(x => x !== cameL && (x.a === cur || x.b === cur)); const o = nx.a === cur ? nx.b : nx.a; if (H.some(q => onS(q.p, nw(cur), nw(o)))) return; pts.push(nw(o)); cameL = nx; cur = o; } });
+    return res.length === 1 ? res[0] : null; };
+  const E = new Map(); H.forEach(h => E.set(h, endOf(h))); if (![...E.values()].some(Boolean)) return null;
+  const hAt = p => H.find(h => V.dist(h.p, p) < 1e-9); const out = [];
+  all.forEach(x => { const e0 = E.get(hAt(x.p0)), e1 = E.get(hAt(x.p1)); if (!e0 || !e1 || e0.end === e1.end) return; const path = bfsPath(e0.anchor, e1.anchor); if (!path) return;
+    const poly = [x.p0].concat(path.map(nw), [x.p1]).filter((q, i, a) => !i || V.dist(q, a[i - 1]) > 1e-9); if (poly.length < 3 || Math.abs(polyArea(poly)) < 1e-6) return;
+    const am = x.a0 + x.sw / 2; const pm = V.add(ci.c, V.mul([Math.cos(am), Math.sin(am)], ci.r)); if (!inPoly(pm, poly)) out.push(Object.assign(x, { e0, e1 })); });
+  if (!out.length) return null; all.forEach(x => { x.keep = out.includes(x); x.close = x.keep; }); return { all, pieces: out, trims: out.flatMap(x => [x.e0.stub, x.e1.stub]).filter(t => t.length) }; }
+function bfsPath(a, b) { const prev = new Map([[a, null]]); const q = [a]; while (q.length) { const u = q.shift(); if (u === b) break; P.lines.forEach(l => { if (l.step || (l.a !== u && l.b !== u)) return; const v = l.a === u ? l.b : l.a; if (!prev.has(v)) { prev.set(v, u); q.push(v); } }); } if (!prev.has(b)) return null; const out = []; let c = b; while (c) { out.unshift(c); c = prev.get(c); } return out; }
+/* daire içine taşan uç parçasını sil: a'dan açık uca (end) kadar */
+function trimStub(a, end) { const L = () => P.lines.filter(l => !l.step); for (const l0 of L().filter(l => l.a === a || l.b === a)) { const ls = [l0], ns = []; let cur = l0.a === a ? l0.b : l0.a, cl = l0;
+    for (let k = 0; k < 500; k++) { ns.push(cur); if (cur === end) break; const nx = L().filter(x => x !== cl && (x.a === cur || x.b === cur)); if (nx.length !== 1) { ns.length = 0; break; } cl = nx[0]; ls.push(cl); cur = cl.a === cur ? cl.b : cl.a; }
+    if (!ns.length || ns[ns.length - 1] !== end) continue; const dn = new Set(ns); P.lines = P.lines.filter(l => !ls.includes(l)); P.nodes = P.nodes.filter(n => !dn.has(n.id));
+    (P.walls || []).forEach(w => { w.nodes = w.nodes.filter(id => !dn.has(id)); }); P.walls = (P.walls || []).filter(w => w.nodes.length >= 2);
+    P.openings = (P.openings || []).filter(o => !Object.values(o).some(v => typeof v === 'string' && dn.has(v))); return true; } return false; }
 function linePath(a, b) { const prev = new Map([[a, null]]); const q = [a]; while (q.length) { const u = q.shift(); if (u === b) break; P.lines.forEach(l => { if (l.step || (l.a !== u && l.b !== u)) return; const v = l.a === u ? l.b : l.a; if (!prev.has(v)) { prev.set(v, u); q.push(v); } }); } if (!prev.has(b)) return null; const out = []; let c = b; while (c) { out.unshift(c); c = prev.get(c); } return out.length >= 3 ? out : null; }
 /* duvar zincirini yay boyunca uzat / kapat (açık hattın uçları a ve b) */
 function wallJoinArc(a, b, path) { const inner = path.slice(1, -1); const ends = w => !w.closed && w.nodes.length ? [w.nodes[0], w.nodes[w.nodes.length - 1]] : [];
@@ -1109,7 +1131,7 @@ function wallJoinArc(a, b, path) { const inner = path.slice(1, -1); const ends =
 function circleCut(ci, keepAng) { // keepAng: tutulacak yayın açısı (null → odaların dışındaki yaylar)
   const pl = circlePlan(ci, keepAng); if (!pl) return null; const pieces = pl.pieces;
   if (!pieces.length) return { made: 0, failed: 0 }; let made = 0, failed = 0;
-  pieces.forEach(pc => { const a = nodeAt(pc.p0), b = nodeAt(pc.p1); const mids = arcPts(ci.c, ci.r, pc.a0, pc.sw).slice(1, -1).map(q => addNode(...q)); const path = [a].concat(mids, [b]); const nl = [];
+  pieces.forEach(pc => { const a = nodeAt(pc.p0), b = nodeAt(pc.p1); if (pc.e0 && pc.e0.stub.length) trimStub(a, pc.e0.end); if (pc.e1 && pc.e1.stub.length) trimStub(b, pc.e1.end); const mids = arcPts(ci.c, ci.r, pc.a0, pc.sw).slice(1, -1).map(q => addNode(...q)); const path = [a].concat(mids, [b]); const nl = [];
     for (let i = 0; i + 1 < path.length; i++) { const l = addLine(path[i], path[i + 1], 'sketch'); if (l) nl.push(l.id); }
     const onRoom = P.rooms.some(r => r._f && !r.kind && [pc.p0, pc.p1].every(q => r._f.poly.some((v, i) => segDist(q, v, r._f.poly[(i + 1) % r._f.poly.length]) < 1e-6))); // iki uç aynı odanın sınırında mı
     if (pc.close || !onRoom) { if (wallJoinArc(a, b, path) || linePath(a, b)) made++; else failed++; } // açık hattı kapatma: hiçbir şey silinmez
@@ -1127,7 +1149,7 @@ function cikYayTap(c) { const k = S.cik; k.pts = k.pts || []; k.pts.push(s2w(c.X
 function drawPlan(ci, keepAng) { const pl = circlePlan(ci, keepAng); const path = (c, r, a0, sw) => { ctx.beginPath(); arcPts(c, r, a0, sw).forEach((p, i) => { const q = w2s(...p); i ? ctx.lineTo(...q) : ctx.moveTo(...q); }); ctx.stroke(); };
   ctx.save(); if (!pl) { ctx.strokeStyle = '#22c55e'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.8; path(ci.c, ci.r, 0, 2 * Math.PI); ctx.restore(); return; }
   pl.all.forEach(pc => { if (pc.keep) { ctx.strokeStyle = '#22c55e'; ctx.setLineDash([]); ctx.lineWidth = 3; } else { ctx.strokeStyle = 'rgba(148,163,184,.45)'; ctx.setLineDash([3, 5]); ctx.lineWidth = 1; } path(ci.c, ci.r, pc.a0, pc.sw); });
-  ctx.strokeStyle = '#f87171'; ctx.setLineDash([5, 4]); ctx.lineWidth = 3; pl.pieces.forEach(pc => { const k = pl.pieces.length; const a = pc.p0, b = pc.p1; const ln = P.lines.find(l => !l.step && segDist(a, nw(l.a), nw(l.b)) < 1e-6 && segDist(b, nw(l.a), nw(l.b)) < 1e-6);
+  ctx.strokeStyle = '#f87171'; ctx.setLineDash([5, 4]); ctx.lineWidth = 3; (pl.trims || []).forEach(t => { ctx.beginPath(); t.forEach((p, i) => { const q = w2s(...p); i ? ctx.lineTo(...q) : ctx.moveTo(...q); }); ctx.stroke(); }); pl.pieces.forEach(pc => { if (pc.close) return; const k = pl.pieces.length; const a = pc.p0, b = pc.p1; const ln = P.lines.find(l => !l.step && segDist(a, nw(l.a), nw(l.b)) < 1e-6 && segDist(b, nw(l.a), nw(l.b)) < 1e-6);
     if (ln) { ctx.beginPath(); ctx.moveTo(...w2s(...a)); ctx.lineTo(...w2s(...b)); ctx.stroke(); } else { // köşeden dönen taban: daire içindeki çizgi parçaları
       P.lines.forEach(l => { if (l.step) return; const A = nw(l.a), B = nw(l.b); const ins = t => V.dist(V.add(A, V.mul(V.sub(B, A), t)), ci.c) < ci.r - 1e-6; const ts = [0, 1]; const d = V.sub(B, A), f = V.sub(A, ci.c); const qa = d[0] ** 2 + d[1] ** 2, qb = 2 * (f[0] * d[0] + f[1] * d[1]), qc = f[0] ** 2 + f[1] ** 2 - ci.r ** 2, D = qb * qb - 4 * qa * qc; if (D > 0) [(-qb - Math.sqrt(D)) / (2 * qa), (-qb + Math.sqrt(D)) / (2 * qa)].forEach(t => { if (t > 0 && t < 1) ts.push(t); }); ts.sort((x, y) => x - y);
         for (let i = 0; i + 1 < ts.length; i++) if (ins((ts[i] + ts[i + 1]) / 2)) { ctx.beginPath(); ctx.moveTo(...w2s(...V.add(A, V.mul(d, ts[i])))); ctx.lineTo(...w2s(...V.add(A, V.mul(d, ts[i + 1])))); ctx.stroke(); } }); } });

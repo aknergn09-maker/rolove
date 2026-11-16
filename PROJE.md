@@ -384,3 +384,4 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - Buda: yay, sadece içinden geçen değil, dokunan çizgilerden de kesilir (arcBuda). Buda sonrası yüzü kaybolan oda silinir.
 - ORTO ekseni yay kirişinden alınmıyor (frameBase, index + önizleme) → v10.3.
 - Test: p8.
+- (16.11 öğleden sonra) Açık hat kapatma genelleştirildi (openPlan/trimStub): daire uçlardan tam geçmese de olur — 3 nokta basık yay (daire yan duvarları ikinci kez keser), merkez+r ile uçları aşan/uçlara varmayan daire. Uçları birleştiren dış yay kalır, daire içine/dışına taşan uç parçaları budanır, diğer yay parçaları atılır; duvar yay boyunca kapanır. Önizleme budanacak uçları kırmızı gösterir. p8: 14 kontrol (Duvar aracıyla elle çizim dahil).
