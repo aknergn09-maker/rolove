@@ -42,7 +42,7 @@ async def main():
         await typ(300); await btn('#sheet button[data-a=ar][data-v="0"]'); await typ(300); await btn('#sheet button[data-a=ar][data-v="1"]')
         q = await W(4.2,3.0); await ctap(q[0]+1, q[1]+1)
         a1 = await ev(AREAS); fl = await ev("RK.P.lines.filter(l=>l.face).length")
-        ck('A\'nın dış yüzüne dokununca B ortak duvardan kapandı (9 m²)', len(a1)==2 and abs(list(a1.values())[1]-9.0)<1e-6 and fl>=1 and await ev("RK.S.chain")==None, [a1, fl])
+        ck('A\'nın dış yüzüne dokununca B ortak duvardan kapandı (9 m²), beyaz çizginin üstüne ayrıca çizgi eklenmedi', len(a1)==2 and abs(list(a1.values())[1]-9.0)<1e-6 and fl==0 and await ev("RK.S.chain")==None, [a1, fl])
         bname = [k for k in a1 if k!='A'][0]
         # Çıkıntı (çizerek): A'nın sağ duvarında (x=4) y=1'den dışa 0.5, y=2'ye
         await btn('#cats button[data-cat=duz]'); await btn('#tools button[data-tool=cikinti]')
@@ -52,16 +52,16 @@ async def main():
         q = await W(4,1.0); await ctap(q[0]-1, q[1]); await typ(50); await btn('#sheet button[data-a=ar][data-v="0"]'); await typ(100); await btn('#sheet button[data-a=ar][data-v="1"]')
         q = await W(4.02,2.0); await ctap(q[0], q[1])
         a2 = await ev(AREAS); ask = await ev("!!RK.S.cikAsk")
-        ck('çizgi gibi çizilen çıkıntı (dış duvardan geçip oda çizgisine dönüş) hesaplandı, soru soruldu', abs(a2['A']-12.2)<1e-6 and ask, [a2, ask, await ev("document.querySelector('#toast').textContent")])
+        ck('çizgi gibi çizilen çıkıntı hesaplandı, komşu B kendiliğinden izledi (A 12.5, B 8.3), soru soruldu', abs(a2['A']-12.5)<1e-6 and abs(a2[bname]-8.3)<1e-6 and ask, [a2, ask, await ev("document.querySelector('#toast').textContent")])
         ck('  "dış yüz değişsin mi" düğmeleri panelde', await ev("!!document.querySelector('#sheet button[data-a=askY]') && !!document.querySelector('#sheet button[data-a=askN]')"))
         await btn('#sheet button[data-a=askY]')
         a3 = await ev(AREAS); ck('Evet: komşunun dış yüzü aynı kalınlıkla kaydı (B 9 → 8.3)', abs(a3[bname]-8.3)<1e-6 and abs(a3['A']-12.5)<1e-6, a3)
         # geri al → Hayır
-        await ev("RK.undo()"); a4 = await ev(AREAS); ck('geri al: cevap öncesine döner (B 8.3: A duvarı B ye taşıyor)', abs(a4[bname]-8.3)<1e-6, a4)
+        await ev("RK.undo()"); a4 = await ev(AREAS); ck('geri al: çıkıntı öncesine döner (A 12, B 9)', abs(a4[bname]-9)<1e-6 and abs(a4['A']-12)<1e-6, a4)
         await ev(f"RK.P = JSON.parse({SAVED!r}); RK.commit()"); await btn('#cats button[data-cat=ciz]'); await btn('#tools button[data-tool=serbest]'); await stroke([(4,1.0),(4.5,1.0),(4.5,2.0),(4,2.0)])
         ck('serbest çizim: "Çıkıntı mı?" sorusu çıkar', await ev("!!document.querySelector('#sheet button[data-a=skY]')"))
         await btn('#sheet button[data-a=skY]')
-        ck('serbest çizimle de çıkıntı + dış yüz sorusu', await ev("!!RK.S.cikAsk") and abs((await ev(AREAS))['A']-12.2)<1e-6, await ev(AREAS))
+        ck('serbest çizimle de çıkıntı + dış yüz sorusu', await ev("!!RK.S.cikAsk") and abs((await ev(AREAS))['A']-12.5)<1e-6, await ev(AREAS))
         await btn('#sheet button[data-a=askN]')
         a5 = await ev(AREAS); ck('Hayır: komşu duvar sabit kaldı (B 8.3, A 12.2)', abs(a5[bname]-8.3)<1e-6 and abs(a5['A']-12.2)<1e-6 and await ev("RK.S.cikAsk")==None, a5)
         # ölçüyle de sorsun: A alt duvarı (komşu yok) → soru gelmemeli

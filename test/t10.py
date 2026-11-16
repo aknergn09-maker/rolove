@@ -34,7 +34,7 @@ async def main():
                 n=max(2,int(((x1-x0)**2+(y1-y0)**2)**.5/5))
                 for k in range(1,n+1): await cdp.send('Input.dispatchTouchEvent', {'type':'touchMove','touchPoints':tp(x0+(x1-x0)*k/n, y0+(y1-y0)*k/n)})
             await cdp.send('Input.dispatchTouchEvent', {'type':'touchEnd','touchPoints':[]}); await pg.wait_for_timeout(120)
-        INIT = """(()=>{const P=RK.P; P.nodes=[];P.lines=[];P.walls=[];P.rooms=[]; const mk=(pre,C,name,ax,ay)=>{const ids=C.map(([x,y],i)=>{const id=pre+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<C.length;i++) P.lines.push({id:pre+'L'+i,a:ids[i],b:ids[(i+1)%C.length],kind:'sketch'}); P.walls.push({id:'W'+pre,nodes:ids,closed:true,t:0.2,side:1}); P.rooms.push({id:'r'+pre,name,ax,ay});};
+        INIT = """(()=>{RK.S.cikAsk=null; const P=RK.P; P.nodes=[];P.lines=[];P.walls=[];P.rooms=[]; const mk=(pre,C,name,ax,ay)=>{const ids=C.map(([x,y],i)=>{const id=pre+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<C.length;i++) P.lines.push({id:pre+'L'+i,a:ids[i],b:ids[(i+1)%C.length],kind:'sketch'}); P.walls.push({id:'W'+pre,nodes:ids,closed:true,t:0.2,side:1}); P.rooms.push({id:'r'+pre,name,ax,ay});};
           mk('a',[[0,0],[6,0],[6,9],[0,9]],'A',2,4); mk('b',[[6.1,0],[10,0],[10,5],[6.1,5]],'B',8,2); RK.commit(); RK.commit();})()"""
         await ev(INIT); await btn('#fFit')
         await btn('#cats button[data-cat=duz]'); await btn('#tools button[data-tool=cikinti]')

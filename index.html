@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.1';
+const VER = 'v11.2';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -146,9 +146,9 @@ let saveErr = 0;
 function save() { const all = allProjects(); P.saved = Date.now(); all[P.name] = P; const ok = writeJSON(LS_P, all); try { localStorage.setItem(LS_C, P.name); } catch (e) {} if (!ok) { if (Date.now() - saveErr > 20000) { saveErr = Date.now(); alert('KAYDEDİLEMEDİ! Telefon hafızası dolu olabilir.\nHemen ☰ → JSON yedek al.'); } } else saveErr = 0; markBackup(); }
 function loadInitial() { const all = allProjects(); const c = localStorage.getItem(LS_C); P = (c && all[c] && all[c].v === 8) ? all[c] : newProject(); if (!all[P.name]) P.name = uniqName(P.name); P.walls = P.walls || []; }
 function snap() { undoSt.push(JSON.stringify(P)); if (undoSt.length > 200) undoSt.shift(); redoSt = []; }
-function undo() { if (!undoSt.length) return toast('Geri alınacak işlem yok'); redoSt.push(JSON.stringify(P)); P = JSON.parse(undoSt.pop()); afterLoad(); commit(); }
+function undo() { if (!undoSt.length) return toast('Geri alınacak işlem yok'); S.cikAsk = null; S.faceAsk = null; redoSt.push(JSON.stringify(P)); P = JSON.parse(undoSt.pop()); afterLoad(); commit(); }
 function redo() { if (!redoSt.length) return toast('Yinelenecek işlem yok'); undoSt.push(JSON.stringify(P)); P = JSON.parse(redoSt.pop()); afterLoad(); commit(); }
-function afterLoad() { P.walls = P.walls || []; try { (P.fills || []).forEach(killUnderFill); } catch (e) {} if (S.chain && !nodeById(S.chain.last)) S.chain = null; if (S.sel) S.sel = null; S.move = null; S.lenEdit = null; }
+function afterLoad() { P.walls = P.walls || []; try { P.lines = P.lines.filter(l => { if (!l.face || l.keep || l.step) return true; const A = nodeById(l.a), B = nodeById(l.b); if (!A || !B) return true; const qa = quadAt([A.x, A.y]), qb = quadAt([B.x, B.y]); return !(qa && qb && qa.face && qb.face && qa.w === qb.w && (qa.i === qb.i || segDist([(A.x + B.x) / 2, (A.y + B.y) / 2], qa.fa, qa.fb) < 1e-4 || segDist([(A.x + B.x) / 2, (A.y + B.y) / 2], qb.fa, qb.fb) < 1e-4)); }); } catch (e) {} try { (P.fills || []).forEach(killUnderFill); } catch (e) {} if (S.chain && !nodeById(S.chain.last)) S.chain = null; if (S.sel) S.sel = null; S.move = null; S.lenEdit = null; }
 function commit() { regenSteps(); cleanup(); regenOpenings(); G = computeFaces(); updateRooms(); save(); render(); }
 
 /* =================== Model işlemleri =================== */
@@ -305,8 +305,10 @@ function drawRoomLabels() {
 }
 function drawLines() {
   const selL = new Set(S.sel && S.sel.lines || []);
+  const OPS = (P.openings || []).map(o => { const g = opGeom(o); return g ? [g.P0, g.P1] : null; }).filter(Boolean);
   P.lines.forEach(l => { const a = ns(l.a), b = ns(l.b); const sel = selL.has(l.id);
-    ctx.strokeStyle = sel ? COL.sel : l.step ? '#cbd5e1' : (COL[l.kind] || COL.sketch); ctx.lineWidth = sel ? 3 : l.step ? 1.2 : 2; ctx.setLineDash(sel ? [8, 5] : []); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]); });
+    ctx.strokeStyle = sel ? COL.sel : l.step ? '#cbd5e1' : (COL[l.kind] || COL.sketch); ctx.lineWidth = sel ? 3 : l.step ? 1.2 : 2; ctx.setLineDash(sel ? [8, 5] : []); ctx.beginPath(); const A = nw(l.a), B = nw(l.b); const L = V.dist(A, B), u = L > 1e-9 ? V.mul(V.sub(B, A), 1 / L) : [1, 0]; const hid = sel || l.step ? [] : OPS.filter(([p, q]) => segDist(p, A, B) < 1e-4 && segDist(q, A, B) < 1e-4).map(([p, q]) => { const t1 = (p[0] - A[0]) * u[0] + (p[1] - A[1]) * u[1], t2 = (q[0] - A[0]) * u[0] + (q[1] - A[1]) * u[1]; return [Math.min(t1, t2), Math.max(t1, t2)]; }).sort((x, y) => x[0] - y[0]); // kapı/pencere boşluğu çizilmez
+    let t = 0; hid.forEach(([h0, h1]) => { if (h0 > t + 1e-6) { ctx.moveTo(...w2s(...V.add(A, V.mul(u, t)))); ctx.lineTo(...w2s(...V.add(A, V.mul(u, h0)))); } t = Math.max(t, h1); }); if (L > t + 1e-6) { ctx.moveTo(...w2s(...V.add(A, V.mul(u, t)))); ctx.lineTo(...b); } ctx.stroke(); ctx.setLineDash([]); });
   // düğümler
   const showN = ['sec', 'sil'].includes(S.tool); P.nodes.forEach(n => { const [X, Y] = w2s(n.x, n.y); if (X < -10 || Y < -10 || X > W + 10 || Y > H + 10) return; ctx.fillStyle = showN ? '#94a3b8' : '#64748b'; ctx.fillRect(X - 2, Y - 2, 4, 4); });
   // zincir
@@ -712,11 +714,23 @@ function cornerBase(a, b, path, newLines) { // a→b eski çizgiler üstünden e
   if (base.some(l => (P.rooms || []).filter(r => { const f = g.faces.find(f => f.area > 0 && inPoly([r.ax, r.ay], f.poly) && f.lids.has(l.id)); return !!f; }).length > 1)) return null;
   return base;
 }
+/* komşu oda: çıkıntı tabanındaki duvarın beyaz çizgisine (referansın öbür yanında) yaslanan odaların o yüzdeki kenarları — "Hayır, sabit kalsın" denirse bunlar çizgi olarak eklenir */
+let LAST_NB = null;
+function neighborEdges(baseLines) { const bq = [];
+  (P.walls || []).forEach(w => { const g = wallGeom(w); if (!g) return; const wid = w.nodes.filter(id => nodeById(id)); g.quads.forEach(q => { const a = wid[q.i], b = wid[(q.i + 1) % wid.length]; if (baseLines.some(l => (l.a === a && l.b === b) || (l.a === b && l.b === a))) bq.push({ w, g, q }); }); });
+  const out = []; const done = new Set();
+  bq.forEach(({ w, g, q }) => { const fa = q.poly[3], fb = q.poly[2]; const u = V.unit(V.sub(fb, fa)); let n = [-u[1], u[0]]; const sd = x => (x[0] - fa[0]) * n[0] + (x[1] - fa[1]) * n[1]; if (sd(q.poly[0]) > 0) n = [-n[0], -n[1]]; // n: referanstan uzağa
+    const on = x => Math.abs((x[0] - fa[0]) * n[0] + (x[1] - fa[1]) * n[1]) < 1e-4; const pr = x => (x[0] - fa[0]) * u[0] + (x[1] - fa[1]) * u[1];
+    const key = g.quads.filter(r => on(r.poly[3]) && on(r.poly[2])).map(r => r.i).sort().join(','); if (done.has(key)) return; done.add(key);
+    let T0 = 1e9, T1 = -1e9; g.quads.forEach(r => { if (on(r.poly[3]) && on(r.poly[2])) { T0 = Math.min(T0, pr(r.poly[3]), pr(r.poly[2])); T1 = Math.max(T1, pr(r.poly[3]), pr(r.poly[2])); } });
+    let lo = 1e9, hi = -1e9; for (let t = T0 + 0.01; t < T1; t += 0.02) { const p = V.add(V.add(fa, V.mul(u, t)), V.mul(n, 0.02)); if (P.rooms.some(r => r._f && !r.kind && inPoly(p, r._f.poly) && !(r._f.holes || []).some(h => inPoly(p, h)))) { lo = Math.min(lo, t); hi = Math.max(hi, t); } }
+    if (lo > hi) return; lo = Math.min(lo, pr(fa)); hi = Math.max(hi, pr(fb)); if (lo - T0 < 0.03) lo = T0; if (T1 - hi < 0.03) hi = T1; out.push([V.add(fa, V.mul(u, lo)), V.add(fa, V.mul(u, hi))]); });
+  return out; }
 function applyDetour(a, b, path, newLines) {
   const A = nw(a), B = nw(b); const L = V.dist(A, B); if (L < 1e-6) return false; let base = []; const tOf = id => footT(nw(id), A, B).t; let cur = a;
   for (let g = 0; g < 500 && cur !== b; g++) { const tc = tOf(cur); const nx = P.lines.find(l => !newLines.includes(l.id) && !base.includes(l) && (l.a === cur || l.b === cur) && (() => { const o = l.a === cur ? l.b : l.a; const f = footT(nw(o), A, B); return V.dist(f.q, nw(o)) < 1e-4 && f.t > tc + 1e-9 && f.t < 1 + 1e-6; })()); if (!nx) break; base.push(nx); cur = nx.a === cur ? nx.b : nx.a; }
   if (cur !== b) { base = cornerBase(a, b, path, newLines); if (!base) return false; }
-  const baseNodes = [a]; base.forEach(l => baseNodes.push(l.a === baseNodes[baseNodes.length - 1] ? l.b : l.a));
+  const baseNodes = [a]; base.forEach(l => baseNodes.push(l.a === baseNodes[baseNodes.length - 1] ? l.b : l.a)); LAST_NB = neighborEdges(base);
   // silinecek parçalardaki kapı/pencereler: yeni yolun paralel yüzüne taşınacak
   const movOps = (P.openings || []).filter(o => { const m = V.mul(V.add(nw(o.ha), nw(o.hb)), 0.5); return base.some(l => segDist(m, nw(l.a), nw(l.b)) < 1e-4); }).map(o => ({ o, p0: nw(o.ha), p1: nw(o.hb) }));
   P.lines = P.lines.filter(l => !base.includes(l));
@@ -768,7 +782,7 @@ function closeAlongFace(wid, sId, eId) {
   const walk = dir => { const out = []; let k = ps.k; if (ps.k === pe.k && (dir > 0 ? pe.t >= ps.t : pe.t <= ps.t)) return out; for (let g = 0; g <= m; g++) { const corner = dir > 0 ? sg[k].b : sg[k].a; out.push(corner); k = dir > 0 ? k + 1 : k - 1; if (w.closed) k = (k + m) % m; else if (k < 0 || k >= m) return null; if (k === pe.k) return out; } return null; };
   const len = pts => { let L = 0, q = S0; pts.concat([E0]).forEach(p => { L += V.dist(q, p); q = p; }); return L; };
   const fw = walk(1), bw = walk(-1); let path = fw && bw ? (len(fw) <= len(bw) ? fw : bw) : (fw || bw); if (!path) return null;
-  const ids = [sId].concat(path.map(p => nodeAt(p)), [eId]); const out = []; for (let i = 0; i + 1 < ids.length; i++) { const l = addLine(ids[i], ids[i + 1], 'sketch'); if (l) { l.face = wid; out.push(l.id); } } return out;
+  return []; // duvarın beyaz çizgisi zaten oda sınırı: üstüne ayrıca çizgi eklenmez
 }
 /* ---- çıkıntı sonrası: dış yüz (komşu duvar) de değişsin mi ---- */
 function offsetPath(pts, d) { const n = pts.length; const segs = []; for (let i = 0; i + 1 < n; i++) { const u = V.unit(V.sub(pts[i + 1], pts[i])); segs.push({ p: V.add(pts[i], V.mul([-u[1], u[0]], d)), u }); } const out = [V.add(pts[0], V.sub(segs[0].p, pts[0]))]; for (let i = 1; i < n - 1; i++) out.push(lineInt(segs[i - 1].p, segs[i - 1].u, segs[i].p, segs[i].u) || V.add(pts[i], V.sub(segs[i].p, pts[i + 1 > n - 1 ? i : i]))); out.push(V.add(pts[n - 1], V.sub(segs[n - 2].p, pts[n - 2]))); return out; }
@@ -779,7 +793,7 @@ function outerPre0(a, b) {
   const base = baseRunBetween(a, b); if (!base.length) return null; const l0 = lineById(base[0]); const u0 = lu(l0); const A = nw(a), B = nw(b); const u = V.unit(V.sub(B, A));
   const opp = oppositeGroups(collinearRun(base[0]), u0); if (!opp.length) return null; const g = opp[0]; const sign = (g.o > 0 ? 1 : -1) * (u[0] * u0[0] + u[1] * u0[1] >= 0 ? 1 : -1); return { d: Math.abs(g.o) * sign };
 }
-function prepareOuterAsk(pre, a, b, path) { if (!pre) return; S.cikAsk = { path: path.slice(), d: pre.d, a, b, corner: !!pre.corner, nl: pre.nl || [] }; }
+function prepareOuterAsk(pre, a, b, path) { if (pre) { S.cikAsk = { path: path.slice(), d: pre.d, a, b, corner: !!pre.corner, nl: pre.nl || [] }; return; } S.cikAsk = LAST_NB && LAST_NB.length ? { nb: LAST_NB } : null; } // komşu oda beyaz çizgiyi kendiliğinden izler; soru sadece "sabit kalsın" için
 function outerPreCorner(a, b, path, newLines) { // köşe dönen: taban parçalarından birinin karşı yüzü (komşu) var mı
   const base = cornerBase(a, b, path, newLines); if (!base) return null; const bn = [a]; base.forEach(l => bn.push(l.a === bn[bn.length - 1] ? l.b : l.a));
   const hid = P.lines.filter(l => newLines.includes(l.id)); P.lines = P.lines.filter(l => !hid.includes(l));
@@ -800,7 +814,7 @@ function applyOuterCorner(k) { // komşunun yüzü, yeni yolun aynı kalınlıkl
   return applyDetour(sN, eN, chain, nl);
 }
 function applyOuterAsk() {
-  const k = S.cikAsk; S.cikAsk = null; if (!k) return;
+  const k = S.cikAsk; S.cikAsk = null; if (!k) return; if (k.nb) { toast('Komşu oda duvarın yeni yüzünü izledi'); return; }
   if (k.corner) { snap(); if (!applyOuterCorner(k)) { P = JSON.parse(undoSt.pop()); commit(); toast('Komşu yüz düzenlenemedi'); return; } commit(); toast('Komşu yüz de aynı kalınlıkla düzenlendi'); return; }
   const pts = k.path.map(nw); const A = pts[0], B = pts[pts.length - 1]; const u = V.unit(V.sub(B, A));
   const ext = [V.sub(A, V.mul(u, 1))].concat(pts, [V.add(B, V.mul(u, 1))]); const off = offsetPath(ext, k.d).slice(1, -1);
@@ -1203,7 +1217,7 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'skN') { S.strokeAsk = null; }
   else if (a === 'skY') { const k = S.strokeAsk; S.strokeAsk = null; if (!k) return; const a0 = k.ids[0], b0 = k.ids[k.ids.length - 1]; snap(); P.rooms = P.rooms.filter(r => !(k.rooms || []).includes(r.id)); const pre = outerPre(a0, b0, k.lids) || outerPreCorner(a0, b0, k.ids, k.lids); if (!applyDetour(a0, b0, k.ids, k.lids)) { P = JSON.parse(undoSt.pop()); render(); return toast('Bu çizim çıkıntı yapılamadı (aradaki çizgi başka odanın sınırı)'); } commit(); prepareOuterAsk(pre, a0, b0, k.ids); render(); toast('Çıkıntı odaya katıldı' + (S.cikAsk ? ' · dış yüz için aşağıdan seç' : '')); return; }
   else if (a === 'faY' || a === 'faN') { const k = S.faceAsk, want = a === 'faY' ? 'kayar' : 'sabit'; if (k && k[want] && k.cur !== want) { snap(); P = JSON.parse(k[want]); k.cur = want; commit(); } toast(want === 'kayar' ? 'Turuncu çizgi kaydı, duvar kalınlığı korundu' : 'Turuncu çizgi sabit · duvar çizdiğin yere kadar kalınlaştı'); }
-  else if (a === 'askN') { S.cikAsk = null; toast('Dış yüz sabit kaldı'); }
+  else if (a === 'askN') { const k = S.cikAsk; S.cikAsk = null; if (k && k.nb) { snap(); k.nb.forEach(([p, q]) => { const l = addLine(nodeAt(p), nodeAt(q), 'sketch'); if (l) l.keep = true; }); commit(); } toast('Dış yüz sabit kaldı'); }
   else if (a === 'wsplit') { const w = selWall(); if (!w) return; const g = wallGeom(w); snap(); const id = q => { const ex = P.nodes.find(n => Math.hypot(n.x - q[0], n.y - q[1]) < 1e-4); return ex ? ex.id : addNode(q[0], q[1]); }; wallFaces().filter(f => f.w.id === w.id).forEach(f => addLine(id(f.a), id(f.b), 'sketch')); P.walls = P.walls.filter(x => x !== w); S.sel = null; commit(); toast('Duvarın diğer yüzü bağımsız çizgiler oldu'); return; }
   else if (a === 'mkwall') { let ids = []; if (S.sel.room) { const r = roomById(S.sel.room); ids = r && r._f ? [...r._f.lids] : []; } else ids = (S.sel.lines || []).slice(); const one = !S.sel.room && ids.length === 1; const ws = wallsFromLines(ids, one); if (ws) { S.sel = { wall: ws[0].id }; render(); toast('Duvar eklendi · kalınlık ve ⇄ Yön aşağıda'); } else toast('Duvar eklenemedi'); return; }
   else if (a === 'wside') { const ws = recentWalls(); if (ws.length) { snap(); ws.forEach(w => w.side = -w.side); commit(); toast('Son duvarın yönü değişti'); return; } SET.wallSide = -SET.wallSide; writeJSON(LS_S, SET); }
