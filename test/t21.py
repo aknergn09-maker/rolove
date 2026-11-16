@@ -35,13 +35,14 @@ async def main():
             # dış bantta dışa çıkıntı (aşağı), iç bantta girinti (yukarı = içeri)
             q = await W(0.8, fy); await ctap(*q)
             st = await ev("[!!RK.S.chain, RK.S.chain && RK.P.nodes.find(n=>n.id===RK.S.chain.first) && [RK.P.nodes.find(n=>n.id===RK.S.chain.first).x, RK.P.nodes.find(n=>n.id===RK.S.chain.first).y]]")
-            ck(f'[{"dış" if out else "iç"} bant] diğer yüze dokununca çıkıntı başladı, başlangıç çizgide (0.8, 0)', st[0] and st[1] and abs(st[1][0]-0.8)<0.02 and abs(st[1][1])<1e-6, [st, await ev("document.querySelector('#toast').textContent")])
+            ck(f'[{"dış" if out else "iç"} bant] beyaz çizgiye (diğer yüz) dokununca çıkıntı oradan başladı (0.8, {fy})', st[0] and st[1] and abs(st[1][0]-0.8)<0.02 and abs(st[1][1]-fy)<1e-6, [st, await ev("document.querySelector('#toast').textContent")])
             await typ(50); await btn('#sheet button[data-a=ar][data-v="%s"]' % ('3' if out else '1')); await typ(100); await btn('#sheet button[data-a=ar][data-v="0"]')
             q = await W(1.8, fy); await ctap(*q)
             if await ev("!!document.querySelector('#sheet button[data-a=askN]')"): await btn('#sheet button[data-a=askN]')
-            a1 = await ev(AR); exp = a0 + (0.5 if out else -0.7)  # iç bantta girinti: iç yüz 50 cm içeri, yan duvar bantları da odadan düşer (1.4×0.5)
+            a1 = await ev(AR); exp = a0 + (0.3 if out else -0.5)  # çizilen yol yeni yüz: dışta referans 0.6×0.5 büyür; içte oda tam çizilen 1.0×0.5 kadar küçülür
             ck(f'  diğer yüze dokunarak bitti: alan {a0} → {exp:.3f}', abs(a1-exp)<1e-3, [a1, await ev("document.querySelector('#toast').textContent")])
-            ck('  yeni yüz eski yüzden 50 cm (kalınlık korunur)', await ev("RK.P.walls.length===1 && RK.P.walls[0].closed"), await ev("RK.P.walls.map(w=>w.closed)"))
+            yy = fy + (-0.5 if out else 0.5)
+            ck(f'  yeni yüz tam çizilen yerde: köşeler (0.8,{yy:.1f}) ve (1.8,{yy:.1f})', await ev(f"RK.P.walls.length===1 && RK.P.walls[0].closed && [[0.8,{yy}],[1.8,{yy}]].every(p=>RK.wallGeom(RK.P.walls[0]).Q.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<1e-6))"), await ev("RK.wallGeom(RK.P.walls[0]).Q.map(q=>q.map(v=>+v.toFixed(2)))"))
             await pg.screenshot(path=f't21_{"dis" if out else "ic"}.png')
         # Ölçü yazarak: başlangıç/bitiş yüzden
         out = await ev(SETUP + "(1)"); await btn('#sheet button[data-a=cikm][data-v=olcu]')

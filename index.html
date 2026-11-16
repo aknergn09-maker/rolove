@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v10.5';
+const VER = 'v10.6';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -419,10 +419,26 @@ function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti'; let c; try { c =
 function cikFaceMap(X, Y, c, opts) { if (!P.walls || !P.walls.length) return null; let best = null, bd = 24;
   wallFaces().forEach(f => { if (f.k !== 'out') return; const d = segDist([X, Y], w2s(...f.a), w2s(...f.b)); if (d < bd) { const qd = (wallGeom(f.w).quads.find(q => q.i === f.i) || {}).poly; if (qd) { bd = d; best = { f, r0: qd[0], r1: qd[1] }; } } });
   if (!best) return null; const tap = c ? s2w(c.X, c.Y) : s2w(X, Y); const fromW = opts && (opts.fromW || (opts.fromId ? nw(opts.fromId) : null)); let p;
+  if (S.cik.mode === 'el') { const F0 = best.f.a, F1 = best.f.b; let q = null; if (fromW && V.dist(fromW, tap) > 1e-6) { const x = segX(fromW, tap, F0, F1); q = x && x.t > 0 && x.u > -0.02 && x.u < 1.02 ? x.p : null; } if (!q) q = footT(tap, F0, F1).q; [F0, F1].forEach(e => { if (V.dist(w2s(...e), w2s(...q)) < 14) q = e; }); const [Xf, Yf] = w2s(...q); return { type: 'near', wf: true, X: Xf, Y: Yf, lab: 'Duvar yüzü' }; }
   if (fromW && V.dist(fromW, tap) > 1e-6) { const x = segX(fromW, tap, best.r0, best.r1); p = x && x.t > 0 && x.u > -0.02 && x.u < 1.02 ? x.p : null; } if (!p) p = footT(tap, best.r0, best.r1).q;
   const l = P.lines.find(q => !q.step && segDist(p, nw(q.a), nw(q.b)) < 1e-4); if (!l) return null;
   const nd = [l.a, l.b].find(id => V.dist(w2s(...nw(id)), w2s(...p)) < 14); if (nd) { const [Xn, Yn] = w2s(...nw(nd)); return { type: 'end', node: nd, X: Xn, Y: Yn, lab: 'Duvar yüzü → köşe' }; }
   const [X2, Y2] = w2s(...p); return { type: 'near', X: X2, Y: Y2, l: l.id, lab: 'Duvar yüzü → çizgi' }; }
+/* çıkıntı duvarın DİĞER YÜZÜNDEN çizilir: çizilen yol yeni yüzdür; referans çizgisi yolun kalınlık kadar ötelenmişidir (uçlar eski referans çizgisine oturur) */
+function faceInfoAt(p) { for (const w of P.walls || []) { const g = wallGeom(w); if (!g) continue; for (const q of g.quads) { if (segDist(p, q.poly[3], q.poly[2]) < 1e-4) return { w, i: q.i, fa: q.poly[3], fb: q.poly[2], r0: q.poly[0], r1: q.poly[1] }; } } return null; }
+function cikFaceCheck() { const c = S.chain; if (!c || c.n < 2) return false; const A = nw(c.first), B = nw(c.last); const fa = faceInfoAt(A), fb = faceInfoAt(B); if (!fa || !fb || fa.w !== fb.w) return false;
+  const u = V.unit(V.sub(fa.r1, fa.r0)); const onL = (p, o) => Math.abs((p[0] - o[0]) * u[1] - (p[1] - o[1]) * u[0]) < 1e-4; if (!onL(B, fa.fa) || !onL(fb.r0, fa.r0)) return false;
+  const nr = V.sub(footT(A, fa.r0, fa.r1).q, A); const t = V.dist([0, 0], nr); if (t < 1e-4) return false; const sgn = (-u[1] * nr[0] + u[0] * nr[1]) > 0 ? 1 : -1;
+  let ids = c.nodes.slice(); if ((B[0] - A[0]) * u[0] + (B[1] - A[1]) * u[1] < 0) ids.reverse(); const pts = ids.map(nw); if (pts.length < 3) return false;
+  const off = []; for (let k = 0; k + 1 < pts.length; k++) { const d = V.unit(V.sub(pts[k + 1], pts[k])); const n = V.mul([-d[1], d[0]], sgn * t); off.push([V.add(pts[k], n), V.add(pts[k + 1], n)]); }
+  const R0 = fa.r0, R1 = V.add(fa.r0, u); const X = (s1, s2) => { const x = segX(s1[0], s1[1], s2[0], s2[1]); return x ? x.p : null; };
+  const np = [X(off[0], [R0, R1])]; for (let k = 1; k < off.length; k++) np.push(X(off[k - 1], off[k]) || off[k][0]); np.push(X(off[off.length - 1], [R0, R1])); if (np.some(q => !q)) return false;
+  const kinds = []; for (let k = 0; k + 1 < ids.length; k++) { const l = findLine(ids[k], ids[k + 1]); kinds.push(l ? l.kind : 'sketch'); }
+  const saved = JSON.stringify(P); const tmpL = new Set(c.lines), tmpN = new Set(c.nodes); P.lines = P.lines.filter(l => !tmpL.has(l.id)); P.nodes = P.nodes.filter(n => !tmpN.has(n.id) || P.lines.some(l => l.a === n.id || l.b === n.id));
+  const a = nodeAt(np[0]), mids = np.slice(1, -1).map(q => addNode(...q)), b = nodeAt(np[np.length - 1]); const path = [a].concat(mids, [b]); const nl = [];
+  for (let k = 0; k + 1 < path.length; k++) { const l = addLine(path[k], path[k + 1], kinds[k] || 'sketch'); if (l) nl.push(l.id); }
+  const pre = outerPre(a, b, nl) || outerPreCorner(a, b, path, nl); if (!applyDetour(a, b, path.slice(), nl.slice())) { P = JSON.parse(saved); return false; }
+  S.chain = null; commit(); prepareOuterAsk(pre, a, b, path.slice()); render(); toast('Çıkıntı duvarın diğer yüzünden eklendi' + (S.cikAsk ? ' · dış yüz için aşağıdan seç' : '')); return true; }
 function candidate0(X, Y, opts) { // ekrandaki dokunuştan hedef nokta
   opts = opts || {}; const fromId = opts.fromId || null; const fromW = opts.fromW || (fromId ? nw(fromId) : null); const L = opts.L;
   if (L == null) { const o = osnap(X, Y, fromId, (opts.excl || []).concat(fromId ? [fromId] : [])); if (o) return o; }
@@ -470,6 +486,7 @@ function chainAdd(c, kind) {
   if (n === S.chain.last) { undoSt.pop(); return; }
   const l = addLine(S.chain.last, n, kind); if (S.pendOpen && l) { addOpening(S.pendOpen, l.a, l.b, 0, lineLen(l)); S.pendOpen = null; } if (!S.chain.firstLine) S.chain.firstLine = l.id; S.chain.lines.push(l.id); S.chain.n++; S.chain.last = n; (S.chain.nodes = S.chain.nodes || [S.chain.first]).push(n); S.kbuf = '';
   commit();
+  if (S.tool === 'cikinti' && cikFaceCheck()) return;
   if (S.chain.n >= 2) { const wa = faceWallAt(nw(S.chain.first)), wb = faceWallAt(nw(n)); if (wa && wa === wb) { const fl = closeAlongFace(wa, S.chain.first, n); if (fl) { commit(); const rs = autoRooms(S.chain.lines.concat(fl)); endChain(false); commit(); toast('Oda ortak duvarın dış yüzünden kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ') : '')); return; } } }
   if (S.tool === 'cikinti' && cikChainCheck()) return;
   if (n === S.chain.first && S.chain.n >= 2) { const rs = autoRooms(S.chain.lines); endChain(true); commit(); toast('Kapandı' + (rs.length ? ' · ' + rs.map(r => r.name + ' ' + (r._f ? rA(r).toFixed(2) : '?') + ' m²').join(', ') : '')); return; }
@@ -1014,7 +1031,7 @@ function renderCmd() {
   else if (S.tool === 'dikdortgen') s = !S.rect.c1 ? 'DİKDÖRTGEN  1. köşeye dokun' + (S.rect.w || S.rect.h ? ` (${S.rect.w || '?'} × ${S.rect.h || '?'} cm)` : '') : 'DİKDÖRTGEN  Karşı köşeye dokun' + (S.rect.w && S.rect.h ? ' (yön için)' : '');
   else if (S.tool === 'sec') s = S.move ? (S.move.base ? 'TAŞI  Hedef noktaya dokun' + (S.kbuf ? ` · <b>${fmtM(kval())} m</b>` : '') : 'TAŞI  Baz noktasına dokun') : (S.lenEdit ? 'UZUNLUK  cm yaz, sabit ucu seç, ✓' : (S.sel ? 'SEÇ  Mavi kareyi sürükle = taşı · köşeyi köşeye bırak = birleştir' : 'SEÇ  Objeye dokun · boş yerde sürükle = kutu seçim · iki parmak = kaydır/yakınlaştır'));
   else if (S.tool === 'sil') s = 'SİL  Çizgiye dokun = sil · köşeye dokun = kırığı sil (çizgiler birleşir)';
-  else if (S.tool === 'cikinti') s = S.cik.mode === 'el' ? (!S.chain ? 'ÇIKINTI  Oda çizgisinin üstünde başlangıca dokun' : 'ÇIKINTI  Nokta koy / cm + ok · aynı duvara dönünce hesaplanır') : (S.cik.step === 1 ? 'ÇIKINTI  1) Duvarda başlangıç noktasına dokun' : S.cik.step === 2 ? 'ÇIKINTI  2) Bitiş noktasına dokun ya da genişlik yaz + ok' : 'ÇIKINTI  3) Derinlik yaz (cm), yön okuna bas');
+  else if (S.tool === 'cikinti') s = S.cik.mode === 'el' ? (!S.chain ? 'ÇIKINTI  Oda çizgisine ya da duvarın diğer yüzüne (beyaz çizgi) dokun' : 'ÇIKINTI  Nokta koy / cm + ok · aynı duvara dönünce hesaplanır') : (S.cik.step === 1 ? 'ÇIKINTI  1) Duvarda başlangıç noktasına dokun' : S.cik.step === 2 ? 'ÇIKINTI  2) Bitiş noktasına dokun ya da genişlik yaz + ok' : 'ÇIKINTI  3) Derinlik yaz (cm), yön okuna bas');
   else if (S.tool === 'oda') s = 'ODA  Kapalı alanın içine dokun = oda (alan hesaplanır)';
   else if (S.tool === 'olc') s = 'ÖLÇ  Çizgiye dokun → lazerle ölç ya da yaz · ölçülen çizgi tam oturur, diğerleri en az değişimle uyarlanır';
   else if (S.tool === 'aciklik') s = (S.op.type === 'kapi' ? 'KAPI' : 'PENCERE') + (S.op.step === 1 ? '  Duvar çizgisinde başlangıca dokun' : '  Köşeden mesafe (isteğe bağlı) + genişlik → yön oku · ya da bitişe dokun');
