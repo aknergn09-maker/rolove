@@ -429,3 +429,4 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - DXF: kolon altındaki gizli turuncu çizgiler yazılmaz, kapı/pencere boşluğunda oda çizgisi bölünür (ekranla aynı).
 - run_all: PAGE=onizleme.html → tüm t* + p* (q* arşivde). Yeni p12: uçtan uca (duvar, kapı, köşe kolonu, ölçü, köşegen+hesapla, yükseklik, nokta adı, DXF).
 - Bilinen küçük: kolon dolgusu ile duvar taraması birleşim yerinde çok ince desen dikişi görünüyor.
+- v11.6 (ana + önizleme): kolon dolgusu duvarla aynı ekran deseniyle taranır (birleşimde dikiş yok).

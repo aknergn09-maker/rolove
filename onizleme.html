@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.5-önizleme';
+const VER = 'v11.6-önizleme';
 const LS_P = 'rk4p_projects', LS_C = 'rk4p_current', LS_S = 'rk4p_settings'; // ÖNİZLEME: ayrı kayıt alanı (ilk açılışta ana uygulamanın projeleri kopyalanır), ana uygulamanın projelerine dokunmaz
 (function () { try { if (!localStorage.getItem(LS_P) && localStorage.getItem('rk3_projects')) { localStorage.setItem(LS_P, localStorage.getItem('rk3_projects')); localStorage.setItem(LS_C, localStorage.getItem('rk3_current') || ''); localStorage.setItem(LS_S, localStorage.getItem('rk3_settings') || '{}'); } } catch (e) {} })();
 const deg = Math.PI / 180;
@@ -490,7 +490,7 @@ function fillPoly(f) { const ns0 = f.nodes.map(nodeById); if (ns0.some(n => !n))
   if (qa && qb && qa.face && qb.face && qa.w !== qb.w) { const x = segX(qa.fa, qa.fb, qb.fa, qb.fb); if (x) pts.push(x.p); }
   else if (qa && qb && qa.face && qb.face && qa.w === qb.w && qa.i !== qb.i) { const g = wallGeom(qa.w); const byI = new Map(g.quads.map(q => [q.i, q])); for (let k = qb.i, g2 = 0; k !== qa.i && g2 < 50; g2++) { const q = byI.get(k); if (!q) break; pts.push(q.poly[3]); k = qa.w.closed ? (k - 1 + qa.n) % qa.n : k - 1; if (k < 0) break; } }
   return pts; }
-function drawFills() { (P.fills || []).forEach(f => { const pp = fillPoly(f); if (!pp || pp.length < 3) return; const pts = pp.map(p => w2s(...p)); ctx.save(); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fillStyle = '#1b1f24'; ctx.fill(); ctx.clip(); ctx.strokeStyle = '#454d58'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs) - 60, x1 = Math.max(...xs) + 60, y0 = Math.min(...ys), y1 = Math.max(...ys); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.beginPath(); ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); ctx.stroke(); } ctx.restore(); }); }
+function drawFills() { (P.fills || []).forEach(f => { const pp = fillPoly(f); if (!pp || pp.length < 3) return; const pts = pp.map(p => w2s(...p)); ctx.save(); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fillStyle = '#1b1f24'; ctx.fill(); ctx.clip(); ctx.strokeStyle = '#454d58'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys); ctx.strokeStyle = '#454d58'; ctx.beginPath(); for (let C = Math.floor((x0 + y0) / 7) * 7; C <= x1 + y1; C += 7) { ctx.moveTo(C - y1, y1); ctx.lineTo(C - y0, y0); } ctx.stroke(); ctx.restore(); }); } // duvar taramasıyla aynı ekran deseni (birleşimde dikiş yok)
 function candidate0(X, Y, opts) { // ekrandaki dokunuştan hedef nokta
   opts = opts || {}; const fromId = opts.fromId || null; const fromW = opts.fromW || (fromId ? nw(fromId) : null); const L = opts.L;
   if (L == null) { const o = osnap(X, Y, fromId, (opts.excl || []).concat(fromId ? [fromId] : [])); if (o) return o; }
