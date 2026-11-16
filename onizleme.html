@@ -293,7 +293,7 @@ function lbPick(cands, w, h) { for (const c of cands) { const poly = rectPoly(c[
 function label(t, X, Y, ang, col, sz, alts) { ctx.save(); let a = ang; if (a > Math.PI / 2 || a <= -Math.PI / 2) a += Math.PI; ctx.font = '600 ' + (sz || 11) + 'px -apple-system,sans-serif'; const w = ctx.measureText(t).width + 6; const pk = lbPick([[X, Y, a]].concat((alts || []).map(q => [q[0], q[1], a])), w, 16); ctx.translate(pk[0], pk[1]); ctx.rotate(a); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(11,13,16,.82)'; ctx.fillRect(-w / 2, -8, w, 16); ctx.fillStyle = col; ctx.fillText(t, 0, 0); ctx.restore(); }
 function draw() {
   if (!W || !P) return; LB = []; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
-  drawGrid(); drawRooms(); drawWalls(); drawLines(); if (S.tool === 'olc' && S.ms.sel && lineById(S.ms.sel)) { const l = lineById(S.ms.sel); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 6; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(...ns(l.a)); ctx.lineTo(...ns(l.b)); ctx.stroke(); ctx.globalAlpha = 1; } drawOpenings(); drawLenLabels(); drawRoomLabels(); drawArrows(); drawPts(); drawCalc(); drawDairePrev(); drawSel(); drawAim(); drawStroke(); drawScale();
+  drawGrid(); drawRooms(); drawWalls(); drawLines(); if (S.tool === 'olc' && S.ms.sel && lineById(S.ms.sel)) { const l = lineById(S.ms.sel); const fs = S.ms.fs; ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 6; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(...(fs ? w2s(...fs[0]) : ns(l.a))); ctx.lineTo(...(fs ? w2s(...fs[1]) : ns(l.b))); ctx.stroke(); ctx.globalAlpha = 1; } drawOpenings(); drawLenLabels(); drawRoomLabels(); drawArrows(); drawPts(); drawCalc(); drawDairePrev(); drawSel(); drawAim(); drawStroke(); drawScale();
 }
 function drawGrid() {
   let st = 1; while (st * view.s < 18) st *= 5; while (st * view.s > 120) st /= 5;
@@ -829,7 +829,7 @@ function drawOpenings() {
 }
 function opLineAt(X, Y) { // dokunulan yerdeki gerçek çizgi (duvar yüzüne dokunulduysa referans çizgisi) ve üstündeki nokta
   let best = null, bd = 26; P.lines.forEach(l => { if (l.step) return; const a = ns(l.a), b = ns(l.b); const d = segDist([X, Y], a, b); if (d < bd) { bd = d; best = { l, q: footT(s2w(X, Y), nw(l.a), nw(l.b)).q }; } });
-  wallFaces().forEach(f => { if (f.k !== 'out') return; const d = segDist([X, Y], w2s(...f.a), w2s(...f.b)); if (d >= bd) return; const g = wallGeom(f.w); const qd = g.quads.find(q => q.i === f.i); if (!qd) return; const p = footT(s2w(X, Y), qd.poly[0], qd.poly[1]).q; const l = P.lines.find(l => !l.step && segDist(p, nw(l.a), nw(l.b)) < 1e-4); if (l) { bd = d; best = { l, q: p }; } });
+  wallFaces().forEach(f => { if (f.k !== 'out') return; const d = segDist([X, Y], w2s(...f.a), w2s(...f.b)); if (d >= bd) return; const g = wallGeom(f.w); const qd = g.quads.find(q => q.i === f.i); if (!qd) return; const p = footT(s2w(X, Y), qd.poly[0], qd.poly[1]).q; const l = P.lines.find(l => !l.step && segDist(p, nw(l.a), nw(l.b)) < 1e-4); if (l) { const r0 = qd.poly[0], r1 = qd.poly[1], u = V.unit(V.sub(r1, r0)), at = (id, r) => V.dist(nw(id), r) < 1e-4; const ext0 = -((f.a[0] - r0[0]) * u[0] + (f.a[1] - r0[1]) * u[1]), ext1 = (f.b[0] - r1[0]) * u[0] + (f.b[1] - r1[1]) * u[1]; const fd = (at(l.a, r0) || at(l.b, r0) ? ext0 : 0) + (at(l.a, r1) || at(l.b, r1) ? ext1 : 0); const fp = id => at(id, r0) ? f.a : at(id, r1) ? f.b : footT(nw(id), f.a, f.b).q; bd = d; best = { l, q: p, fd, fs: [fp(l.a), fp(l.b)] }; } });
   if (!best) return null; const l = best.l; [l.a, l.b].forEach(id => { if (Math.hypot(...V.sub(w2s(...nw(id)), w2s(...best.q))) < 14) best.q = nw(id); }); return best;
 }
 function hostRun(l) { // aynı doğrultudaki bitişik çizgilerin uçları: açıklık köşeye kadar uzanabilsin
@@ -887,15 +887,15 @@ function adjustGeometry() {
   let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); }); (P.diags || []).forEach(dg => { if (nodeById(dg.a) && nodeById(dg.b)) worst = Math.max(worst, Math.abs(V.dist(nw(dg.a), nw(dg.b)) - dg.m)); });
   return { k: x[K], shift, worst };
 }
-function applyMeasure(l, m) {
-  if (!l || !(m > 0)) return; snap(); l.kind = 'laser'; l.m = Math.round(m * 1000) / 1000; const r = adjustGeometry(); commit();
-  toast(fmtM(l.m, 3) + ' m oturdu · ölçek ' + ((r.k - 1) * 100 >= 0 ? '+' : '') + ((r.k - 1) * 100).toFixed(1) + '% · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : ''));
+function applyMeasure(l, m, fd) { // fd: duvarın diğer yüzü ölçüldüyse yüz − çizgi farkı (köşe uzantıları)
+  if (!l || !(m > 0)) return; fd = fd || 0; if (m - fd <= 0.01) return toast('Ölçü duvar kalınlığından küçük'); snap(); l.kind = 'laser'; l.m = Math.round((m - fd) * 1000) / 1000; const r = adjustGeometry(); commit();
+  toast((fd ? 'Duvar yüzü ' + fmtM(m, 3) + ' → çizgi ' : '') + fmtM(l.m, 3) + ' m oturdu · ölçek ' + ((r.k - 1) * 100 >= 0 ? '+' : '') + ((r.k - 1) * 100).toFixed(1) + '% · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : ''));
 }
 /* ---- Bosch GLM (GLM 50 C ailesi) Bluetooth ---- */
 const GLM_SVC = '02a6c0d0-0451-4000-b000-fb3210111989', GLM_CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
 const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null };
 function laserParse(dv) { if (dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10 || b(3) !== 0x06) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0 && v < 300 ? v : null; }
-function laserValue(m) { LZ.last = m; if (S.tool === 'yukseklik' && S.hs.f) { hsSet(m); return; } if (S.tool === 'kontrol' && S.kt.a && S.kt.b) { diagSet(m); return; } const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { applyMeasure(l, m); S.ms.sel = null; S.ms.pend = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
+function laserValue(m) { LZ.last = m; if (S.tool === 'yukseklik' && S.hs.f) { hsSet(m); return; } if (S.tool === 'kontrol' && S.kt.a && S.kt.b) { diagSet(m); return; } const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { applyMeasure(l, m, S.ms.fd); S.ms.sel = null; S.ms.pend = null; S.ms.fd = 0; S.ms.fs = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
 async function laserConnect() {
   if (!navigator.bluetooth) return alert('Bu tarayıcıda Bluetooth yok.\niPhone\'da uygulamayı Bluefy tarayıcısında aç. Değeri elle de yazabilirsin.');
   try { LZ.state = 'bağlanıyor'; render(); const dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'GLM' }, { services: [GLM_SVC] }], optionalServices: [GLM_SVC] });
@@ -909,8 +909,8 @@ async function laserConnect() {
 }
 function olcTap(X, Y) {
   const h = opLineAt(X, Y); if (!h) { S.ms.sel = null; render(); return toast('Ölçülecek çizgiye dokun'); }
-  if (S.ms.pend != null) { const m = S.ms.pend; S.ms.pend = null; applyMeasure(h.l, m); S.ms.sel = null; render(); return; }
-  S.ms.sel = h.l.id; S.ms.buf = ''; render();
+  if (S.ms.pend != null) { const m = S.ms.pend; S.ms.pend = null; applyMeasure(h.l, m, h.fd); S.ms.sel = null; render(); return; }
+  S.ms.sel = h.l.id; S.ms.fd = h.fd || 0; S.ms.fs = h.fs || null; S.ms.buf = ''; render(); if (h.fs) toast('Duvarın diğer yüzü seçildi · ' + fmtM(V.dist(...h.fs), 2) + ' m');
 }
 function olcBufVal() { const t = (S.ms.buf || '').replace(',', '.'); const v = parseFloat(t); return isFinite(v) && v > 0 ? v / 100 : null; }
 
@@ -1336,7 +1336,7 @@ function renderSheet() {
   if (S.tool === 'olc') { const l = S.ms.sel && lineById(S.ms.sel); const st = LZ.state;
     h += `<div class="row"><span class="inf">Lazer: <b style="color:${st === 'bağlı' ? '#4ade80' : '#fca5a5'}">${st === 'bağlı' ? '● ' + esc(LZ.name) : st === 'bağlanıyor' ? 'bağlanıyor…' : 'bağlı değil'}</b></span><button data-a="lzc">${st === 'bağlı' ? 'Yeniden bağla' : '🔗 Bağlan'}</button></div>`;
     if (S.ms.pend != null) h += `<div class="row"><span class="inf"><b style="color:#fff">Gelen ölçü ${fmtM(S.ms.pend, 3)} m</b> · ölçtüğün çizgiye dokun</span><button data-a="mspx">Vazgeç</button></div>`;
-    h += `<div class="row"><span class="inf">${l ? 'Seçili: <b style="color:#fff">' + fmtM(lineLen(l), 3) + ' m</b> ' + (l.kind === 'laser' ? '(lazer ' + fmtM(l.m, 3) + ')' : l.kind === 'typed' ? '(yazılan)' : '(eskiz)') + ' · lazerle ölç ya da yaz' : 'Ölçülecek çizgiye dokun (önce ya da sonra lazerle ölç)'}</span></div>`;
+    h += `<div class="row"><span class="inf">${l ? (S.ms.fs ? 'Duvarın diğer yüzü: <b style="color:#fff">' + fmtM(V.dist(...S.ms.fs), 3) + ' m</b> (çizgi ' + fmtM(lineLen(l), 3) + ') ' : 'Seçili: <b style="color:#fff">' + fmtM(lineLen(l), 3) + ' m</b> ') + (l.kind === 'laser' ? '(lazer ' + fmtM(l.m, 3) + ')' : l.kind === 'typed' ? '(yazılan)' : '(eskiz)') + ' · lazerle ölç ya da yaz' : 'Ölçülecek çizgiye dokun (önce ya da sonra lazerle ölç)'}</span></div>`;
     h += `<div class="row"><button class="val ${S.np ? 'act' : ''}" data-a="np">${S.ms.buf ? S.ms.buf + ' cm' : '⌨ cm'}</button><button class="p" data-a="msok" ${l && olcBufVal() ? '' : 'disabled'}>Uygula</button>${l && l.kind === 'laser' ? '<button data-a="msrm">Ölçüyü kaldır</button>' : ''}<button data-a="msadj">Yeniden hesapla</button></div>` + (S.np ? numpad() : '');
     const nL = P.lines.filter(q => q.kind === 'laser').length, nB = P.lines.filter(q => q.kind === 'laser' && q.m != null && Math.abs(lineLen(q) - q.m) > 0.0015).length; h += `<div class="row"><span class="inf">${nL} çizgi ölçüldü${nB ? ' · <b style="color:#f87171">' + nB + ' ölçü uyumsuz (≠)</b> → Yeniden hesapla' : ''}</span></div>`;
   }
@@ -1433,7 +1433,7 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'dxf') { exportDXF(); return; }
   else if (a === 'lzc') { laserConnect(); return; }
   else if (a === 'mspx') S.ms.pend = null;
-  else if (a === 'msok') { const l = lineById(S.ms.sel), v = olcBufVal(); if (l && v) { applyMeasure(l, v); S.ms = { sel: null, buf: '', pend: null }; S.np = false; } }
+  else if (a === 'msok') { const l = lineById(S.ms.sel), v = olcBufVal(); if (l && v) { applyMeasure(l, v, S.ms.fd); S.ms = { sel: null, buf: '', pend: null }; S.np = false; } }
   else if (a === 'msrm') { const l = lineById(S.ms.sel); if (l) { snap(); l.kind = 'sketch'; delete l.m; commit(); toast('Ölçü kaldırıldı (çizgi yerinde kaldı)'); } }
   else if (a === 'msadj') { snap(); const r = adjustGeometry(); commit(); toast('Yeniden hesaplandı · en büyük kayma ' + Math.round((r ? r.shift : 0) * 1000) + ' mm' + (r && r.worst > 0.002 ? ' · ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : '')); }
   else if (a === 'opt') S.op.type = b.dataset.v;

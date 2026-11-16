@@ -385,3 +385,4 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - ORTO ekseni yay kirişinden alınmıyor (frameBase, index + önizleme) → v10.3.
 - Test: p8.
 - (16.11 öğleden sonra) Açık hat kapatma genelleştirildi (openPlan/trimStub): daire uçlardan tam geçmese de olur — 3 nokta basık yay (daire yan duvarları ikinci kez keser), merkez+r ile uçları aşan/uçlara varmayan daire. Uçları birleştiren dış yay kalır, daire içine/dışına taşan uç parçaları budanır, diğer yay parçaları atılır; duvar yay boyunca kapanır. Önizleme budanacak uçları kırmızı gösterir. p8: 14 kontrol (Duvar aracıyla elle çizim dahil).
+- v10.4: Ölç'te duvarın diğer yüzüne dokunulunca yüz seçilir (yeşil, panelde yüz boyu); yazılan/lazer ölçü YÜZE uygulanır: çizgi = ölçü − köşe uzantıları (dış bantta −2t, iç bantta +2t). Önceden ölçü referans çizgisine yazılıyordu (dıştan 4.40 ölçülen duvar çizgiyi 4.40 yapıyordu). index + önizleme. t20.py 9 kontrol.
