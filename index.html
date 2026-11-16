@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.2';
+const VER = 'v11.3';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -624,8 +624,14 @@ function drawWallGeom(g, sel, prev) {
     ctx.strokeStyle = sel ? 'rgba(147,197,253,.55)' : prev ? 'rgba(244,114,182,.35)' : 'rgba(148,163,184,.35)'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs) - 60, x1 = Math.max(...xs) + 60, y0 = Math.min(...ys), y1 = Math.max(...ys); for (let k = x0 - (y1 - y0); k < x1; k += 7) { ctx.beginPath(); ctx.moveTo(k, y1); ctx.lineTo(k + (y1 - y0), y0); ctx.stroke(); } ctx.restore();
     ctx.strokeStyle = sel ? COL.sel : prev ? '#f472b6' : '#cbd5e1'; ctx.lineWidth = 1.6; ctx.beginPath(); faceVisible(q.poly[3], q.poly[2], FZ).forEach(([a, b]) => { ctx.moveTo(...w2s(...a)); ctx.lineTo(...w2s(...b)); }); if (q.capA) { ctx.moveTo(...pts[0]); ctx.lineTo(...pts[3]); } if (q.capB) { ctx.moveTo(...pts[1]); ctx.lineTo(...pts[2]); } ctx.stroke(); });
 }
-function drawWalls() {
-  (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) drawWallGeom(g, S.sel && S.sel.wall === w.id, false); }); drawFills();
+function drawWalls() { // birleşimler temiz: önce tüm kenarlar kalın, sonra tüm bantlar opak dolgu (iç kesişim çizgileri kaybolur), tarama ekrana sabit desen
+  const Q = []; (P.walls || []).forEach(w => { const g = wallGeom(w); if (g) g.quads.forEach(q => Q.push({ q, pts: q.poly.map(p => w2s(...p)) })); });
+  const path = pts => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); };
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 3.2; Q.forEach(({ q, pts }) => { ctx.beginPath(); faceVisible(q.poly[3], q.poly[2], FZ).forEach(([a, b]) => { ctx.moveTo(...w2s(...a)); ctx.lineTo(...w2s(...b)); }); if (q.capA) { ctx.moveTo(...pts[0]); ctx.lineTo(...pts[3]); } if (q.capB) { ctx.moveTo(...pts[1]); ctx.lineTo(...pts[2]); } ctx.stroke(); });
+  ctx.fillStyle = '#1b1f24'; Q.forEach(({ pts }) => { path(pts); ctx.fill(); });
+  ctx.strokeStyle = '#454d58'; ctx.lineWidth = 1; Q.forEach(({ pts }) => { ctx.save(); path(pts); ctx.clip(); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    ctx.beginPath(); for (let C = Math.floor((x0 + y0) / 7) * 7; C <= x1 + y1; C += 7) { ctx.moveTo(C - y1, y1); ctx.lineTo(C - y0, y0); } ctx.stroke(); ctx.restore(); });
+  drawFills(); (P.walls || []).forEach(w => { if (S.sel && S.sel.wall === w.id) { const g = wallGeom(w); if (g) drawWallGeom(g, true, false); } });
   if (S.tool === 'duvar' && S.chain && S.chain.nodes && S.chain.nodes.length >= 2) { const g = wallGeom({ nodes: S.chain.nodes, closed: false, t: SET.wallT, side: SET.wallSide * chainOrient(S.chain.nodes), preview: true }); if (g) drawWallGeom(g, false, true); }
 }
 function recentWalls() { if (S.chain) return []; const ids = (S.tool === 'serbest' && S.lastWalls) ? S.lastWalls : (S.lastWall ? [S.lastWall] : []); return (P.walls || []).filter(w => ids.includes(w.id)); }
