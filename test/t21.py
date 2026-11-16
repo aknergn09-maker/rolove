@@ -52,6 +52,23 @@ async def main():
             a1 = await ev(AR); ok = (abs(a1-12.36)<1e-3 or (sl and 12.2<a1<12.45 and 'diğer yüz' in await ev("document.querySelector('#toast').textContent"))) and (sl or await ev("[[0.8,-0.8],[1.8,-0.8]].every(p=>RK.wallGeom(RK.P.walls[0]).Q.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<1e-6))"))
             ck(f'normal zoom, dokunarak {nm}: çıkıntı oldu, yeni beyaz çizgi çizilen yerde, alan 12.36', ok, [a1, await ev("document.querySelector('#toast').textContent"), not await ev("!!RK.S.chain")])
             await pg.screenshot(path=f't21_{nm[0]}.png')
+        # köşe kolonu (kullanıcının ekranı): iç bant, iki duvarın beyaz çizgileri köşede birleşiyor; bir yüzden başla, köşeyi dolaşıp diğer yüzde bitir
+        for nm, pts, exp in (('sağ alt köşe', [(3.39,0.2),(3.39,0.38),(3.8,0.38)], 9.36-0.41*0.18), ('sol alt köşe (kapalı duvarın başı/sonu)', [(0.2,0.5),(0.5,0.5),(0.5,0.2)], 9.36-0.3*0.3), ('ters yönde çizim', [(3.8,0.38),(3.39,0.38),(3.39,0.2)], 9.36-0.41*0.18)):
+            await ev("RK.S.faceAsk=null; RK.S.chain=null"); await ev(SETUP + "(-1)"); await ev("RK.view.s=140; RK.view.ox=(%s<1? 20 : -300); RK.view.oy=230; RK.commit()" % pts[0][0]); await btn('#sheet button[data-a=cikm][data-v=el]')
+            for x,y in pts: q = await W(x,y); await ctap(*q); await pg.wait_for_timeout(150)
+            if await ev("!!document.querySelector('#sheet button[data-a=askN]')"): await btn('#sheet button[data-a=askN]')
+            a1 = await ev(AR); cor = await ev("[%s].every(p=>RK.wallGeom(RK.P.walls[0]).Q.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<1e-6))" % ','.join('[%s,%s]' % p for p in pts[1:2]))
+            ck(f'köşe kolonu, {nm}: alan {exp:.4f}, kolon köşesi beyaz çizgide', abs(a1-exp)<1e-3 and cor, [a1, cor, await ev("document.querySelector('#toast').textContent")])
+            await pg.screenshot(path=f't21_k{nm[0:3]}.png')
+        # "Sabit kalsın": turuncu çizgi yerinde kalır, beyaz çizgi çizilen yolu izler
+        await ev(SETUP + "(-1)"); await ev("RK.view.s=140; RK.view.ox=-300; RK.view.oy=230; RK.commit()"); await btn('#sheet button[data-a=cikm][data-v=el]')
+        for x,y in [(3.39,0.2),(3.39,0.38),(3.8,0.38)]: q = await W(x,y); await ctap(*q); await pg.wait_for_timeout(150)
+        ck('köşe kolonu sonrası soru: turuncu çizgi ne olsun?', await ev("!!document.querySelector('#sheet button[data-a=faN]')"))
+        await btn('#sheet button[data-a=faN]')
+        ref = await ev("RK.P.walls[0].nodes.map(id=>{const n=RK.P.nodes.find(n=>n.id===id); return [+n.x.toFixed(3),+n.y.toFixed(3)]})"); a1 = await ev(AR)
+        ck('  Sabit kalsın: turuncu çizgi (duvar) aynen, oda kolon kadar küçüldü %.4f' % (9.36-0.41*0.18), ref==[[0,0],[4,0],[4,3],[0,3]] and abs(a1-(9.36-0.41*0.18))<1e-3, [ref, a1])
+        await pg.screenshot(path='t21_sabit.png')
+        await ev("RK.undo()"); ck('  geri al: kalınlık korunan hal', abs(await ev(AR)-(9.36-0.41*0.18))<1e-3 and await ev("RK.P.walls[0].nodes.length")>4, [await ev(AR), await ev("RK.P.walls[0].nodes.length")])
         # Ölçü yazarak: başlangıç/bitiş yüzden
         out = await ev(SETUP + "(1)"); await btn('#sheet button[data-a=cikm][data-v=olcu]')
         q = await W(0.8, -0.2); await ctap(*q); s1 = await ev("JSON.stringify(RK.S.cik)")
