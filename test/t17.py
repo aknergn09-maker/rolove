@@ -26,7 +26,7 @@ async def main():
             for ch in str(v): await btn(f'#sheet button[data-k="{ch}"]')
             await ev("RK.S.np=false; RK.commit()")
         async def W(x,y): return await ev(f"RK.w2s({x},{y})")
-        SETUP = """(()=>{const P=RK.P; P.nodes=[];P.lines=[];P.walls=[];P.rooms=[];P.openings=[]; const C=[[0,0],[4,0],[4,3],[0,3]]; const ids=C.map(([x,y],i)=>{const id='a'+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<4;i++) P.lines.push({id:'A'+i,a:ids[i],b:ids[(i+1)%4],kind:'sketch'}); P.walls.push({id:'WA',nodes:ids,closed:true,t:0.2,side:1}); P.rooms.push({id:'rA',name:'A',ax:2,ay:1.5}); RK.commit();
+        SETUP = """(()=>{RK.S.faceAsk=null; RK.S.cikAsk=null; const P=RK.P; P.nodes=[];P.lines=[];P.walls=[];P.rooms=[];P.openings=[]; const C=[[0,0],[4,0],[4,3],[0,3]]; const ids=C.map(([x,y],i)=>{const id='a'+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<4;i++) P.lines.push({id:'A'+i,a:ids[i],b:ids[(i+1)%4],kind:'sketch'}); P.walls.push({id:'WA',nodes:ids,closed:true,t:0.2,side:1}); P.rooms.push({id:'rA',name:'A',ax:2,ay:1.5}); RK.commit();
           const sp=(x)=>{const id=RK.nodeAt([x,0]); return id}; const n0=sp(1.5), n1=sp(2.7); RK.addOpening('pencere', n0, n1, 0, 1.2); RK.commit(); RK.view.s=60; RK.view.ox=60; RK.view.oy=330; RK.commit();})()"""
         await ev(SETUP)
         ck('kurulum: alt duvarda pencere 1.50–2.70', await ev(OPS)==[['pencere',[1.5,0],[2.7,0]]], await ev(OPS))

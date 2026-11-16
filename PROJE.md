@@ -415,3 +415,10 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - Ana: v11.4 (yalnız lazer). v12 ana uygulamaya kullanıcı onayı ile geçecek.
 - (16.11 23:40) Kullanıcı: "tarama program yapmasın, en son ben yapayım". Duvar bilgisi (P.wq, kalınlık bağı, çıkıntı sorusu) aynen duruyor; sadece GÖRÜNÜM: P.hatchOn = taralı duvar grupları, dolgularda f.hatch. Program kendiliğinden taramaz; Duvar alanı aracı grup grup açar/kapar. Taralı duvarda "kalınlaşsın" dolgusu taralı gelir.
 - (16.11 23:50) Hata: "ölçü uzun gelince nokta dış duvarın dışına atıyor". Sebep (v12): T bağlantı düğümü iç yüz çizgisini ikiye böler ama dış çizgi tek parça; çelişen uzun ölçüde iç yüz kırılıp düğüm dış çizginin dışına çıkıyordu. Düzeltme: adjustGeometry'de onQ — wq kenarı üstündeki ara düğümler o kenarın doğrusunda (ağırlık 3000), sonunda tam yüze oturtulur. Çelişki kırmızı "≠" ve "UYARI ölçüler çelişiyor" ile gösterilir. Test q3. Ana uygulamada (v11) duvar o düğümde kırılır, dışarı taşmaz.
+
+### v11.5 ana (17.11 gece) — kullanıcı: "v11 güzeldi, çıkıntıyı v12 gibi çöz, alt çubuğu gizleme olsun"
+- Kullanıcı v12 (bağımsız iki yüz) modelini bıraktı: gönye/ölçü uyarlamasında saçma genişlemeler. Ana uygulama v11 modelinde kalıyor; önizleme v12 olarak duruyor (kullanılmıyor).
+- ▾ (fBar) ana uygulamaya eklendi.
+- refKolon: turuncu (oda) çizgisinden içeri çizilen çıkıntıda da soru: "Ofset korunsun (o da kayar)" / "Duvar kalınlaşsın (o sabit)". Kalınlaşsın = beyaz yüz düz kalır, çizilen yol ile eski turuncu çizgi arası duvar dolgusu (fills), oda küçülür. Varsayılan: kalınlaşsın; ama derinlik > 60 cm (gerçek girinti), duvarda kapı/pencere varsa ya da çizilen yer odaya katıldıysa (dışa) ofset korunsun. Zincir, Ölçü yazarak, serbest ve yay yollarının hepsinde.
+- underFillSet: dolgunun altında kalan eski turuncu çizgiler, ölçü yazısı ve yalnız onlara ait nokta çizilmez; Ölç/kapı seçiminde de seçilmez.
+- Test t25 (11). t17 SETUP soru durumunu sıfırlar.
