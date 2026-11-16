@@ -158,7 +158,7 @@ function findLine(a, b) { return P.lines.find(l => (l.a === a && l.b === b) || (
 function addLine(a, b, kind) { if (a === b) return null; const ex = findLine(a, b); if (ex) return ex; const l = { id: uid('l'), a, b, kind: kind || 'sketch' }; P.lines.push(l); return l; }
 function splitLine(l, nid) { // l çizgisini nid düğümünde böl
   (P.walls || []).forEach(w => { const n = w.nodes.length; for (let i = 0; i < (w.closed ? n : n - 1); i++) { const x = w.nodes[i], y = w.nodes[(i + 1) % n]; if ((x === l.a && y === l.b) || (x === l.b && y === l.a)) { w.nodes.splice(i + 1, 0, nid); break; } } });
-  P.lines = P.lines.filter(x => x !== l); const l1 = addLine(l.a, nid, l.kind), l2 = addLine(nid, l.b, l.kind); if (l.m != null && l1 && l2) { const a = lineLen(l1), b = lineLen(l2); l1.m = l.m * a / (a + b); l2.m = l.m - l1.m; } return [l1, l2];
+  P.lines = P.lines.filter(x => x !== l); const l1 = addLine(l.a, nid, l.kind), l2 = addLine(nid, l.b, l.kind); if (l.wt != null) [l1, l2].forEach(q => { if (q) { q.wt = l.wt; q.wtm = l.wtm; } }); if (l.m != null && l1 && l2) { const a = lineLen(l1), b = lineLen(l2); l1.m = l.m * a / (a + b); l2.m = l.m - l1.m; } return [l1, l2];
 }
 function triOf(r) { const ids = [...new Set([...r._f.lids].map(id => lineById(id)).filter(Boolean).flatMap(l => [l.a, l.b]))]; if (ids.length < 3) return null; const p = ids.map(nw); let i0 = 0, i1 = 0, bd = 0; p.forEach((a, i) => p.forEach((b, j) => { const d = V.dist(a, b); if (d > bd) { bd = d; i0 = i; i1 = j; } }));
   let i2 = -1, ba = 0; p.forEach((c, k) => { const ar = Math.abs((p[i1][0] - p[i0][0]) * (c[1] - p[i0][1]) - (p[i1][1] - p[i0][1]) * (c[0] - p[i0][0])); if (ar > ba) { ba = ar; i2 = k; } }); return ba > 1e-6 ? [ids[i0], ids[i1], ids[i2]] : null; }
@@ -559,6 +559,15 @@ function hitTest(X, Y) {
   const f = faceAt(s2w(X, Y)); const r = f && P.rooms.find(q => q._f === f); if (r) return { room: r.id };
   return null;
 }
+/* obje: binaya bağlı olmayan çizgi grubu (birbirine değen çizgiler) — bir odanın içinde duran ya da sadece eleman/merdiven alanı oluşturan. Ortadan tutup sürükleyince tamamı kayar */
+function objGroup(lid) { const L = P.lines.filter(l => !l.step); const l0 = L.find(l => l.id === lid); if (!l0) return null; const ns = new Set([l0.a, l0.b]), ls = new Set([l0.id]); let ch = true;
+  while (ch) { ch = false; L.forEach(l => { if (ls.has(l.id)) return; if (ns.has(l.a) || ns.has(l.b)) { ls.add(l.id); ns.add(l.a); ns.add(l.b); ch = true; } }); }
+  if ((P.walls || []).some(w => w.nodes.some(id => ns.has(id)))) return null; const pts = [...ns].map(nw);
+  const ownRooms = P.rooms.filter(r => r._f && [...r._f.lids].every(id => ls.has(id))); if (ownRooms.some(r => !r.kind)) return null;
+  const inside = P.rooms.some(r => r._f && !r.kind && ![...r._f.lids].some(id => ls.has(id)) && pts.every(q => inPoly(q, r._f.poly)));
+  if (!inside && !ownRooms.length) return null;
+  const extra = new Set(); (P.stepSets || []).forEach(t => { if ([t.a, t.b, t.c, t.d].some(id => ns.has(id))) P.lines.filter(l => l.step === t.id).forEach(l => { extra.add(l.a); extra.add(l.b); }); });
+  return { nodes: [...ns, ...extra], lines: [...ls], rooms: ownRooms.map(r => r.id) }; }
 function selTap(X, Y) { { const o = opHit(X, Y); if (o) { S.sel = { open: o.id }; S.kbuf = ''; render(); return; } } const h = hitTest(X, Y); S.lenEdit = null; if (!h) S.sel = null; else if (h.node) S.sel = { nodes: [h.node] }; else if (h.line) S.sel = { lines: [h.line] }; else if (h.wall) S.sel = { wall: h.wall }; else if (h.wface) S.sel = { wall: h.wface.w, face: h.wface }; else S.sel = { room: h.room }; S.kbuf = ''; render(); }
 function selNodes() { const s = new Set(S.sel && S.sel.nodes || []); (S.sel && S.sel.lines || []).forEach(id => { const l = lineById(id); if (l) { s.add(l.a); s.add(l.b); } }); return [...s]; }
 function boxSelect(b) { const x0 = Math.min(b.X0, b.X1), x1 = Math.max(b.X0, b.X1), y0 = Math.min(b.Y0, b.Y1), y1 = Math.max(b.Y0, b.Y1); const inside = id => { const [X, Y] = ns(id); return X >= x0 && X <= x1 && Y >= y0 && Y <= y1; };
@@ -618,9 +627,9 @@ function lineInt(p1, u1, p2, u2) { const den = u1[0] * u2[1] - u1[1] * u2[0]; if
 function wallGeom(w) {
   const ids = w.nodes.filter(id => nodeById(id)); const n = ids.length; if (n < 2) return null; const P0 = ids.map(nw); const closed = !!w.closed && n >= 3; const m = closed ? n : n - 1;
   const ccw = closed ? polyArea(P0) > 0 : true; const segs = [];
-  for (let i = 0; i < m; i++) { const a = P0[i], b = P0[(i + 1) % n]; if (!findLine(ids[i], ids[(i + 1) % n]) && !w.preview) { segs.push(null); continue; } const u = V.unit(V.sub(b, a)); const left = [-u[1], u[0]]; const out = closed ? (ccw ? [-left[0], -left[1]] : left) : left; segs.push({ a, b, u, off: V.mul(out, w.side * w.t) }); }
+  for (let i = 0; i < m; i++) { const a = P0[i], b = P0[(i + 1) % n]; if (!findLine(ids[i], ids[(i + 1) % n]) && !w.preview) { segs.push(null); continue; } const u = V.unit(V.sub(b, a)); const left = [-u[1], u[0]]; const out = closed ? (ccw ? [-left[0], -left[1]] : left) : left; const ln = findLine(ids[i], ids[(i + 1) % n]); const ti = ln && ln.wt != null && !w.preview ? ln.wt : w.t; segs.push({ a, b, u, off: V.mul(out, w.side * ti), t: ti }); }
   const Q = []; for (let i = 0; i < n; i++) { const s1 = closed ? segs[(i - 1 + m) % m] : (i > 0 ? segs[i - 1] : null); const s2 = closed ? segs[i % m] : (i < m ? segs[i] : null); let q = null;
-    if (s1 && s2) { q = lineInt(V.add(s1.a, s1.off), s1.u, V.add(s2.a, s2.off), s2.u); if (!q || V.dist(q, P0[i]) > 4 * w.t) q = V.add(P0[i], s2.off); } else if (s1) q = V.add(P0[i], s1.off); else if (s2) q = V.add(P0[i], s2.off); Q.push(q); }
+    if (s1 && s2) { q = lineInt(V.add(s1.a, s1.off), s1.u, V.add(s2.a, s2.off), s2.u); if (!q || V.dist(q, P0[i]) > 4 * Math.max(w.t, s1.t, s2.t)) q = V.add(P0[i], s2.off); } else if (s1) q = V.add(P0[i], s1.off); else if (s2) q = V.add(P0[i], s2.off); Q.push(q); }
   const quads = []; for (let i = 0; i < m; i++) { if (!segs[i]) continue; const j = (i + 1) % n; quads.push({ i, poly: [P0[i], P0[j], Q[j], Q[i]], capA: !closed && i === 0 || (closed ? !segs[(i - 1 + m) % m] : i > 0 && !segs[i - 1]), capB: !closed && i === m - 1 || (closed ? !segs[(i + 1) % m] : i < m - 1 && !segs[i + 1]) }); }
   return { P0, Q, quads };
 }
@@ -923,14 +932,41 @@ function adjustGeometry() {
     for (let t = 0; t < 4 * nv + 50 && g > 1e-24 * Math.max(1, g0); t++) { const q = Jv(pv); let qq = 0; q.forEach((v, k) => qq += rows[k].w * v * v); if (qq <= 0) break; const al = g / qq; for (let i = 0; i < nv; i++) d[i] += al * pv[i]; for (let k = 0; k < rr.length; k++) rr[k] -= al * q[k]; sv = Jt(rr); const g2 = sv.reduce((a, b) => a + b * b, 0); const be = g2 / g; g = g2; for (let i = 0; i < nv; i++) pv[i] = sv[i] + be * pv[i]; }
     let mx = 0; for (let i = 0; i < nv; i++) { x[i] += d[i]; mx = Math.max(mx, Math.abs(d[i])); } if (mx < 1e-7) break;
   }
+  // iç objeler (eleman, merdiven, kolon, iç detay): bir odanın içinde kalan çizgi grupları (birbirine değen çizgiler bir grup) o odayla birlikte kayar; kendi ölçüsü/ölçeği korunur
+  { const par = new Map(); ids.forEach((i, id) => par.set(id, id)); const fd = a => { while (par.get(a) !== a) { par.set(a, par.get(par.get(a))); a = par.get(a); } return a; }; lines.forEach(l => { const a = fd(l.a), b = fd(l.b); if (a !== b) par.set(a, b); });
+    const comps = new Map(); ids.forEach((i, id) => { const r = fd(id); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(id); });
+    const X0 = id => [x0[2 * ids.get(id)], x0[2 * ids.get(id) + 1]], X1 = id => [x[2 * ids.get(id)], x[2 * ids.get(id) + 1]];
+    const rooms = P.rooms.filter(r => r._f && !r.kind).sort((a, b) => Math.abs(a._f.area) - Math.abs(b._f.area));
+    comps.forEach(ns => { const p0 = ns.map(X0); const r = rooms.find(r => p0.every(q => inPoly(q, r._f.poly))); if (!r) return; const T = triOf(r); if (!T || T.some(id => !ids.has(id)) || T.some(id => ns.includes(id))) return;
+      const T0 = T.map(X0), T1 = T.map(X1); const c0 = V.mul(p0.reduce((a, q) => V.add(a, q), [0, 0]), 1 / p0.length); const bc = baryOf(c0, T0); const tg = [0, 1].map(k => bc[0] * T1[0][k] + bc[1] * T1[1][k] + bc[2] * T1[2][k]);
+      const p1 = ns.map(X1); const c1 = V.mul(p1.reduce((a, q) => V.add(a, q), [0, 0]), 1 / p1.length); const dl = V.sub(tg, c1); ns.forEach(id => { const i = ids.get(id); x[2 * i] += dl[0]; x[2 * i + 1] += dl[1]; }); }); }
+  const anc = P.rooms.map(r => { if (!r._f || r.ax == null) return null; const T = triOf(r); if (!T || T.some(id => !nodeById(id))) return null; return { r, T, bc: baryOf([r.ax, r.ay], T.map(nw)) }; }).filter(Boolean); // oda adı (çapa) odasıyla birlikte kayar
   let shift = 0; ids.forEach((i, id) => { const n = nodeById(id); shift = Math.max(shift, Math.hypot(x[2 * i] - n.x, x[2 * i + 1] - n.y)); n.x = x[2 * i]; n.y = x[2 * i + 1]; });
+  anc.forEach(({ r, T, bc }) => { const T1 = T.map(nw); r.ax = bc[0] * T1[0][0] + bc[1] * T1[1][0] + bc[2] * T1[2][0]; r.ay = bc[0] * T1[0][1] + bc[1] * T1[1][1] + bc[2] * T1[2][1]; });
   let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); }); (P.diags || []).forEach(dg => { if (nodeById(dg.a) && nodeById(dg.b)) worst = Math.max(worst, Math.abs(V.dist(nw(dg.a), nw(dg.b)) - dg.m)); });
   return { k: x[K], shift, worst };
 }
 function applyMeasure(l, m, fd) { // fd: duvarın diğer yüzü ölçüldüyse yüz − çizgi farkı (köşe uzantıları)
-  if (!l || !(m > 0)) return; fd = fd || 0; if (m - fd <= 0.01) return toast('Ölçü duvar kalınlığından küçük'); snap(); l.kind = 'laser'; l.m = Math.round((m - fd) * 1000) / 1000; const r = adjustGeometry(); commit();
-  toast((fd ? 'Duvar yüzü ' + fmtM(m, 3) + ' → çizgi ' : '') + fmtM(l.m, 3) + ' m oturdu · ölçek ' + ((r.k - 1) * 100 >= 0 ? '+' : '') + ((r.k - 1) * 100).toFixed(1) + '% · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : ''));
+  if (!l || !(m > 0)) return; fd = fd || 0; if (m - fd <= 0.01) return toast('Ölçü duvar kalınlığından küçük'); snap(); const mm = Math.round(m * 1000) / 1000;
+  if (fd) { l.fm = mm; if (l.kind === 'laser' && (l.mfrom || 'line') === 'line') { const th = thickAll(); commit(); return toast('Duvar yüzü ' + fmtM(mm, 3) + ' m · ' + (th.length ? th.join(' · ') : 'kalınlık hesaplanamadı')); } l.mfrom = 'face'; } else l.mfrom = 'line';
+  l.kind = 'laser'; l.m = Math.round((m - fd) * 1000) / 1000; const r = adjustGeometry(); const th = thickAll(); commit(); if (th.length) r.th = th;
+  toast((fd ? 'Duvar yüzü ' + fmtM(m, 3) + ' → çizgi ' : '') + fmtM(l.m, 3) + ' m oturdu · ölçek ' + ((r.k - 1) * 100 >= 0 ? '+' : '') + ((r.k - 1) * 100).toFixed(1) + '% · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : '') + (r.th ? ' · ' + r.th.join(' · ') : ''));
 }
+/* duvar kalınlığı ölçüden: bir duvarın hem çizgisi hem diğer yüzü ölçüldüyse, yüzün köşelerdeki uzantısından KOMŞU (köşedeki) duvarların kalınlığı çıkar.
+   Komşulardan biri daha önce hesaplandıysa diğeri bulunur; ikisi de bilinmiyorsa eşit kabul edilir (başka ölçü geldikçe düzelir). Kalınlık sadece o düz duvara (aynı doğrultudaki parçalar) yazılır. */
+function faceLenOf(l) { const w = wallOfLine(l); if (!w) return null; const g = wallGeom(w); if (!g) return null; const qd = g.quads.find(q => [q.poly[0], q.poly[1]].every(p => V.dist(p, nw(l.a)) < 1e-6 || V.dist(p, nw(l.b)) < 1e-6)); if (!qd) return null; return V.dist(qd.poly[3], qd.poly[2]); }
+function wallNeighbors(l) { const w = wallOfLine(l); if (!w) return []; const n = w.nodes.length; const i = w.nodes.findIndex((id, k) => { const j = (k + 1) % n; return (id === l.a && w.nodes[j] === l.b) || (id === l.b && w.nodes[j] === l.a); }); if (i < 0) return [];
+  const seg = k => { if (!w.closed && (k < 0 || k >= n - 1)) return null; const kk = (k + n) % n; return findLine(w.nodes[kk], w.nodes[(kk + 1) % n]); }; return [seg(i - 1), seg(i + 1)].map(q => q && !isCol(q, lu(l)) ? q : null); }
+function setRunT(q, t) { const w = wallOfLine(q); collinearRun(q.id).map(lineById).filter(x => x && wallOfLine(x) === w).forEach(x => { x.wt = Math.round(t * 1000) / 1000; x.wtm = true; }); }
+function runT(q) { const w = wallOfLine(q); return q.wt != null ? q.wt : w.t; }
+function thickAll() { // tüm "çizgi + yüz" ölçülü duvarlar birlikte: Σ katsayı·Δt = yüz farkı, en küçük değişimle (az ölçüde eşit paylaşım, ölçü arttıkça her duvar kendi kalınlığına oturur)
+  const eqL = P.lines.filter(l => l.fm != null && l.kind === 'laser' && (l.mfrom || 'line') === 'line'); if (!eqL.length) return []; const key = q => collinearRun(q.id).map(lineById).filter(x => x && wallOfLine(x) === wallOfLine(q)).map(x => x.id).sort()[0];
+  const runs = new Map(); eqL.forEach(l => wallNeighbors(l).forEach(q => { if (q) { const k = key(q); if (!runs.has(k)) runs.set(k, q); } })); const ks = [...runs.keys()]; if (!ks.length) return [];
+  for (let it = 0; it < 4; it++) { const A = [], bv = []; eqL.forEach(l => { const g0 = faceLenOf(l); if (g0 == null) return; const row = ks.map(() => 0); wallNeighbors(l).forEach(q => { if (!q) return; const k = ks.indexOf(key(q)); const t0 = runT(q); setRunT(q, t0 + 0.01); const g1 = faceLenOf(l); setRunT(q, t0); row[k] += (g1 - g0) / 0.01; }); if (row.some(v => Math.abs(v) > 0.1)) { A.push(row); bv.push(l.fm - g0); } });
+    if (!A.length) return []; const n = ks.length, lam = 1e-4; const M = ks.map((_, a) => ks.map((_, b) => A.reduce((s, r) => s + r[a] * r[b], 0) + (a === b ? lam : 0))), y = ks.map((_, a) => A.reduce((s, r, k) => s + r[a] * bv[k], 0));
+    for (let c = 0; c < n; c++) { let pv = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[pv][c])) pv = r; [M[c], M[pv]] = [M[pv], M[c]]; [y[c], y[pv]] = [y[pv], y[c]]; for (let r = 0; r < n; r++) if (r !== c && M[c][c]) { const f = M[r][c] / M[c][c]; for (let k = c; k < n; k++) M[r][k] -= f * M[c][k]; y[r] -= f * y[c]; } }
+    let mx = 0; ks.forEach((k, a) => { const d = M[a][a] ? y[a] / M[a][a] : 0; const q = runs.get(k); const t = Math.min(2, Math.max(0.02, runT(q) + d)); mx = Math.max(mx, Math.abs(d)); setRunT(q, t); }); if (mx < 1e-5) break; }
+  return ks.map(k => 'duvar ' + Math.round(runT(runs.get(k)) * 100) + ' cm'); }
 /* ---- Bosch GLM (GLM 50 C ailesi) Bluetooth ---- */
 const GLM_SVC = '02a6c0d0-0451-4000-b000-fb3210111989', GLM_CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
 const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null };
@@ -1266,7 +1302,7 @@ cv.addEventListener('pointerdown', e => {
   if (ptrs.size > 2) return;
   if (S.tool === 'serbest') { gest = { t: 'stroke', pts: [[X, Y]] }; stroke = gest.pts; return; }
   if (needsAim()) { gest = { t: 'aim', X0: X, Y0: Y }; aim = { X, Y, c: candidate(X, Y, aimOpts()) }; draw(); return; }
-  if (S.tool === 'sec') { const g = gripsOf().find(g => { const [gx, gy] = w2s(...g.p); return Math.hypot(gx - X, gy - Y) < 22; }); if (g) { gest = { t: 'grip', g, X0: X, Y0: Y, moved: false }; return; } gest = { t: 'pend', X0: X, Y0: Y }; return; }
+  if (S.tool === 'sec') { const gd = g => { const [gx, gy] = w2s(...g.p); return Math.hypot(gx - X, gy - Y); }; const g = gripsOf().filter(g => gd(g) < 22).sort((a, b) => gd(a) - gd(b))[0]; if (g) { gest = { t: 'grip', g, X0: X, Y0: Y, moved: false }; return; } gest = { t: 'pend', X0: X, Y0: Y }; return; }
   gest = { t: 'pend', X0: X, Y0: Y };
 });
 cv.addEventListener('pointermove', e => {
@@ -1276,9 +1312,9 @@ cv.addEventListener('pointermove', e => {
   if (gest.t === 'aim') { aim = { X, Y, c: candidate(X, Y, aimOpts()) }; draw(); return; }
   if (gest.t === 'grip') {
     if (!gest.moved && Math.hypot(X - gest.X0, Y - gest.Y0) < 6) return;
-    if (!gest.moved) { gest.moved = true; snap(); gest.orig = selNodes().concat(gest.g.k === 'n' ? [gest.g.id] : []).reduce((m, id) => (m[id] = nw(id), m), {}); if (gest.g.k === 'm') { const l = lineById(gest.g.id); gest.orig[l.a] = nw(l.a); gest.orig[l.b] = nw(l.b); } }
+    if (!gest.moved) { gest.moved = true; snap(); gest.orig = selNodes().concat(gest.g.k === 'n' ? [gest.g.id] : []).reduce((m, id) => (m[id] = nw(id), m), {}); if (gest.g.k === 'm') { const l = lineById(gest.g.id); gest.orig[l.a] = nw(l.a); gest.orig[l.b] = nw(l.b); const og = objGroup(l.id); if (og) { gest.obj = og; og.nodes.forEach(id => { if (nodeById(id)) gest.orig[id] = nw(id); }); gest.anc = P.rooms.filter(r => og.rooms.includes(r.id) && r.ax != null).map(r => ({ r, p: [r.ax, r.ay] })); } } }
     if (gest.g.k === 'n') { const c = candidate(X, Y, { excl: [gest.g.id] }); aim = { X, Y, c }; const [wx, wy] = s2w(c.X, c.Y); const n = nodeById(gest.g.id); n.x = wx; n.y = wy; }
-    else { const l = lineById(gest.g.id); const [x0, y0] = s2w(gest.X0, gest.Y0), [x1, y1] = s2w(X, Y); [l.a, l.b].forEach(id => { const n = nodeById(id); n.x = gest.orig[id][0] + x1 - x0; n.y = gest.orig[id][1] + y1 - y0; }); aim = null; }
+    else { const l = lineById(gest.g.id); const [x0, y0] = s2w(gest.X0, gest.Y0), [x1, y1] = s2w(X, Y); (gest.obj ? Object.keys(gest.orig) : [l.a, l.b]).forEach(id => { const n = nodeById(id); if (n) { n.x = gest.orig[id][0] + x1 - x0; n.y = gest.orig[id][1] + y1 - y0; } }); (gest.anc || []).forEach(({ r, p }) => { r.ax = p[0] + x1 - x0; r.ay = p[1] + y1 - y0; }); aim = null; }
     G = computeFaces(); updateRooms(); draw(); return;
   }
   if (gest.t === 'pend' && Math.hypot(X - gest.X0, Y - gest.Y0) > 10) { const g0 = gest; if (S.tool === 'sec') { gest = { t: 'box' }; box = { X0: g0.X0, Y0: g0.Y0, X1: X, Y1: Y }; } else gest = { t: 'pan', X0: g0.X0, Y0: g0.Y0, ox0: view.ox, oy0: view.oy }; }
@@ -1304,7 +1340,7 @@ function endPtr(e, cancel) {
   if (g.t === 'grip') { aim = null; if (!g.moved) { if (g.g.k === 'n') { S.sel = { nodes: [g.g.id] }; render(); } return; }
     if (cancel) { P = JSON.parse(undoSt.pop()); commit(); return; }
     if (g.g.k === 'n') { const id = g.g.id; const c = candidate(X, Y, { excl: [id] }); if (c.type === 'end') { mergeNodes(c.node, id); S.sel = { nodes: [c.node] }; toast('Köşe diğer köşeye oturtuldu'); } else if (['near', 'mid', 'perp', 'int'].includes(c.type)) { const nn = realize(c); mergeNodes(nn, id); S.sel = { nodes: [nn] }; } }
-    commit(); return; }
+    commit(); if (g.obj) toast('Obje taşındı (' + g.obj.lines.length + ' çizgi)'); return; }
   if (g.t === 'box') { const b = box; box = null; if (!cancel) boxSelect(b); else draw(); return; }
   if (g.t === 'pan') return;
   if (g.t === 'pend' && !cancel) { if (S.tool === 'sec') selTap(X, Y); else if (S.tool === 'sil') silTap(X, Y); else if (S.tool === 'oda') odaTap(X, Y); else if (S.tool === 'merdiven' || S.tool === 'eleman') mkTap(X, Y); else if (S.tool === 'aciklik') opTap(X, Y); else if (S.tool === 'olc') olcTap(X, Y); else if (S.tool === 'nokta') noktaTap(X, Y); else if (S.tool === 'kontrol') kontrolTap(X, Y); else if (S.tool === 'buda') budaTap(X, Y); else if (S.tool === 'yukseklik') yukTap(X, Y); }
@@ -1518,7 +1554,7 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'wsplit') { const w = selWall(); if (!w) return; const g = wallGeom(w); snap(); const id = q => { const ex = P.nodes.find(n => Math.hypot(n.x - q[0], n.y - q[1]) < 1e-4); return ex ? ex.id : addNode(q[0], q[1]); }; wallFaces().filter(f => f.w.id === w.id).forEach(f => addLine(id(f.a), id(f.b), 'sketch')); P.walls = P.walls.filter(x => x !== w); S.sel = null; commit(); toast('Duvarın diğer yüzü bağımsız çizgiler oldu'); return; }
   else if (a === 'mkwall') { let ids = []; if (S.sel.room) { const r = roomById(S.sel.room); ids = r && r._f ? [...r._f.lids] : []; } else ids = (S.sel.lines || []).slice(); const one = !S.sel.room && ids.length === 1; const ws = wallsFromLines(ids, one); if (ws) { S.sel = { wall: ws[0].id }; render(); toast('Duvar eklendi · kalınlık ve ⇄ Yön aşağıda'); } else toast('Duvar eklenemedi'); return; }
   else if (a === 'wside') { const ws = recentWalls(); if (ws.length) { snap(); ws.forEach(w => w.side = -w.side); commit(); toast('Son duvarın yönü değişti'); return; } SET.wallSide = -SET.wallSide; writeJSON(LS_S, SET); }
-  else if (a === 'swt') { const w = selWall(); if (!w) return; snap(); w.t = +b.dataset.v; SET.wallT = w.t; writeJSON(LS_S, SET); commit(); return; }
+  else if (a === 'swt') { const w = selWall(); if (!w) return; snap(); w.t = +b.dataset.v; wallLineIds(w).forEach(id => { const l = lineById(id); if (l) { delete l.wt; delete l.wtm; } }); SET.wallT = w.t; writeJSON(LS_S, SET); commit(); return; }
   else if (a === 'sside') { const w = selWall(); if (!w) return; snap(); w.side = -w.side; commit(); return; }
   else if (a === 'rclr') { S.rect.w = ''; S.rect.h = ''; }
   else if (a === 'unsel') { S.sel = null; }
@@ -1580,7 +1616,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { wallJoinArc, linePath, circlePlan, filletGeom, daireMake, circleHits, circleCut, get LB() { return LB; }, polyHit, triOf, circ3, arcThrough, reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { thickAll, faceLenOf, objGroup, wallJoinArc, linePath, circlePlan, filletGeom, daireMake, circleHits, circleCut, get LB() { return LB; }, polyHit, triOf, circ3, arcThrough, reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>

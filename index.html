@@ -871,6 +871,9 @@ function opById(id) { return (P.openings || []).find(o => o.id === id); }
 /* =================== 4. aşama: lazer ve ölçekleme =================== */
 // Dengeleme: ölçülen (lazer) çizgiler tam ölçüsüne oturur; yazılan çizgiler güçlü, eskizler zayıf tutulur.
 // Eskiz çizgisi: vektörü (yön + boy) ortak bir ölçek katsayısı k ile korunmaya çalışılır → ölçülmemiş her şey en az değişimle ölçeklenir.
+function triOf(r) { const ids = [...new Set([...r._f.lids].map(id => lineById(id)).filter(Boolean).flatMap(l => [l.a, l.b]))]; if (ids.length < 3) return null; const p = ids.map(nw); let i0 = 0, i1 = 0, bd = 0; p.forEach((a, i) => p.forEach((b, j) => { const d = V.dist(a, b); if (d > bd) { bd = d; i0 = i; i1 = j; } }));
+  let i2 = -1, ba = 0; p.forEach((c, k) => { const ar = Math.abs((p[i1][0] - p[i0][0]) * (c[1] - p[i0][1]) - (p[i1][1] - p[i0][1]) * (c[0] - p[i0][0])); if (ar > ba) { ba = ar; i2 = k; } }); return ba > 1e-6 ? [ids[i0], ids[i1], ids[i2]] : null; }
+function baryOf(p, T) { const [a, b, c] = T; const d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]); const l1 = ((b[1] - c[1]) * (p[0] - c[0]) + (c[0] - b[0]) * (p[1] - c[1])) / d, l2 = ((c[1] - a[1]) * (p[0] - c[0]) + (a[0] - c[0]) * (p[1] - c[1])) / d; return [l1, l2, 1 - l1 - l2]; }
 function adjustGeometry() {
   const ids = new Map(); const lines = P.lines.filter(l => !l.step); lines.forEach(l => [l.a, l.b].forEach(id => { if (!ids.has(id)) ids.set(id, ids.size); }));
   const N = ids.size; if (!N) return null; const nv = 2 * N + 1, K = 2 * N; const x = new Float64Array(nv); ids.forEach((i, id) => { const n = nodeById(id); x[2 * i] = n.x; x[2 * i + 1] = n.y; }); x[K] = 1;
@@ -895,7 +898,9 @@ function adjustGeometry() {
     for (let t = 0; t < 4 * nv + 50 && g > 1e-24 * Math.max(1, g0); t++) { const q = Jv(pv); let qq = 0; q.forEach((v, k) => qq += rows[k].w * v * v); if (qq <= 0) break; const al = g / qq; for (let i = 0; i < nv; i++) d[i] += al * pv[i]; for (let k = 0; k < rr.length; k++) rr[k] -= al * q[k]; sv = Jt(rr); const g2 = sv.reduce((a, b) => a + b * b, 0); const be = g2 / g; g = g2; for (let i = 0; i < nv; i++) pv[i] = sv[i] + be * pv[i]; }
     let mx = 0; for (let i = 0; i < nv; i++) { x[i] += d[i]; mx = Math.max(mx, Math.abs(d[i])); } if (mx < 1e-7) break;
   }
+  const anc = P.rooms.map(r => { if (!r._f || r.ax == null) return null; const T = triOf(r); if (!T || T.some(id => !nodeById(id))) return null; return { r, T, bc: baryOf([r.ax, r.ay], T.map(nw)) }; }).filter(Boolean); // oda adı (çapa) odasıyla birlikte kayar
   let shift = 0; ids.forEach((i, id) => { const n = nodeById(id); shift = Math.max(shift, Math.hypot(x[2 * i] - n.x, x[2 * i + 1] - n.y)); n.x = x[2 * i]; n.y = x[2 * i + 1]; });
+  anc.forEach(({ r, T, bc }) => { const T1 = T.map(nw); r.ax = bc[0] * T1[0][0] + bc[1] * T1[1][0] + bc[2] * T1[2][0]; r.ay = bc[0] * T1[0][1] + bc[1] * T1[1][1] + bc[2] * T1[2][1]; });
   let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); });
   return { k: x[K], shift, worst };
 }
