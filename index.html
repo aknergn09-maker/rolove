@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v10.1';
+const VER = 'v10.2';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -362,7 +362,9 @@ function frameBase(fromId) { // orto eksen açısı (derece)
   if (SET.ortho === 'xy') return 0;
   if (S.chain && S.chain.firstLine) { const l = lineById(S.chain.firstLine); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
   if (fromId) { const l = P.lines.find(q => q.a === fromId || q.b === fromId); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
-  const l = P.lines[0]; return l ? norm90(headDeg(nw(l.a), nw(l.b))) : 0;
+  // bağlı çizgi yoksa: binanın baskın yönü (düz çizgilerin boyla ağırlıklı en yaygın açısı; yay parçaları ve basamaklar hariç)
+  const arcN = new Set((P.arcs || []).flatMap(a => a.ids)); const bins = new Map(); P.lines.forEach(l => { if (l.step || (arcN.has(l.a) && arcN.has(l.b))) return; const a = Math.round(norm90(headDeg(nw(l.a), nw(l.b))) * 2) / 2; bins.set(a, (bins.get(a) || 0) + lineLen(l)); });
+  let best = 0, bw = 0; bins.forEach((w, a) => { if (w > bw) { bw = w; best = a; } }); return best;
 }
 function aimFrom() { // lastik bandın başlangıcı
   if ((S.tool === 'cizgi' || S.tool === 'duvar' || S.tool === 'cikinti' || mkCiz()) && S.chain) return { id: S.chain.last };

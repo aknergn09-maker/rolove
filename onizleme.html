@@ -103,7 +103,7 @@ let SET = Object.assign({}, defSet, readJSON(LS_S, {}));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const newProject = name => ({ v: 8, name: name || ('Kroki ' + new Date().toLocaleDateString('tr-TR')), nodes: [], lines: [], rooms: [], walls: [], roomSeq: 0, created: Date.now() });
 let P = null;
-const S = { dr: { mode: '3n', pts: [] }, bu: { mode: 'buda', l1: null }, yv: { pts: [], step: 0 }, kt: { mode: 'kos', a: null, b: null }, hs: { kind: null, id: null, f: null }, calc: null, ms: { sel: null, buf: '', pend: null }, op: { type: 'kapi', step: 1, f: 'w', d: '', w: '' }, pendOpen: null, mk: { mode: 'ciz', l1: null, l2: null, pts: [] }, elName: 'Kolon', cik: { mode: 'el', step: 1 }, offEdit: null, cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
+const S = { chArc: null, elShape: 'ciz', dr: { mode: '3n', pts: [], wall: false }, bu: { mode: 'buda', l1: null }, yv: { pts: [], step: 0 }, kt: { mode: 'kos', a: null, b: null }, hs: { kind: null, id: null, f: null }, calc: null, ms: { sel: null, buf: '', pend: null }, op: { type: 'kapi', step: 1, f: 'w', d: '', w: '' }, pendOpen: null, mk: { mode: 'ciz', l1: null, l2: null, pts: [] }, elName: 'Kolon', cik: { mode: 'el', step: 1 }, offEdit: null, cat: 'ciz', tool: 'cizgi', sel: null, chain: null, kbuf: '', field: null, rect: { w: '', h: '', c1: null }, move: null, lenEdit: null, np: false, lastStroke: [] };
 let G = { faces: [], comps: [] };
 let undoSt = [], redoSt = [];
 let view = { s: 40, ox: 0, oy: 0 };
@@ -245,8 +245,13 @@ function computeFaces(realOnly) {
 function faceAt(p) { let best = null; G.faces.forEach(f => { if (!inPoly(p, f.poly) || f.holes.some(h => inPoly(p, h))) return; if (!best || f.area < best.area) best = f; }); return best; }
 function setF(r, f) { Object.defineProperty(r, '_f', { value: f, writable: true, enumerable: false, configurable: true }); }
 function rA(r) { return r._f ? (r._a != null ? r._a : r._f.net) : null; }
+function arcFix() { // yay parçaları (kirişler) için alan düzeltmesi: kiriş ile yay arasındaki dilim eklenir/çıkarılır → daire alanı tam
+  const ch = new Map(); (P.arcs || []).forEach(a => { const ids = a.ids.filter(nodeById); if (ids.length < 3) return; const ps = ids.map(nw), k = ps.length; const ci = a.closed ? circ3(ps[0], ps[Math.floor(k / 3)], ps[Math.floor(2 * k / 3)]) : circ3(ps[0], ps[Math.floor(k / 2)], ps[k - 1]); if (!ci || ps.some(p => Math.abs(V.dist(p, ci.c) - ci.r) > 0.005)) return;
+    const set = new Set(ids); P.lines.forEach(l => { if (l.step || !set.has(l.a) || !set.has(l.b)) return; const c = V.dist(nw(l.a), nw(l.b)); if (c >= 2 * ci.r) return; const th = 2 * Math.asin(c / (2 * ci.r)); ch.set(l.id, { seg: ci.r * ci.r / 2 * (th - Math.sin(th)), c: ci.c, m: V.mul(V.add(nw(l.a), nw(l.b)), 0.5) }); }); });
+  if (!ch.size) return; G.faces.forEach(f => { let d = 0; f.lids.forEach(id => { const q = ch.get(id); if (!q) return; const tp = V.add(q.m, V.mul(V.unit(V.sub(q.c, q.m)), 1e-4)); d += inPoly(tp, f.poly) ? q.seg : -q.seg; }); f.net += d; });
+}
 function updateRooms() {
-  const used = new Set();
+  arcFix(); const used = new Set();
   const ord = P.rooms.slice().sort((a, b) => (b.kind ? 1 : 0) - (a.kind ? 1 : 0)); ord.forEach(r => { let f = faceAt([r.ax, r.ay]); setF(r, null);
     if (f && used.has(f) && !r.kind) { const a = [r.ax, r.ay]; const fr = G.faces.filter(g => !used.has(g)); const c1 = fr.filter(g => inPoly(a, g.poly)).sort((x, y) => x.area - y.area)[0]; // anchor bir merdiven/elemanın içinde kaldı
       if (c1) f = c1; else { let best = 0, bf = null; fr.forEach(g => { const n = [...g.lids].filter(id => f.lids.has(id)).length; if (n > best) { best = n; bf = g; } }); f = bf; } }
@@ -372,7 +377,9 @@ function frameBase(fromId) { // orto eksen açısı (derece)
   if (SET.ortho === 'xy') return 0;
   if (S.chain && S.chain.firstLine) { const l = lineById(S.chain.firstLine); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
   if (fromId) { const l = P.lines.find(q => q.a === fromId || q.b === fromId); if (l) return norm90(headDeg(nw(l.a), nw(l.b))); }
-  const l = P.lines[0]; return l ? norm90(headDeg(nw(l.a), nw(l.b))) : 0;
+  // bağlı çizgi yoksa: binanın baskın yönü (düz çizgilerin boyla ağırlıklı en yaygın açısı; yay parçaları ve basamaklar hariç)
+  const arcN = new Set((P.arcs || []).flatMap(a => a.ids)); const bins = new Map(); P.lines.forEach(l => { if (l.step || (arcN.has(l.a) && arcN.has(l.b))) return; const a = Math.round(norm90(headDeg(nw(l.a), nw(l.b))) * 2) / 2; bins.set(a, (bins.get(a) || 0) + lineLen(l)); });
+  let best = 0, bw = 0; bins.forEach((w, a) => { if (w > bw) { bw = w; best = a; } }); return best;
 }
 function aimFrom() { // lastik bandın başlangıcı
   if ((S.tool === 'cizgi' || S.tool === 'duvar' || S.tool === 'cikinti' || mkCiz()) && S.chain) return { id: S.chain.last };
@@ -461,7 +468,7 @@ const TABS = [['cizim', 'Çizim', ['ciz', 'duz', 'ekle']], ['olcum', 'Ölçüm',
 const tabOf = c => (TABS.find(t => t[2].includes(c)) || TABS[0])[0];
 const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen'], ['daire', '◯', 'Daire']], duz: [['sec', '⬚', 'Seç'], ['cikinti', '⊓', 'Çıkıntı'], ['buda', '✂', 'Buda/Uzat'], ['sil', '⌫', 'Sil']], olc: [['olc', '📏', 'Lazer / Elle'], ['kontrol', '✓', 'Kontrol'], ['yukseklik', '↕', 'Yükseklik']], kroki: [['nokta', '⌖', 'Nokta adı'], ['disa', '⤓', 'DXF / Dışa']], ekle: [['aciklik', '🚪', 'Kapı/Pen.'], ['oda', '▦', 'Oda'], ['eleman', '▣', 'Eleman'], ['merdiven', '☰', 'Merdiven']] };
 function setCat(c) { S.cat = c; if (!TOOLS[c].some(t => t[0] === S.tool)) setTool(TOOLS[c][0][0]); else render(); }
-function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.dr = { mode: (S.dr && S.dr.mode) || '3n', pts: [] }; S.bu = { mode: (S.bu && S.bu.mode) || 'buda', l1: null }; S.yv = { pts: [], step: 0 }; S.kt = { mode: 'kos', a: null, b: null }; S.hs = { kind: null, id: null, f: null }; S.calc = null; S.op = { type: S.op ? S.op.type : 'kapi', step: 1, f: 'w', d: '', w: '' }; S.pendOpen = null; S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.np = false; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
+function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.dr = { mode: (S.dr && S.dr.mode) || '3n', pts: [], wall: !!(S.dr && S.dr.wall) }; S.chArc = null; S.bu = { mode: (S.bu && S.bu.mode) || 'buda', l1: null }; S.yv = { pts: [], step: 0 }; S.kt = { mode: 'kos', a: null, b: null }; S.hs = { kind: null, id: null, f: null }; S.calc = null; S.op = { type: S.op ? S.op.type : 'kapi', step: 1, f: 'w', d: '', w: '' }; S.pendOpen = null; S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.np = false; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null;
 
 /* ---- Çizgi ---- */
@@ -1008,8 +1015,10 @@ function daireGeom(extra) { const d = S.dr; const P0 = d.pts.concat(extra ? [ext
   if (d.mode === '2n') { if (P0.length < 2) return null; return { c: V.mul(V.add(P0[0], P0[1]), 0.5), r: V.dist(P0[0], P0[1]) / 2 }; }
   if (P0.length < 3) return null; return circ3(P0[0], P0[1], P0[2]); }
 function daireTap(c) { const p = s2w(c.X, c.Y); S.dr.pts.push(p); const need = S.dr.mode === '3n' ? 3 : 2; if (S.dr.pts.length >= need) daireMake(); else render(); }
-function daireMake() { const g = daireGeom(); if (!g || g.r < 0.02) { S.dr.pts = []; render(); return toast('Daire oluşmadı'); } snap(); const r = polyAdd(arcPts(g.c, g.r, 0, 2 * Math.PI), true); P.arcs = P.arcs || []; P.arcs.push({ id: uid('c'), ids: r.ids.slice(), closed: true }); S.dr.pts = []; S.kbuf = ''; commit(); const rs = autoRooms(r.lines); commit(); toast('Daire r=' + fmtM(g.r, 3) + ' m · Ø ' + fmtM(2 * g.r, 3) + (rs.length ? ' · ' + rs.map(q => q.name).join(', ') : '')); }
-function drawDairePrev() { if (S.tool === 'daire') { const ex = aim && aim.c ? s2w(aim.c.X, aim.c.Y) : null; const g = daireGeom(ex); S.dr.pts.forEach(p => { const q = w2s(...p); ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, 7); ctx.fill(); });
+function daireMake() { const g = daireGeom(); if (!g || g.r < 0.02) { S.dr.pts = []; render(); return toast('Daire oluşmadı'); } snap(); const r = polyAdd(arcPts(g.c, g.r, 0, 2 * Math.PI), true); P.arcs = P.arcs || []; P.arcs.push({ id: uid('c'), ids: r.ids.slice(), closed: true }); if (S.dr.wall && S.tool === 'daire') { P.walls.push({ id: uid('w'), nodes: r.ids.slice(), closed: true, t: SET.wallT, side: 1 }); } S.dr.pts = []; S.kbuf = ''; commit(); const rs = autoRooms(r.lines); commit(); toast('Daire r=' + fmtM(g.r, 3) + ' m · Ø ' + fmtM(2 * g.r, 3) + (rs.length ? ' · ' + rs.map(q => q.name).join(', ') : '')); }
+function drawDairePrev() { if (S.chArc && S.chain && nodeById(S.chain.last)) { const ex = aim && aim.c ? s2w(aim.c.X, aim.c.Y) : null; const A = nw(S.chain.last); ctx.save(); ctx.strokeStyle = '#22c55e'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; if (S.chArc.mid) { const q = w2s(...S.chArc.mid); ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, 7); ctx.fill(); const ar = ex && arcThrough(A, S.chArc.mid, ex); if (ar) { ctx.beginPath(); arcPts(ar.c, ar.r, ar.a0, ar.sweep).forEach((p, i) => { const q2 = w2s(...p); i ? ctx.lineTo(...q2) : ctx.moveTo(...q2); }); ctx.stroke(); } } ctx.restore(); }
+  if (S.tool === 'cikinti' && S.cik.mode === 'yay' && (S.cik.pts || []).length) { const ex = aim && aim.c ? s2w(aim.c.X, aim.c.Y) : null; const P0 = S.cik.pts.concat(ex ? [ex] : []); ctx.save(); ctx.fillStyle = '#22c55e'; P0.forEach(p => { const q = w2s(...p); ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, 7); ctx.fill(); }); if (P0.length >= 3) { const ar = arcThrough(P0[0], P0[1], P0[2]); if (ar) { ctx.strokeStyle = '#22c55e'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); arcPts(ar.c, ar.r, ar.a0, ar.sweep).forEach((p, i) => { const q = w2s(...p); i ? ctx.lineTo(...q) : ctx.moveTo(...q); }); ctx.stroke(); } } ctx.restore(); }
+  if (S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire')) { const ex = aim && aim.c ? s2w(aim.c.X, aim.c.Y) : null; const g = daireGeom(ex); S.dr.pts.forEach(p => { const q = w2s(...p); ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, 7); ctx.fill(); });
     if (g) { const q = w2s(...g.c); ctx.save(); ctx.strokeStyle = '#22c55e'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q[0], q[1], g.r * view.s, 0, 7); ctx.stroke(); ctx.restore(); } }
   if (S.tool === 'merdiven' && S.mk.mode === 'yuv') { const ex = aim && aim.c ? s2w(aim.c.X, aim.c.Y) : null; const P0 = S.yv.pts.concat(S.yv.step === 0 && ex ? [ex] : []); P0.forEach(p => { const q = w2s(...p); ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, 7); ctx.fill(); });
     if (P0.length >= 3) { const a = arcThrough(P0[0], P0[1], P0[2]); if (a) { ctx.save(); ctx.strokeStyle = '#22c55e'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); arcPts(a.c, a.r, a.a0, a.sweep).forEach((p, i) => { const q = w2s(...p); i ? ctx.lineTo(...q) : ctx.moveTo(...q); }); ctx.stroke(); ctx.restore(); } } } }
@@ -1041,6 +1050,24 @@ function yuvMake(side) { const a = arcThrough(...S.yv.pts); const W0 = (parseInt
   commit(); const saveT = S.tool; const f = faceAt(V.add(a.c, V.mul([Math.cos(a.a0 + a.sweep / 2), Math.sin(a.a0 + a.sweep / 2)], (a.r + r2) / 2))); let room = f && P.rooms.find(q => q._f === f); if (!room && f) room = makeRoomAt(interiorPt(f.poly), true); if (room) { room.kind = 'merdiven'; room.name = 'Merdiven'; st.stair = room.id; }
   P.stepSets.push(st); commit(); if (room && room._f) { const tri = triOf(room); const pts = arcPts(a.c, (a.r + r2) / 2, a.a0 + a.sweep * 0.04, a.sweep * 0.92).filter((_, i, arr) => i % Math.max(1, Math.floor(arr.length / 14)) === 0 || i === arr.length - 1); P.arrows = P.arrows || []; P.arrows.push({ id: uid('a'), pts, stair: room.id, tri, bc: tri ? pts.map(p => baryOf(p, tri.map(nw))) : null }); }
   S.yv = { pts: [], step: 0 }; commit(); toast('Dairesel merdiven · ' + N + ' rıh · iç r ' + fmtM(Math.min(a.r, r2), 2) + ' / dış r ' + fmtM(Math.max(a.r, r2), 2)); }
+
+/* ---- zincirde yay: son noktadan, yay üstünde bir noktadan geçip bitişe ---- */
+function chainArcTap(c) { const k = S.chArc; const p = s2w(c.X, c.Y);
+  if (!k.mid) { k.mid = p; render(); return; }
+  const A = nw(S.chain.last); const ar = arcThrough(A, k.mid, p); if (!ar) { S.chArc = null; render(); return toast('Üç nokta aynı doğruda · düz çizgi çiz'); }
+  const pts = arcPts(ar.c, ar.r, ar.a0, ar.sweep).slice(1, -1); snap(); const kind = 'sketch'; const ids = [S.chain.last];
+  pts.forEach(q => { const n = addNode(...q); const l = addLine(S.chain.last, n, kind); if (l) { S.chain.lines.push(l.id); if (!S.chain.firstLine) S.chain.firstLine = l.id; } S.chain.n++; S.chain.last = n; (S.chain.nodes = S.chain.nodes || [S.chain.first]).push(n); ids.push(n); });
+  S.chArc = null; const before = new Set(P.nodes.map(n => n.id)); chainAdd(c, kind); const endId = S.chain ? S.chain.last : (P.nodes.find(n => Math.hypot(n.x - p[0], n.y - p[1]) < 1e-6) || {}).id; if (endId) ids.push(endId);
+  P.arcs = P.arcs || []; P.arcs.push({ id: uid('c'), ids: ids.filter(Boolean), closed: false }); commit(); }
+/* ---- çıkıntı: yay (duvarda başlangıç → tepe → duvarda bitiş) ---- */
+function cikYayTap(c) { const k = S.cik; k.pts = k.pts || []; const p = s2w(c.X, c.Y);
+  if (k.pts.length === 0 || k.pts.length === 2) { const onL = ['end', 'near', 'mid', 'perp', 'int'].includes(c.type) && !c.wf; if (!onL) return toast('Duvar çizgisinin üstüne dokun'); }
+  k.pts.push(p); if (k.pts.length < 3) { render(); return; }
+  const [p0, pm, p1] = k.pts; k.pts = []; const ar = arcThrough(p0, pm, p1); if (!ar) { render(); return toast('Üç nokta aynı doğruda'); }
+  snap(); const a = nodeAt(p0), b = nodeAt(p1); const mid = arcPts(ar.c, ar.r, ar.a0, ar.sweep).slice(1, -1).map(q => addNode(...q)); const path = [a].concat(mid, [b]); const nl = [];
+  for (let i = 0; i + 1 < path.length; i++) { const l = addLine(path[i], path[i + 1], 'sketch'); if (l) nl.push(l.id); }
+  if (!applyDetour(a, b, path, nl)) { P = JSON.parse(undoSt.pop()); commit(); return toast('Başlangıç ve bitiş aynı oda sınırında olmalı'); }
+  P.arcs = P.arcs || []; P.arcs.push({ id: uid('c'), ids: path.slice(), closed: false }); commit(); toast('Yay eklendi · r ' + fmtM(ar.r, 2) + ' m · duvar ve oda yayı izliyor'); }
 
 /* =================== Serbest çizim =================== */
 function drawStroke() { if (!stroke || stroke.length < 2) return; ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); stroke.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); }
@@ -1096,8 +1123,8 @@ function aimOpts() {
   if (S.tool === 'dikdortgen') return {};
   return {};
 }
-function mkCiz() { return (S.tool === 'merdiven' || S.tool === 'eleman') && S.mk.mode === 'ciz'; }
-function needsAim() { return S.tool === 'daire' || (S.tool === 'merdiven' && S.mk.mode === 'yuv' && S.yv.step === 0) || S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || S.tool === 'cikinti' || S.tool === 'dikdortgen' || (S.tool === 'sec' && S.move); }
+function mkCiz() { return (S.tool === 'merdiven' || (S.tool === 'eleman' && S.elShape !== 'daire')) && S.mk.mode === 'ciz'; }
+function needsAim() { return S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire' && S.mk.mode === 'ciz') || (S.tool === 'merdiven' && S.mk.mode === 'yuv' && S.yv.step === 0) || S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || S.tool === 'cikinti' || S.tool === 'dikdortgen' || (S.tool === 'sec' && S.move); }
 cv.addEventListener('pointerdown', e => {
   const [X, Y] = evXY(e); ptrs.set(e.pointerId, [X, Y]); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   if (ptrs.size === 2) { if (gest && gest.t === 'grip' && gest.moved) { P = JSON.parse(undoSt.pop()); } aim = null; box = null; stroke = null; const [a, b] = [...ptrs.values()]; gest = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ox0: view.ox, oy0: view.oy }; draw(); return; }
@@ -1129,7 +1156,10 @@ function endPtr(e, cancel) {
   gest = null;
   if (g.t === 'stroke') { stroke = null; if (!cancel) processStroke(g.pts); else draw(); return; }
   if (g.t === 'aim') { const c = aim && aim.c; aim = null; if (cancel || !c) return draw();
-    if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || (S.tool === 'cikinti' && S.cik.mode === 'el')) chainAdd(c, c.type === 'len' ? 'typed' : 'sketch');
+    if (S.chArc && S.chain && (S.tool === 'cizgi' || S.tool === 'duvar' || (S.tool === 'cikinti' && S.cik.mode === 'el'))) chainArcTap(c);
+    else if (S.tool === 'eleman' && S.elShape === 'daire' && S.mk.mode === 'ciz') daireTap(c);
+    else if (S.tool === 'cikinti' && S.cik.mode === 'yay') cikYayTap(c);
+    else if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz() || (S.tool === 'cikinti' && S.cik.mode === 'el')) chainAdd(c, c.type === 'len' ? 'typed' : 'sketch');
     else if (S.tool === 'cikinti') cikTap(c);
     else if (S.tool === 'daire') daireTap(c);
     else if (S.tool === 'merdiven' && S.mk.mode === 'yuv') yuvTap(c);
@@ -1178,13 +1208,13 @@ function renderCmd() {
   else if (S.tool === 'olc') s = 'ÖLÇ  Çizgiye dokun → lazerle ölç ya da yaz · ölçülen çizgi tam oturur, diğerleri en az değişimle uyarlanır';
   else if (S.tool === 'aciklik') s = (S.op.type === 'kapi' ? 'KAPI' : 'PENCERE') + (S.op.step === 1 ? '  Duvar çizgisinde başlangıca dokun' : '  Köşeden mesafe (isteğe bağlı) + genişlik → yön oku · ya da bitişe dokun');
   else if (S.tool === 'merdiven') s = { ciz: 'MERDİVEN  Dış hattı çizgi gibi çiz · kapanınca Merdiven olur (odadan düşülür)', bas: 'MERDİVEN  Karşılıklı iki kenar → rıh sayısı', yuv: 'MERDİVEN (dairesel)  Kenar yayında başlangıç → ara → bitiş, sonra genişlik ve rıh', yon: 'MERDİVEN  Çıkış yönü: başlangıca, dönüşlere, bitişe dokun', alan: 'MERDİVEN  Alanın içine dokun' }[S.mk.mode];
-  else if (S.tool === 'eleman') s = (S.mk.mode === 'ciz' ? 'ELEMAN  Şekli çizgi gibi çiz · kapanınca ' : 'ELEMAN  Alanın içine dokun → ') + esc(S.elName) + ' (alanı yazar, odadan düşülmez)';
+  else if (S.tool === 'eleman') s = (S.mk.mode === 'ciz' ? (S.elShape === 'daire' ? 'ELEMAN  Daire: ' + { mr: 'merkeze dokun, sonra çevreye ya da r yaz', '2n': 'çapın iki ucuna dokun', '3n': 'çevrede 3 noktaya dokun' }[S.dr.mode] + ' · ' : 'ELEMAN  Şekli çizgi gibi çiz · kapanınca ') : 'ELEMAN  Alanın içine dokun → ') + esc(S.elName) + ' (alanı yazar, odadan düşülmez)';
   $('#cmd').innerHTML = s + o;
 }
 function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '6', 'C', '1', '2', '3', '00', '', '0', ['olc', 'kontrol', 'yukseklik'].includes(S.tool) ? ',' : '', ''].map(k => k ? `<button data-k="${k}">${k}</button>` : '<span></span>').join('')}</div>`; }
 function renderSheet() {
   let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
-  if (S.tool === 'daire') { const d = S.dr; h += `<div class="row">${[['mr', 'Merkez + r'], ['2n', '2 nokta (çap)'], ['3n', '3 nokta']].map(([k, t]) => `<button class="${d.mode === k ? 'on' : ''}" data-a="drm" data-v="${k}">${t}</button>`).join('')}</div>`;
+  if (S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire' && S.mk.mode === 'ciz')) { const d = S.dr; h += `<div class="row">${[['mr', 'Merkez + r'], ['2n', '2 nokta (çap)'], ['3n', '3 nokta']].map(([k, t]) => `<button class="${d.mode === k ? 'on' : ''}" data-a="drm" data-v="${k}">${t}</button>`).join('')}${S.tool === 'daire' ? `<button class="${d.wall ? 'on' : ''}" data-a="drw">▥ Duvar ${Math.round(SET.wallT * 100)}</button>` : ''}</div>`;
     h += `<div class="row"><span class="inf">${d.mode === 'mr' ? (d.pts.length ? 'Daire üstünde bir noktaya dokun ya da yarıçap yaz' : 'Merkeze dokun') : d.mode === '2n' ? 'Çapın iki ucuna dokun (' + d.pts.length + '/2)' : 'Daire üstünde 3 noktaya dokun (' + d.pts.length + '/3)'}</span>${d.pts.length ? '<button data-a="drx">Baştan</button>' : ''}</div>`;
     if (d.mode === 'mr' && d.pts.length) h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ r cm'}</button><button class="p" data-a="drok" ${S.kbuf ? '' : 'disabled'}>Çiz</button></div>` + (S.np ? numpad() : ''); }
   if (S.tool === 'buda') h += `<div class="row">${[['buda', '✂ Buda'], ['uzat', '⇥ Uzat'], ['birles', '⌐ Birleştir']].map(([k, t]) => `<button class="${S.bu.mode === k ? 'on' : ''}" data-a="bum" data-v="${k}">${t}</button>`).join('')}</div><div class="row"><span class="inf">${S.bu.mode === 'buda' ? 'Silinecek parçaya dokun (kesişimler arası)' : S.bu.mode === 'uzat' ? 'Çizginin uzatılacak ucuna yakın dokun → ilk değdiği çizgiye/duvara uzar' : S.bu.l1 ? 'İkinci çizgiye dokun (kalacak tarafına)' : 'İki çizgiye sırayla dokun (kalacak taraflarına) → kesişimde köşe olur'}</span></div>`;
@@ -1222,8 +1252,9 @@ function renderSheet() {
     else { h += `<div class="row"><span class="inf">Köşeden</span><button class="val ${k.f === 'd' ? 'act' : ''}" data-a="opf" data-v="d">${k.d || '0'} cm</button><span class="inf">Genişlik</span><button class="val ${k.f === 'w' ? 'act' : ''}" data-a="opf" data-v="w">${k.w || '—'} cm</button></div>`;
       h += `<div class="row"><span class="inf">2) Yön okuna bas ya da bitiş noktasına dokun</span>${opDirs().map(([sg, ar]) => `<button class="p" data-a="opar" data-v="${sg}">${ar}</button>`).join('')}<button data-a="opx">İptal</button></div>` + (S.np ? numpad() : ''); }
   }
-  if (S.tool === 'merdiven' || S.tool === 'eleman') { const m = S.mk; const md = S.tool === 'merdiven' ? [['ciz', 'Çerçeve'], ['bas', 'Basamak'], ['yuv', 'Dairesel'], ['yon', 'Yön'], ['alan', 'Alan']] : [['ciz', 'Çiz'], ['alan', 'Alana dokun']];
-    h += `<div class="row">${md.map(([k, t]) => `<button class="${m.mode === k ? 'on' : ''}" data-a="mkm" data-v="${k}">${t}</button>`).join('')}</div>`;
+  if (S.tool === 'merdiven' || S.tool === 'eleman') { const m = S.mk; const md = S.tool === 'merdiven' ? [['ciz', 'Çerçeve'], ['bas', 'Basamak'], ['yuv', 'Dairesel'], ['yon', 'Yön'], ['alan', 'Alan']] : null;
+    if (md) h += `<div class="row">${md.map(([k, t]) => `<button class="${m.mode === k ? 'on' : ''}" data-a="mkm" data-v="${k}">${t}</button>`).join('')}</div>`;
+    else h += `<div class="row"><button class="${m.mode === 'ciz' && S.elShape !== 'daire' ? 'on' : ''}" data-a="els" data-v="ciz">╱ Çizgi</button><button class="${m.mode === 'ciz' && S.elShape === 'daire' ? 'on' : ''}" data-a="els" data-v="daire">◯ Daire</button><button class="${m.mode === 'alan' ? 'on' : ''}" data-a="mkm" data-v="alan">Alana dokun</button></div>`;
     if (S.tool === 'eleman') h += `<div class="row"><span class="inf">Ad</span>${['Kolon', 'Şömine', 'Baca', 'Şaft'].map(n => `<button class="${S.elName === n ? 'on' : ''}" data-a="eln" data-v="${n}">${n}</button>`).join('')}<button data-a="elx">Diğer…</button></div>`;
     if (m.mode === 'yuv') { const y = S.yv; if (y.step === 0) h += `<div class="row"><span class="inf">Merdivenin bir kenar yayında 3 nokta: başlangıç → ara → bitiş (${y.pts.length}/3)</span>${y.pts.length ? '<button data-a="yvx">Baştan</button>' : ''}</div>`;
       else h += `<div class="row"><span class="inf">Genişlik</span><button class="val ${S.yv.f !== 'n' ? 'act' : ''}" data-a="yvf" data-v="w">${y.w || '—'} cm</button><span class="inf">Rıh</span><button class="val ${S.yv.f === 'n' ? 'act' : ''}" data-a="yvf" data-v="n">${y.n || '—'}</button></div>` + numpad() + `<div class="row"><button class="p" data-a="yvok" data-v="1">Dışa doğru</button><button class="p" data-a="yvok" data-v="-1">İçe doğru</button><button data-a="yvx">Baştan</button></div>`; }
@@ -1231,6 +1262,7 @@ function renderSheet() {
     if (m.mode === 'bas') { h += `<div class="row"><span class="inf">${!m.l1 ? '1) Kolun bir kenar çizgisine dokun' : !m.l2 ? '2) Karşı kenar çizgisine dokun' : '3) Rıh sayısını yaz · başlangıç ve bitiş dahil · kısa kenar esas alınır, dik çıkılır'}</span></div><div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' rıh' : '⌨ rıh'}</button><button class="p" data-a="stp" ${m.l1 && m.l2 && S.kbuf ? '' : 'disabled'}>Basamakları at</button><button data-a="mkr">Seçimi sıfırla</button></div>` + (S.np ? numpad() : ''); }
     if (m.mode === 'yon') h += `<div class="row"><span class="inf">${m.pts.length ? m.pts.length + ' nokta · kırılma noktalarına dokun, sonra Bitir' : 'Çıkışın başladığı yere dokun (L/U için dönüşlere de dokun)'}</span></div><div class="row"><button data-a="yonb" ${m.pts.length ? '' : 'disabled'}>↶ Son</button><button data-a="yonx" ${m.pts.length ? '' : 'disabled'}>İptal</button><button class="p" data-a="yonok" ${m.pts.length >= 2 ? '' : 'disabled'}>Bitir</button></div>`;
   }
+  if ((S.tool === 'cizgi' || S.tool === 'duvar') && S.chain) h += `<div class="row"><button class="${S.chArc ? 'on' : ''}" data-a="charc">◠ Yay</button><span class="inf">${S.chArc ? (S.chArc.mid ? 'Yayın bitişine dokun (ilk noktaya = kapat)' : 'Yay üstünde bir noktaya dokun') : 'Sonraki parçayı yay yap'}</span></div>`;
   if (S.tool === 'cizgi' || S.tool === 'duvar' || mkCiz()) {
     if (S.tool === 'duvar') h += wallRow(SET.wallT, 'wt');
     h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button><button data-a="ar" data-v="2" ${S.chain ? '' : 'disabled'}>←</button><button data-a="ar" data-v="1" ${S.chain ? '' : 'disabled'}>↑</button><button data-a="ar" data-v="3" ${S.chain ? '' : 'disabled'}>↓</button><button data-a="ar" data-v="0" ${S.chain ? '' : 'disabled'}>→</button></div>`;
@@ -1255,7 +1287,7 @@ function renderSheet() {
     else { const n = (sel.lines || []).length; h += `<div class="row"><span class="inf">${n} çizgi${(sel.nodes || []).length ? ' + ' + sel.nodes.length + ' köşe' : ''} seçili</span></div><div class="row"><button data-a="mv">Taşı</button><button data-a="mkwall">▥ Duvar</button><button class="dng" data-a="del">Sil</button><button data-a="unsel">✕</button></div>`; }
   } else if (S.tool === 'serbest') { const ok = S.lastStroke.some(id => lineById(id)); if (S.strokeAsk && S.strokeAsk.lids.every(id => lineById(id))) h += `<div class="row"><span class="inf"><b style="color:#fff">Oda kenarında başlayıp bitti. Çıkıntı / girinti mi?</b></span></div><div class="row"><button class="p" data-a="skY">Evet, odaya kat</button><button data-a="skN">Hayır, çizgi kalsın</button></div>`; if (S.cikAsk) h += `<div class="row"><span class="inf"><b style="color:#fff">Dış yüz (komşu duvar) de değişsin mi?</b></span></div><div class="row"><button class="p" data-a="askY">Evet, kalınlık korunsun</button><button data-a="askN">Hayır, sabit kalsın</button></div>`; h += `<div class="row"><span class="inf">Parmakla çiz · iki parmak = kaydır</span></div>` + (ok ? wallRow(SET.wallT, 'wt') + `<div class="row"><button class="p" data-a="wstroke">▥ Son çizime duvar ekle</button></div>` : ''); }
   else if (S.tool === 'sil') h += `<div class="row"><span class="inf">Çizgi, köşe ya da oda adına dokun</span></div>`;
-  else if (S.tool === 'cikinti') { const k = S.cik; h += `<div class="row"><button class="${k.mode === 'el' ? 'on' : ''}" data-a="cikm" data-v="el">Çizerek</button><button class="${k.mode === 'olcu' ? 'on' : ''}" data-a="cikm" data-v="olcu">Ölçü yazarak</button></div>`;
+  else if (S.tool === 'cikinti') { const k = S.cik; h += `<div class="row"><button class="${k.mode === 'el' ? 'on' : ''}" data-a="cikm" data-v="el">Çizerek</button><button class="${k.mode === 'olcu' ? 'on' : ''}" data-a="cikm" data-v="olcu">Ölçü yazarak</button><button class="${k.mode === 'yay' ? 'on' : ''}" data-a="cikm" data-v="yay">◠ Yay</button></div>` + (k.mode === 'yay' ? `<div class="row"><span class="inf">Duvarda başlangıç → yayın tepesi → duvarda bitiş (${(k.pts || []).length}/3) · içe ya da dışa · aradaki duvar kesilir</span>${(k.pts || []).length ? '<button data-a="cikyx">Baştan</button>' : ''}</div>` : '');
     if (S.cikAsk) h += `<div class="row"><span class="inf"><b style="color:#fff">Dış yüz (komşu duvar) de değişsin mi?</b></span></div><div class="row"><button class="p" data-a="askY">Evet, kalınlık korunsun</button><button data-a="askN">Hayır, sabit kalsın</button></div>`;
     if (k.mode === 'el') h += `<div class="row"><button class="val ${S.kbuf || S.np ? 'act' : ''}" data-a="np">${S.kbuf ? S.kbuf + ' cm' : '⌨ cm'}</button>${[2, 1, 3, 0].map(v => `<button data-a="ar" data-v="${v}" ${S.chain ? '' : 'disabled'}>${'←↑↓→'[[2, 1, 3, 0].indexOf(v)]}</button>`).join('')}</div>` + (S.np ? numpad() : '') + `<div class="row"><button data-a="back" ${S.chain && S.chain.n ? '' : 'disabled'}>↶ Son</button><button class="p" data-a="end" ${S.chain ? '' : 'disabled'}>Bitir</button></div>`;
     else { const l = k.line && lineById(k.line); const u = l ? lu(l) : [1, 0]; const ue = k.e ? V.unit(V.sub(k.e, k.s)) : u; const nrm = [-ue[1], ue[0]];
@@ -1276,6 +1308,10 @@ $('#sheet').addEventListener('click', e => {
     if (tgt) { if (S.tool === 'aciklik') S.op[tgt] = v; else S.rect[tgt] = v; } else S.kbuf = v; render(); return; }
   const a = b.dataset.a;
   if (a === 'np') S.np = !S.np;
+  else if (a === 'charc') { S.chArc = S.chArc ? null : { mid: null }; }
+  else if (a === 'cikyx') S.cik.pts = [];
+  else if (a === 'drw') S.dr.wall = !S.dr.wall;
+  else if (a === 'els') { if (S.chain) finishChain(); S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.elShape = b.dataset.v; S.dr = { mode: S.dr.mode === '3n' && S.elShape === 'daire' ? 'mr' : S.dr.mode, pts: [], wall: S.dr.wall }; }
   else if (a === 'drm') S.dr = { mode: b.dataset.v, pts: [] };
   else if (a === 'drx') S.dr.pts = [];
   else if (a === 'drok') { daireMake(); return; }
