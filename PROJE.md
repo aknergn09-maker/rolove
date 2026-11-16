@@ -373,6 +373,8 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 
 - Önizleme: daire duvarlarla KESİLİR (circleCut): Daire aracında 3 nokta serbest (boşlukta olabilir); daire çizgileri kestiği yerlerden bölünür, odaların DIŞINDA kalan yaylar applyDetour ile oda sınırına katılır (düz parça silinir, duvar/oda/açıklık izler), içerde kalan yay çizilmez; değmezse normal daire. Çıkıntı-Yay: 3 nokta serbest, dokunulan tarafın yayı tutulur (içe/dışa). Yay araçlarında duvar yüzüne yakalama ve ORTO kapalı; yay parçalarının uzantı kesişimleri yakalanmaz (hata: dokunuş 18 cm kayıyordu). Yeni daire oda adının üstüne düşerse ad odanın kalan kısmına taşınır. Yay alan düzeltmesi adalarda da. t-p6.py 8 kontrol.
 
+- Önizleme: daire/yay önizlemesi sonucu birebir gösterir (circlePlan ortak): kalacak yay kalın yeşil, atılacak yay soluk kesik, silinecek duvar parçası kırmızı kesik. Düzenle → Buda/Yuvarla → ◜ Yuvarla (fillet): yarıçap (cm) → köşeye dokun (iki çizgili köşe) → teğet yay önizlemesi → Uygula (applyDetour, duvar/oda izler); sığmazsa "en çok … cm". t-p7.py 14 kontrol (önizleme pikselleri parmak ekrandayken ölçülür).
+
 ### Konuşulan öneriler (uygulandı, v8.9)
 - Oda düzenle: Çıkıntı/Girinti aracı — duvara dokun, genişlik + derinlik (+dış / −iç) yaz, aradaki duvar parçası otomatik silinir, duvar kalınlığı yeni sınırı izler. Alternatif: serbestçe çiz, aradaki parça otomatik kırpılsın.
 - Duvar ötele: çizgiyi seç → cm yaz → İçe/Dışa. Uçlara bağlı komşu çizgiler kendi doğrultusunda uzar/kısalır (açılar korunur); kalınlık bantları izler. Komşu odanın aynı duvardaki çizgisi de birlikte ötelensin mi (bağlı duvar)?
