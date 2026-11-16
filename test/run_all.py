@@ -5,9 +5,8 @@ d = pathlib.Path(__file__).resolve().parent
 import os
 files = sorted(d.glob('t*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem)))
 if os.environ.get('PAGE', 'index.html') != 'index.html':
-    # önizleme v12: duvar iki bağımsız çizgi — eski "referans + hesaplanan yüz" testleri sadece ana uygulama için
-    V11 = {'t2','t3','t4','t5','t7','t8','t9','t10','t11','t12','t13','t16','t17','t20','t21','t22','t23','p5','p6','p7','p8','p11','t25'}
-    files = [f for f in files if f.stem not in V11] + sorted(f for f in d.glob('p*.py') if f.stem not in V11) + sorted(d.glob('q*.py'))
+    # önizleme = ana uygulama + yeni aşamalar: tüm ana testler + önizleme testleri (p*)
+    files = files + sorted(d.glob('p*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem)))
 bad = 0
 for f in files:
     r = subprocess.run([sys.executable, str(f)], capture_output=True, text=True, timeout=600)

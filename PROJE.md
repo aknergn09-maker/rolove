@@ -422,3 +422,10 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - refKolon: turuncu (oda) çizgisinden içeri çizilen çıkıntıda da soru: "Ofset korunsun (o da kayar)" / "Duvar kalınlaşsın (o sabit)". Kalınlaşsın = beyaz yüz düz kalır, çizilen yol ile eski turuncu çizgi arası duvar dolgusu (fills), oda küçülür. Varsayılan: kalınlaşsın; ama derinlik > 60 cm (gerçek girinti), duvarda kapı/pencere varsa ya da çizilen yer odaya katıldıysa (dışa) ofset korunsun. Zincir, Ölçü yazarak, serbest ve yay yollarının hepsinde.
 - underFillSet: dolgunun altında kalan eski turuncu çizgiler, ölçü yazısı ve yalnız onlara ait nokta çizilmez; Ölç/kapı seçiminde de seçilmez.
 - Test t25 (11). t17 SETUP soru durumunu sıfırlar.
+
+### Önizleme = v11.5 + aşamalar (17.11 gece; kullanıcı: "üstteki sekme olsun, sıralama iyi, hepsini yap, sabah bakarım")
+- v12 önizleme bırakıldı (git geçmişinde, testleri test/v12_arsiv). Yeni önizleme: 190c15a'daki önizleme (v11.2 + sekmeler, daire, kontrol, yükseklik, kroki, DXF, objeler, lazerden kalınlık) ile ana uygulamanın v11.3–v11.5 değişiklikleri 3 yollu birleştirildi (git merge-file), 6 çakışma elle çözüldü.
+- Kayıt alanı rk4p_* (ilk açılışta ana uygulamanın projeleri kopyalanır; eski v12 önizleme projeleri rk3p_* içinde, dokunulmadı).
+- DXF: kolon altındaki gizli turuncu çizgiler yazılmaz, kapı/pencere boşluğunda oda çizgisi bölünür (ekranla aynı).
+- run_all: PAGE=onizleme.html → tüm t* + p* (q* arşivde). Yeni p12: uçtan uca (duvar, kapı, köşe kolonu, ölçü, köşegen+hesapla, yükseklik, nokta adı, DXF).
+- Bilinen küçük: kolon dolgusu ile duvar taraması birleşim yerinde çok ince desen dikişi görünüyor.
