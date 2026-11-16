@@ -406,3 +406,10 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - Testler: q1.py 18 kontrol; önizlemede eski duvar testleri (V11 listesi run_all'da) atlanır, ana uygulamada çalışır.
 - Eksik (sıradaki): daire/yayın duvarı kesmesi ve Çıkıntı-Yay iki çizgili duvarda; "Ölçü yazarak" çıkıntı ve serbest çizim çıkıntısı karşı yüzü kaydırmıyor; duvar aksı yakalama yok; kroki yazı kalabalığı.
 - v12 önizleme (23:xx): kapı/pencere duvarın karşı çizgisini de kenarlarından böler (splitOppOpenings, commit'te). Ekle → ▨ Duvar alanı: taralı yere dokun = o dörtgen/dolgunun taraması kalkar (P.wqOff'ta saklanır, tekrar dokun = geri gelir); kapalı alana dokun = taralı duvar alanı (oda silinir), tekrar dokun = kalkar, oda geri gelir. Sağdaki ▾/▴ düğmesi alttaki araç çubuğunu gizler/açar. q1.py 25 kontrol.
+
+### v12 tamamlama + v11.4 lazer (16.11 gece, son tur)
+- Duvar alanı (tarama) aracı artık GRUP bazında: duvarın bir yerine dokununca o duvarın taramasının tamamı kalkar / geri gelir (P.wqOff).
+- cikApplyPath ortak: zincir, Ölçü yazarak, serbest çizim ve yay çıkıntısı hepsi aynı yoldan; duvarsız çizgide klasik çıkıntı (soru yok).
+- Daire ile açık duvarı kapatma: wallCapOf + arcWallJoin — iki uç kapağı silinir, iç yay + ofset dış yay, tarama yay boyunca (test q2/6: oda 45.343).
+- Lazer (her iki sayfa): laserParse gevşetildi (C0 55 10 + değer>0.01), otomatik gönderim için 3 yazma yöntemi denenir, bağlantı koparsa 1 kez yeniden bağlanır, Ölç panelinde "Gelen veri: N paket · son hex" teşhis satırı; iPhone Safari/Chrome'da Web Bluetooth YOK → Bluefy uyarısı. Test t24.
+- Ana: v11.4 (yalnız lazer). v12 ana uygulamaya kullanıcı onayı ile geçecek.

@@ -92,7 +92,7 @@ button.dng{color:#fca5a5}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.3';
+const VER = 'v11.4';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -964,19 +964,23 @@ function applyMeasure(l, m, fd) { // fd: duvarın diğer yüzü ölçüldüyse y
 }
 /* ---- Bosch GLM (GLM 50 C ailesi) Bluetooth ---- */
 const GLM_SVC = '02a6c0d0-0451-4000-b000-fb3210111989', GLM_CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
-const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null };
-function laserParse(dv) { if (dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10 || b(3) !== 0x06) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0 && v < 300 ? v : null; }
+const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null, raw: [], n: 0, auto: null };
+function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0.01 && v < 300 ? v : null; } // GLM 50 C: C0 55 10 06 .. .. .. [float32 LE, metre]
 function laserValue(m) { LZ.last = m; const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { if (S.ms.dim) applyDim(S.ms.dim, m); else applyMeasure(l, m, S.ms.fd); S.ms.sel = null; S.ms.pend = null; S.ms.fd = 0; S.ms.fs = null; S.ms.dim = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
 async function laserConnect() {
-  if (!navigator.bluetooth) return alert('Bu tarayıcıda Bluetooth yok.\niPhone\'da uygulamayı Bluefy tarayıcısında aç. Değeri elle de yazabilirsin.');
-  try { LZ.state = 'bağlanıyor'; render(); const dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'GLM' }, { services: [GLM_SVC] }], optionalServices: [GLM_SVC] });
-    LZ.dev = dev; LZ.name = dev.name || 'GLM'; dev.addEventListener('gattserverdisconnected', () => { LZ.state = 'koptu'; LZ.chr = null; render(); toast('Lazer bağlantısı koptu'); });
-    const srv = await dev.gatt.connect(); const svc = await srv.getPrimaryService(GLM_SVC); const chr = await svc.getCharacteristic(GLM_CHR); LZ.chr = chr;
-    chr.addEventListener('characteristicvaluechanged', e => { const v = laserParse(e.target.value); if (v != null) laserValue(v); }); await chr.startNotifications();
-    const cmd = new Uint8Array([0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A]); try { if (chr.writeValueWithoutResponse) await chr.writeValueWithoutResponse(cmd); else await chr.writeValue(cmd); } catch (e) { await chr.writeValue(cmd); }
-    LZ.state = 'bağlı'; toast('Lazer bağlandı: ' + LZ.name);
+  if (!navigator.bluetooth) return alert('Bu tarayıcı Bluetooth\'a izin vermiyor.\niPhone Safari ve Chrome lazer metreye bağlanamaz (Apple izin vermiyor).\nApp Store\'dan "Bluefy – Web BLE Browser" kur, uygulamayı onda aç: aknergn09-maker.github.io/rolove\nDeğeri elle de yazabilirsin.');
+  try { LZ.state = 'bağlanıyor'; render(); const dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'GLM' }, { namePrefix: 'Bosch' }, { services: [GLM_SVC] }], optionalServices: [GLM_SVC] });
+    LZ.dev = dev; LZ.name = dev.name || 'GLM'; dev.addEventListener('gattserverdisconnected', () => { LZ.state = 'koptu'; LZ.chr = null; render(); toast('Lazer bağlantısı koptu · yeniden bağlanıyor…'); setTimeout(() => { if (LZ.dev === dev && LZ.state === 'koptu') laserAttach(dev).catch(() => { LZ.state = 'koptu'; render(); }); }, 1200); });
+    await laserAttach(dev);
   } catch (e) { LZ.state = 'yok'; if (e && e.name !== 'NotFoundError') alert('Lazer bağlanamadı: ' + (e.message || e)); }
   render();
+}
+async function laserAttach(dev) { LZ.state = 'bağlanıyor'; render(); const srv = await dev.gatt.connect(); const svc = await srv.getPrimaryService(GLM_SVC); const chr = await svc.getCharacteristic(GLM_CHR); LZ.chr = chr;
+  if (!chr._rk) { chr._rk = true; chr.addEventListener('characteristicvaluechanged', e => { const dv = e.target.value; LZ.n++; try { const hx = []; for (let i = 0; i < Math.min(dv.byteLength, 14); i++) hx.push(dv.getUint8(i).toString(16).padStart(2, '0').toUpperCase()); LZ.raw = [hx.join(' ')].concat(LZ.raw).slice(0, 3); } catch (er) {} const v = laserParse(dv); if (v != null) laserValue(v); else render(); }); }
+  await chr.startNotifications(); // GLM ölçümleri "indication" ile gönderir; tarayıcı ikisini de bu çağrıyla açar
+  const cmd = new Uint8Array([0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A]); LZ.auto = false; // otomatik gönderme (her ölçüm telefona gelir)
+  for (const f of ['writeValueWithoutResponse', 'writeValueWithResponse', 'writeValue']) { if (!chr[f]) continue; try { await chr[f](cmd); LZ.auto = true; break; } catch (e) {} }
+  LZ.state = 'bağlı'; render(); toast('Lazer bağlandı: ' + LZ.name + (LZ.auto ? '' : ' · otomatik gönderme açılamadı: ölçümden sonra lazerin Bluetooth tuşuna bas'));
 }
 function olcTap(X, Y) {
   const h = opLineAt(X, Y); if (!h) { S.ms.sel = null; render(); return toast('Ölçülecek çizgiye dokun'); }
@@ -1118,6 +1122,8 @@ function renderSheet() {
   let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
   if (S.tool === 'olc') { const l = S.ms.sel && lineById(S.ms.sel); const st = LZ.state;
     h += `<div class="row"><span class="inf">Lazer: <b style="color:${st === 'bağlı' ? '#4ade80' : '#fca5a5'}">${st === 'bağlı' ? '● ' + esc(LZ.name) : st === 'bağlanıyor' ? 'bağlanıyor…' : 'bağlı değil'}</b></span><button data-a="lzc">${st === 'bağlı' ? 'Yeniden bağla' : '🔗 Bağlan'}</button></div>`;
+    if (!navigator.bluetooth) h += `<div class="row"><span class="inf" style="color:#fca5a5">Bu tarayıcı Bluetooth'a izin vermiyor. iPhone'da <b>Bluefy</b> tarayıcısıyla aç; değeri elle de yazabilirsin.</span></div>`;
+    else if (st === 'bağlı') h += `<div class="row"><span class="inf" style="font-size:12px">Gelen veri: ${LZ.n} paket${LZ.raw.length ? ' · son: <code>' + esc(LZ.raw[0]) + '</code>' : ' · lazerde ölçüm yap'}${LZ.auto === false ? ' · otomatik gönderme kapalı' : ''}</span></div>`;
     if (S.ms.pend != null) h += `<div class="row"><span class="inf"><b style="color:#fff">Gelen ölçü ${fmtM(S.ms.pend, 3)} m</b> · ölçtüğün çizgiye dokun</span><button data-a="mspx">Vazgeç</button></div>`;
     h += `<div class="row"><span class="inf">${l ? (S.ms.fs ? (S.ms.dim ? 'Duvar yüzünde parça: ' : 'Duvarın diğer yüzü: ') + '<b style="color:#fff">' + fmtM(V.dist(...S.ms.fs), 3) + ' m</b> (çizgi ' + fmtM(lineLen(l), 3) + ') ' : 'Seçili: <b style="color:#fff">' + fmtM(lineLen(l), 3) + ' m</b> ') + (l.kind === 'laser' ? '(lazer ' + fmtM(l.m, 3) + ')' : l.kind === 'typed' ? '(yazılan)' : '(eskiz)') + ' · lazerle ölç ya da yaz' : 'Ölçülecek çizgiye dokun (önce ya da sonra lazerle ölç)'}</span></div>`;
     h += `<div class="row"><button class="val ${S.np ? 'act' : ''}" data-a="np">${S.ms.buf ? S.ms.buf + ' cm' : '⌨ cm'}</button><button class="p" data-a="msok" ${l && olcBufVal() ? '' : 'disabled'}>Uygula</button>${l && l.kind === 'laser' ? '<button data-a="msrm">Ölçüyü kaldır</button>' : ''}<button data-a="msadj">Yeniden hesapla</button></div>` + (S.np ? numpad() : '');
