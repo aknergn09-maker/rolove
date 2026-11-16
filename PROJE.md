@@ -413,3 +413,4 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - Daire ile açık duvarı kapatma: wallCapOf + arcWallJoin — iki uç kapağı silinir, iç yay + ofset dış yay, tarama yay boyunca (test q2/6: oda 45.343).
 - Lazer (her iki sayfa): laserParse gevşetildi (C0 55 10 + değer>0.01), otomatik gönderim için 3 yazma yöntemi denenir, bağlantı koparsa 1 kez yeniden bağlanır, Ölç panelinde "Gelen veri: N paket · son hex" teşhis satırı; iPhone Safari/Chrome'da Web Bluetooth YOK → Bluefy uyarısı. Test t24.
 - Ana: v11.4 (yalnız lazer). v12 ana uygulamaya kullanıcı onayı ile geçecek.
+- (16.11 23:40) Kullanıcı: "tarama program yapmasın, en son ben yapayım". Duvar bilgisi (P.wq, kalınlık bağı, çıkıntı sorusu) aynen duruyor; sadece GÖRÜNÜM: P.hatchOn = taralı duvar grupları, dolgularda f.hatch. Program kendiliğinden taramaz; Duvar alanı aracı grup grup açar/kapar. Taralı duvarda "kalınlaşsın" dolgusu taralı gelir.

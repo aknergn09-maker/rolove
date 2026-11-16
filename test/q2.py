@@ -59,8 +59,9 @@ async def main():
         ck('duvarsız odada çıkıntı: klasik, oda 12.5, soru yok', await ev(RM)==[12.5] and not await ev("!!RK.S.faceAsk"), [await ev(RM), await ev("RK.S.faceAsk")])
         # 5) tarama: bir yerine dokununca o duvarın tamamı
         await ev(INIT % WALL); await btn('#cats button[data-cat=ekle]'); await btn('#tools button[data-tool=tarama]')
-        await ctap(2,-0.1); ck('Duvar alanı: duvarın bir yerine dokununca taramanın tamamı kalktı', await ev("RK.P.wq.length")==0 and await ev("RK.P.wqOff.length")==4, [await ev("RK.P.wq.length")])
-        await ctap(-0.1,1.5); ck('  başka yerine dokununca tamamı geri geldi', await ev("RK.P.wq.length")==4, await ev("RK.P.wq.length"))
+        ck('Program kendisi taramıyor (duvar var, tarama yok)', await ev("RK.P.wq.length")==4 and not await ev("(RK.P.hatchOn||[]).length"), await ev("RK.P.hatchOn"))
+        await ctap(2,-0.1); ck('Duvar alanı: duvarın bir yerine dokununca duvarın tamamı tarandı', await ev("(()=>{const H=new Set(RK.P.hatchOn||[]); return RK.P.wq.every(q=>H.has(q.g))})()"), await ev("RK.P.hatchOn"))
+        await ctap(-0.1,1.5); ck('  başka yerine dokununca tamamının taraması kalktı, duvar yerinde', not await ev("(RK.P.hatchOn||[]).length") and await ev("RK.P.wq.length")==4, await ev("RK.P.hatchOn"))
         # 6) açık U duvarı 3 noktalı daireyle kapatma: tek oda, iki eş merkezli yay
         await ev("localStorage.clear()"); await pg.reload(); await pg.wait_for_timeout(300)
         r = await ev("""(()=>{const P=RK.P; const C=[[0,0],[0,8],[5,8],[5,0]]; const ids=C.map(([x,y],i)=>{const id='u'+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<3;i++) P.lines.push({id:'U'+i,a:ids[i],b:ids[i+1],kind:'sketch'}); P.walls.push({id:'WU',nodes:ids,closed:false,t:0.2,side:1}); RK.commit();

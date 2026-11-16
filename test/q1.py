@@ -72,8 +72,9 @@ async def main():
         # duvar alanı (tarama): iç duvar bandı → tarama kalkar; tekrar → taralı
         await ev(f"RK.P=JSON.parse({SAVED!r}); RK.commit(); RK.view.s=70; RK.view.ox=-20; RK.view.oy=320; RK.commit()")
         await btn('#tools button[data-tool=tarama]'); q0 = await ev("RK.P.wq.length")
-        await ctap(2.9, 2); q1 = await ev("RK.P.wq.length"); ck('Duvar alanı aracı: iç duvar bandına dokununca o duvarın taraması kalktı', q1 == q0-1, [q0, q1, await ev(TOAST)])
-        await ctap(2.9, 2); ck('  tekrar dokununca tarama geri geldi, odalar aynı', await ev("RK.P.wq.length")==q0 and sorted(await ev(RM))==[11.2,12], [await ev("RK.P.wq.length"), await ev(RM)])
+        HQ = "(()=>{const H=new Set(RK.P.hatchOn||[]); return RK.P.wq.filter(q=>H.has(q.g)).length})()"
+        await ctap(2.9, 2); q1 = await ev(HQ); ck('Duvar alanı aracı: iç duvar bandına dokununca o duvar tarandı (kendiliğinden taralı değildi)', q1 >= 1 and q1 < q0, [q0, q1, await ev(TOAST)])
+        await ctap(2.9, 2); ck('  tekrar dokununca tarama kalktı, duvar ve odalar aynı', await ev(HQ)==0 and await ev("RK.P.wq.length")==q0 and sorted(await ev(RM))==[11.2,12], [await ev(HQ), await ev(RM)])
         await ctap(4.5, 2); ck('  oda alanına dokununca taralı duvar alanı oldu, oda sayılmadı', await ev("RK.P.fills.length")==1 and await ev(RM)==[11.2], [await ev("RK.P.fills.length"), await ev(RM)])
         await ctap(4.5, 2); ck('  tekrar dokununca tarama kalktı, alan yine oda', await ev("RK.P.fills.length")==0 and sorted(await ev(RM))==[11.2,12], [await ev("RK.P.fills.length"), await ev(RM)])
         # alttaki düğmeleri gizle/aç
