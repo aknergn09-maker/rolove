@@ -45,6 +45,14 @@ async def main():
         A1 = await ev("RK.P.nodes.filter(n=>n.id[0]==='a').map(n=>[n.x,n.y])")
         ck('  A odası hiç oynamadı', all(math.dist(p,q)<1e-6 for p,q in zip(A0,A1)), [A0,A1])
         ck('  B’nin duvar uçları A’nın yüzünde kaldı', await ev("(()=>{const g=RK.wallGeom(RK.P.walls[0]); const f=g.quads.find(q=>q.i===2); return ['b0','b3'].every(id=>{const n=RK.P.nodes.find(x=>x.id===id); const A=f.poly[3],B=f.poly[2]; return Math.abs((B[0]-A[0])*(n.y-A[1])-(B[1]-A[1])*(n.x-A[0]))/Math.hypot(B[0]-A[0],B[1]-A[1])<1e-3})})()"))
+        # A tamamen lazerle ölçülmüşse (bitmiş oda): B içinde A'nın yüzünde parça ölçülünce A oynamaz, B'nin duvarı kayar
+        await ev("RK.P.lines.filter(l=>l.id[0]==='A').forEach(l=>{l.kind='laser'; l.m=+RK.lineLen(l).toFixed(4)}); RK.P.diags=[]; RK.commit()")
+        A0 = await ev("RK.P.nodes.filter(n=>n.id[0]==='a').map(n=>[n.x,n.y])"); aB0 = await ev("+RK.rA(RK.P.rooms[1]).toFixed(4)")
+        await btn('#tools button[data-tool=olc]'); await ctap(3.5, 4.45); fs = await ev("RK.S.ms.fs"); w0 = math.dist(*fs) if fs else 0
+        await ev(f"RK.laserValue({round(w0+0.3,3)})"); await btn('#sheet button[data-a=msok]')
+        A1 = await ev("RK.P.nodes.filter(n=>n.id[0]==='a').map(n=>[n.x,n.y])")
+        await ctap(3.5, 4.45); fs2 = await ev("RK.S.ms.fs"); w1 = math.dist(*fs2) if fs2 else 0
+        ck('bitmiş A odası, B içinden A yüzüne ölçü: A hiç oynamadı, parça %.3f oldu, B büyüdü' % (w0+0.3), all(math.dist(p,q)<1e-5 for p,q in zip(A0,A1)) and abs(w1-round(w0+0.3,3))<2e-3 and await ev("+RK.rA(RK.P.rooms[1]).toFixed(4)")>aB0, [w0, w1, await ev("document.querySelector('#toast').textContent")])
         await pg.screenshot(path='p14.png')
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)
