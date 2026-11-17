@@ -50,9 +50,9 @@ async def main():
         k2 = await ev("(()=>{const f=RK.P.fills[0]; const ps=f.nodes.map(id=>RK.P.nodes.find(n=>n.id===id)); const q=ps.find(n=>ps.every(m=>m.x>=n.x-1e-6)&&ps.every(m=>m.y>=n.y-1e-6)); return q?[q.x,q.y]:null})()")
         await ctap(*c); await ctap(*k2)
         ck('Kontrol: oda içinden köşegen (sol alt → kolon iç köşesi) seçildi', await ev("!!RK.S.kt.b"), [c, k2, await ev(TOAST)])
-        await typ(600); await btn('#sheet button[data-a=dgok]'); await btn('#sheet button[data-a=calc]'); await btn('#sheet button[data-a=cok]')
+        await typ(600); await btn('#sheet button[data-a=dgok]'); await btn('#sheet button[data-a=gny]'); await btn('#sheet button[data-a=cok]')
         d = await ev("(()=>{const g=RK.P.diags[0]; const a=RK.P.nodes.find(n=>n.id===g.a), b=RK.P.nodes.find(n=>n.id===g.b); return +Math.hypot(a.x-b.x,a.y-b.y).toFixed(3)})()")
-        ck('  Geometriyi hesapla → Onayla: köşegen 6.00', abs(d-6.0)<2e-3, d)
+        ck('  Gönyele → Onayla: çapraz 6.00', abs(d-6.0)<2e-3, d)
         ck('  kolon dolgusu hâlâ köşede, tek parça', await ev("RK.P.fills.length")==1)
         # yükseklik
         await btn('#tools button[data-tool=yukseklik]'); await ctap(2,2); await typ(280); await btn('#sheet button[data-a=hsok]')

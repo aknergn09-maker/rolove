@@ -29,7 +29,7 @@ async def main():
         ck('kurulum: salon 12 − merdiven 1.5 = 10.5, kolon ve merdiven alanı var', a0==[10.5,[True,True,True]], a0)
         if await ev("!!document.querySelector('#tabs')"): await btn('#tabs button[data-tab=olcum]')
         await btn('#tools button[data-tool=olc]')
-        q = await W(2, 0); await ctap(*q); await ev("RK.laserValue(5)")
+        q = await W(2, 0); await ctap(*q); await ev("RK.laserValue(5)"); await btn('#sheet button[data-a=msok]')
         rel = await ev("""(()=>{const n=id=>RK.P.nodes.find(q=>q.id===id); const A=n('a0'), C=n('a2'); const W=C.x-A.x, H=C.y-A.y; const c=(ids)=>{const ps=ids.map(n); return [(ps.reduce((s,p)=>s+p.x,0)/ps.length-A.x)/W, (ps.reduce((s,p)=>s+p.y,0)/ps.length-A.y)/H]}; return {W:+W.toFixed(3), H:+H.toFixed(3), e:c(['e0','e1','e2','e3']).map(v=>+v.toFixed(4)), m:c(['m0','m1','m2','m3']).map(v=>+v.toFixed(4)), d:c(['d0','d1']).map(v=>+v.toFixed(4)), es:+(n('e1').x-n('e0').x).toFixed(3)}})()""")
         ck('lazer 5.00: oda 1.25 kat büyüdü (5.00 × 3.75)', rel['W']==5 and rel['H']==3.75, rel)
         ck('  kolon odadaki yerini korudu (merkez oranı 0.8125, 0.75)', rel['e']==[0.8125,0.75], rel['e'])

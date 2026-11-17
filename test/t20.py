@@ -37,7 +37,7 @@ async def main():
             await typ(int(round((face+0.1)*100))); await btn('#sheet button[data-a=msok]')
             ck(f'  yüze {face+0.1:.2f} yazıldı → çizgi {4.1:.2f}, yüz {face+0.1:.2f}', await ev(L0)==4.1, [await ev(L0), await ev("document.querySelector('#toast').textContent")])
             # lazer önce gelir, sonra yüze dokunulur
-            await ev("RK.laserValue(%s)" % (face)); q = await W(2, fy); await ctap(*q)
+            await ev("RK.laserValue(%s)" % (face)); q = await W(2, fy); await ctap(*q); await btn('#sheet button[data-a=msok]')
             ck('  lazer sonra yüze dokunuş → çizgi 4.00', await ev(L0)==4.0, await ev(L0))
             q = await W(2, 0); await ctap(*q); ck('  çizginin kendisine dokununca yüz seçimi yok', await ev("RK.S.ms.sel")=='A0' and not await ev("RK.S.ms.fs"), await ev("RK.S.ms.fs"))
             await ev("RK.S.ms.sel=null; RK.commit()")

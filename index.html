@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.9';
+const VER = 'v11.10';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -998,8 +998,12 @@ const GLM_SVC = '02a6c0d0-0451-4000-b000-fb3210111989', GLM_CHR = '02a6c0d1-0451
 const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null, raw: [], n: 0, hb: 0, auto: null, armed: false, wm: '', werr: '' };
 const GLM_ON = [0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A], GLM_TRIG = [0xC0, 0x56, 0x01, 0x00, 0x1E]; // ölçümleri gönder (otomatik) · ölçüm tetikle (iki kez = tuşa iki basış)
 async function glmWrite(bytes) { const chr = LZ.chr; if (!chr) return false; const v = new Uint8Array(bytes); for (const f of ['writeValueWithResponse', 'writeValue', 'writeValueWithoutResponse']) { if (!chr[f]) continue; try { await chr[f](v); LZ.wm = f; return true; } catch (e) { LZ.werr = String((e && e.message) || e); } } return false; } // yanıtlı yazma önce (GLM 50-27 CG yanıtsızı yok sayabiliyor)
-function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0.01 && v < 300 ? v : null; } // GLM 50 C: C0 55 10 06 .. .. .. [float32 LE, metre]
-function laserValue(m) { LZ.last = m; const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { if (S.ms.dim) applyDim(S.ms.dim, m); else applyMeasure(l, m, S.ms.fd); S.ms.sel = null; S.ms.pend = null; S.ms.fd = 0; S.ms.fs = null; S.ms.dim = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
+function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10 || b(3) !== 0x06) return null; /* yalnız ölçüm sonucu (4. bayt 06); ölçüm yeri değişimi vb. durum paketleri ölçü değildir */ const v = dv.getFloat32(7, true); return isFinite(v) && v > 0.01 && v < 300 ? v : null; } // GLM 50 C: C0 55 10 06 .. .. .. [float32 LE, metre]
+const cmStr = m => String(Math.round(m * 1000) / 10).replace('.', ',');
+function laserValue(m) { LZ.last = m; const v = cmStr(m); // lazer ölçüsü hemen uygulanmaz: kutuya yazılır, Uygula/Kaydet ile oturur
+  if (S.tool === 'yukseklik' && S.hs && S.hs.f) { S.ms.buf = v; S.np = false; render(); return toast('Lazer: ' + fmtM(m, 3) + ' m · Kaydet'); }
+  if (S.tool === 'kontrol' && S.kt && S.kt.a && S.kt.b) { S.ms.buf = v; S.np = false; render(); return toast('Lazer: ' + fmtM(m, 3) + ' m · Kaydet'); }
+  const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { S.ms.buf = v; S.np = false; S.ms.pend = null; toast('Lazer: ' + fmtM(m, 3) + ' m · Uygula'); } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun, sonra Uygula'); } render(); }
 async function laserConnect() {
   if (!navigator.bluetooth) return alert('Bu tarayıcı Bluetooth\'a izin vermiyor.\niPhone Safari ve Chrome lazer metreye bağlanamaz (Apple izin vermiyor).\nApp Store\'dan "Bluefy – Web BLE Browser" kur, uygulamayı onda aç: aknergn09-maker.github.io/rolove\nDeğeri elle de yazabilirsin.');
   try { LZ.state = 'bağlanıyor'; render(); const dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'GLM' }, { namePrefix: 'Bosch' }, { services: [GLM_SVC] }], optionalServices: [GLM_SVC] });
@@ -1020,8 +1024,7 @@ async function laserAttach(dev) { LZ.state = 'bağlanıyor'; render(); const srv
 async function laserTrigger() { if (!LZ.chr) return toast('Önce lazeri bağla'); const a = await glmWrite(GLM_TRIG); await new Promise(r => setTimeout(r, 700)); const b = await glmWrite(GLM_TRIG); toast(a && b ? 'Lazere ölç komutu gönderildi' : 'Lazere komut yazılamadı: ' + LZ.werr); }
 function olcTap(X, Y) {
   const h = opLineAt(X, Y); if (!h) { S.ms.sel = null; render(); return toast('Ölçülecek çizgiye dokun'); }
-  if (S.ms.pend != null) { const m = S.ms.pend; S.ms.pend = null; if (h.dim) applyDim(h.dim, m); else applyMeasure(h.l, m, h.fd); S.ms.sel = null; render(); return; }
-  S.ms.sel = h.l.id; S.ms.fd = h.fd || 0; S.ms.fs = h.fs || null; S.ms.dim = h.dim || null; S.ms.buf = ''; render(); if (h.fs) toast((h.dim ? 'Duvar yüzünde parça seçildi · ' : 'Duvarın diğer yüzü seçildi · ') + fmtM(V.dist(...h.fs), 2) + ' m');
+  S.ms.sel = h.l.id; S.ms.fd = h.fd || 0; S.ms.fs = h.fs || null; S.ms.dim = h.dim || null; S.ms.buf = S.ms.pend != null ? cmStr(S.ms.pend) : ''; S.ms.pend = null; render(); if (h.fs) toast((h.dim ? 'Duvar yüzünde parça seçildi · ' : 'Duvarın diğer yüzü seçildi · ') + fmtM(V.dist(...h.fs), 2) + ' m');
 }
 function olcBufVal() { const t = (S.ms.buf || '').replace(',', '.'); const v = parseFloat(t); return isFinite(v) && v > 0 ? v / 100 : null; }
 
