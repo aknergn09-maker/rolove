@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.6-önizleme';
+const VER = 'v11.7-önizleme';
 const LS_P = 'rk4p_projects', LS_C = 'rk4p_current', LS_S = 'rk4p_settings'; // ÖNİZLEME: ayrı kayıt alanı (ilk açılışta ana uygulamanın projeleri kopyalanır), ana uygulamanın projelerine dokunmaz
 (function () { try { if (!localStorage.getItem(LS_P) && localStorage.getItem('rk3_projects')) { localStorage.setItem(LS_P, localStorage.getItem('rk3_projects')); localStorage.setItem(LS_C, localStorage.getItem('rk3_current') || ''); localStorage.setItem(LS_S, localStorage.getItem('rk3_settings') || '{}'); } } catch (e) {} })();
 const deg = Math.PI / 180;
@@ -439,7 +439,7 @@ function guides(X, Y, fromId, excl) {
   if (!gx && !gy) return null; const fx = gx ? gx.v : q[0], fy = gy ? gy.v : q[1]; const w = [fx * c - fy * s, fx * s + fy * c]; const [X2, Y2] = w2s(w[0], w[1]);
   return { type: 'guide', X: X2, Y: Y2, gu: [gx && gx.id, gy && gy.id].filter(Boolean) };
 }
-function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti' || S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire') || (S.tool === 'merdiven' && S.mk.mode === 'yuv') || !!(S.chArc && S.chArc.mid == null && S.chain); let c; try { c = candidate0(X, Y, opts); } finally { NOWALL = false; } if (S.tool === 'cikinti' && S.cik.mode !== 'yay' && !(opts && opts.L != null) && (!(c && (c.node || c.l || c.rl || c.l1)) || (S.cik.mode === 'el' && cikFaceCloser(X, Y)))) { const m = cikFaceMap(X, Y, c, opts); if (m) return m; } return c; }
+function candidate(X, Y, opts) { NOWALL = S.tool === 'cikinti' || S.tool === 'daire' || (S.tool === 'eleman' && S.elShape === 'daire') || (S.tool === 'merdiven' && S.mk.mode === 'yuv') || !!(S.chArc && S.chArc.mid == null && S.chain); let c; try { c = candidate0(X, Y, opts); } finally { NOWALL = false; } if (S.tool === 'cikinti' && S.cik.mode !== 'yay' && !(opts && opts.L != null) && (!(c && (c.node || c.l || c.rl || c.l1)) || (S.cik.mode !== 'yay' && cikFaceCloser(X, Y)))) { const m = cikFaceMap(X, Y, c, opts); if (m) return m; } return c; }
 /* çıkıntı: duvarın diğer yüzüne dokunuş → referans çizgisindeki karşılığı (ölçüler yüzden alınır; yüz kalınlıkla birlikte paralel taşınır) */
 function cikFaceCloser(X, Y) { let df = 1e9, dl = 1e9; wallFaces().forEach(f => { if (f.k === 'out') df = Math.min(df, segDist([X, Y], w2s(...f.a), w2s(...f.b))); }); P.lines.forEach(l => { if (!l.step) dl = Math.min(dl, segDist([X, Y], ns(l.a), ns(l.b))); }); return df < 24 && df < dl; }
 function cikFaceMap(X, Y, c, opts) { if (!P.walls || !P.walls.length) return null; let best = null, bd = 24;
@@ -448,8 +448,8 @@ function cikFaceMap(X, Y, c, opts) { if (!P.walls || !P.walls.length) return nul
   if (S.cik.mode === 'el') { const F0 = best.f.a, F1 = best.f.b; let q = null; if (fromW && V.dist(fromW, tap) > 1e-6) { const x = segX(fromW, tap, F0, F1); q = x && x.t > 0 && x.u > -0.02 && x.u < 1.02 ? x.p : null; } if (!q) q = footT(tap, F0, F1).q; [F0, F1].forEach(e => { if (V.dist(w2s(...e), w2s(...q)) < 14) q = e; }); const [Xf, Yf] = w2s(...q); return { type: 'near', wf: true, X: Xf, Y: Yf, lab: 'Duvar yüzü' }; }
   if (fromW && V.dist(fromW, tap) > 1e-6) { const x = segX(fromW, tap, best.r0, best.r1); p = x && x.t > 0 && x.u > -0.02 && x.u < 1.02 ? x.p : null; } if (!p) p = footT(tap, best.r0, best.r1).q;
   const l = P.lines.find(q => !q.step && segDist(p, nw(q.a), nw(q.b)) < 1e-4); if (!l) return null;
-  const nd = [l.a, l.b].find(id => V.dist(w2s(...nw(id)), w2s(...p)) < 14); if (nd) { const [Xn, Yn] = w2s(...nw(nd)); return { type: 'end', node: nd, X: Xn, Y: Yn, lab: 'Duvar yüzü → köşe' }; }
-  const [X2, Y2] = w2s(...p); return { type: 'near', X: X2, Y: Y2, l: l.id, lab: 'Duvar yüzü → çizgi' }; }
+  const nd = [l.a, l.b].find(id => V.dist(w2s(...nw(id)), w2s(...p)) < 14); if (nd) { const [Xn, Yn] = w2s(...nw(nd)); return { type: 'end', node: nd, X: Xn, Y: Yn, lab: 'Duvar yüzü → köşe', fc: { fa: best.f.a, fb: best.f.b } }; }
+  const [X2, Y2] = w2s(...p); return { type: 'near', X: X2, Y: Y2, l: l.id, lab: 'Duvar yüzü → çizgi', fc: { fa: best.f.a, fb: best.f.b } }; }
 /* çıkıntı duvarın DİĞER YÜZÜNDEN çizilir: çizilen yol yeni yüzdür; referans çizgisi yolun kalınlık kadar ötelenmişidir (uçlar eski referans çizgisine oturur) */
 function quadAt(p) { for (const pass of [1, 0]) for (const w of P.walls || []) { const g = wallGeom(w); if (!g) continue; for (const q of g.quads) { const [A, B] = pass ? [q.poly[3], q.poly[2]] : [q.poly[0], q.poly[1]]; if (segDist(p, A, B) < 1e-4) return { w, i: q.i, n: w.closed ? w.nodes.length : w.nodes.length - 1, face: !!pass, fa: q.poly[3], fb: q.poly[2], r0: q.poly[0], r1: q.poly[1] }; } } return null; }
 function faceInfoAt(p) { for (const w of P.walls || []) { const g = wallGeom(w); if (!g) continue; for (const q of g.quads) { if (segDist(p, q.poly[3], q.poly[2]) < 1e-4) return { w, i: q.i, fa: q.poly[3], fb: q.poly[2], r0: q.poly[0], r1: q.poly[1] }; } } return null; }
@@ -795,6 +795,11 @@ function applyDetour(a, b, path, newLines) {
 function cikApply(sign) {
   const c = S.cik; const D = kval(); if (D == null) return toast('Önce derinliği yaz (cm)'); const l0 = lineById(c.line); if (!l0) return;
   const u = V.unit(V.sub(c.e, c.s)); const nrm = V.mul([-u[1], u[0]], sign); snap();
+  if (c.face) { // beyaz yüzden ölçü yazarak: genişlik ve derinlik yüzden; yol yüzde kurulur, sonra beyazdan çizer gibi (soru: ofset korunsun / kalınlaşsın)
+    const F0 = c.face.fa, F1 = c.face.fb; const sF = footT(c.s, F0, F1).q, eF = footT(c.e, F0, F1).q; const pts = [sF, V.add(sF, V.mul(nrm, D)), V.add(eF, V.mul(nrm, D)), eF];
+    const ids = pts.map(q => { const ex = P.nodes.find(n => Math.hypot(n.x - q[0], n.y - q[1]) < 1e-6); return ex ? ex.id : addNode(...q); }); const lids = []; for (let k = 0; k + 1 < ids.length; k++) { const l = addLine(ids[k], ids[k + 1], 'typed'); if (l) lids.push(l.id); }
+    S.chain = { first: ids[0], last: ids[3], n: 3, lines: lids, firstLine: lids[0], nodes: ids.slice() }; S.cik = { mode: 'olcu', step: 1 }; S.kbuf = ''; commit();
+    if (cikFaceCheck()) return; S.chain = null; P = JSON.parse(undoSt.pop()); commit(); return toast('Duvar yüzünde çıkıntı yapılamadı'); }
   const a = nodeAt(c.s), b = nodeAt(c.e); const s2 = V.add(c.s, V.mul(nrm, D)), e2 = V.add(c.e, V.mul(nrm, D)); const n1 = nodeAt(s2), n2 = nodeAt(e2);
   const pre = outerPre(a, b); const nl = [addLine(a, n1, 'typed'), addLine(n1, n2, 'typed'), addLine(n2, b, 'typed')].map(l => l.id); const savedK = JSON.stringify(P);
   if (!applyDetour(a, b, [a, n1, n2, b], nl)) { P = JSON.parse(undoSt.pop()); return toast('Bu iki nokta aynı düz duvarda değil'); }
@@ -802,7 +807,7 @@ function cikApply(sign) {
 }
 function cikTap(c) {
   const k = S.cik; const w = s2w(c.X, c.Y);
-  if (k.step === 1) { let lid = c.l || (c.rl && c.rl[0]); if (!lid && c.node) { const ln = P.lines.find(q => q.a === c.node || q.b === c.node); lid = ln && ln.id; } if (!lid) return toast('Duvar çizgisinin üstüne dokun'); const l = lineById(lid); const f = footT(w, nw(l.a), nw(l.b)); S.cik = { mode: 'olcu', step: 2, line: l.id, s: f.q }; S.kbuf = ''; render(); return; }
+  if (k.step === 1) { let lid = c.l || (c.rl && c.rl[0]); if (!lid && c.node) { const ln = P.lines.find(q => q.a === c.node || q.b === c.node); lid = ln && ln.id; } if (!lid) return toast('Duvar çizgisinin üstüne dokun'); const l = lineById(lid); const f = footT(w, nw(l.a), nw(l.b)); S.cik = { mode: 'olcu', step: 2, line: l.id, s: f.q, face: c.fc || null }; S.kbuf = ''; render(); return; }
   if (k.step === 2) { const l = lineById(k.line); const A = nw(l.a), B = nw(l.b); const f = footT(w, A, B); if (V.dist(f.q, w) * view.s > 30) return toast('Aynı duvarın üstüne dokun'); if (V.dist(f.q, k.s) < 0.02) return; k.e = f.q; k.step = 3; S.kbuf = ''; render(); }
 }
 function cikWidth(sign) { const k = S.cik; const W2 = kval(); if (W2 == null) return toast('Önce genişliği yaz (cm)'); const l = lineById(k.line); const u = V.mul(lu(l), sign); k.e = V.add(k.s, V.mul(u, W2)); k.step = 3; S.kbuf = ''; render(); }
@@ -1696,7 +1701,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { underFillSet, faceVisible, thickAll, faceLenOf, objGroup, wallJoinArc, linePath, circlePlan, filletGeom, daireMake, circleHits, circleCut, get LB() { return LB; }, polyHit, triOf, circ3, arcThrough, reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { underFillSet, fillPoly, faceVisible, thickAll, faceLenOf, objGroup, wallJoinArc, linePath, circlePlan, filletGeom, daireMake, circleHits, circleCut, get LB() { return LB; }, polyHit, triOf, circ3, arcThrough, reportText, roomOfSeg, makeDXF, nextName, ptPos, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>

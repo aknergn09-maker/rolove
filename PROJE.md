@@ -430,3 +430,4 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - run_all: PAGE=onizleme.html → tüm t* + p* (q* arşivde). Yeni p12: uçtan uca (duvar, kapı, köşe kolonu, ölçü, köşegen+hesapla, yükseklik, nokta adı, DXF).
 - Bilinen küçük: kolon dolgusu ile duvar taraması birleşim yerinde çok ince desen dikişi görünüyor.
 - v11.6 (ana + önizleme): kolon dolgusu duvarla aynı ekran deseniyle taranır (birleşimde dikiş yok).
+- v11.7 (17.11 sabah): Ölçü yazarak çıkıntı beyaz yüzden başlatılınca genişlik/derinlik turuncuya uygulanıyordu (beyaz yüz 1.40 geniş, yanlış yerde, soru yok). Artık dokunuş yüze yakınsa (cikFaceCloser her modda) candidate.fc ile yüz saklanır, yol yüzde kurulur ve cikFaceCheck ile beyazdan çizer gibi uygulanır (ofset korunsun / kalınlaşsın sorusu). t25 +2.
