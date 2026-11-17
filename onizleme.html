@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.8-önizleme';
+const VER = 'v11.9-önizleme';
 const LS_P = 'rk4p_projects', LS_C = 'rk4p_current', LS_S = 'rk4p_settings'; // ÖNİZLEME: ayrı kayıt alanı (ilk açılışta ana uygulamanın projeleri kopyalanır), ana uygulamanın projelerine dokunmaz
 (function () { try { if (!localStorage.getItem(LS_P) && localStorage.getItem('rk3_projects')) { localStorage.setItem(LS_P, localStorage.getItem('rk3_projects')); localStorage.setItem(LS_C, localStorage.getItem('rk3_current') || ''); localStorage.setItem(LS_S, localStorage.getItem('rk3_settings') || '{}'); } } catch (e) {} })();
 const deg = Math.PI / 180;
@@ -1048,7 +1048,9 @@ function thickAll() { // tüm "çizgi + yüz" ölçülü duvarlar birlikte: Σ k
   return ks.map(k => 'duvar ' + Math.round(runT(runs.get(k)) * 100) + ' cm'); }
 /* ---- Bosch GLM (GLM 50 C ailesi) Bluetooth ---- */
 const GLM_SVC = '02a6c0d0-0451-4000-b000-fb3210111989', GLM_CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
-const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null, raw: [], n: 0, auto: null };
+const LZ = { dev: null, chr: null, state: 'yok', name: '', last: null, raw: [], n: 0, hb: 0, auto: null, armed: false, wm: '', werr: '' };
+const GLM_ON = [0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A], GLM_TRIG = [0xC0, 0x56, 0x01, 0x00, 0x1E]; // ölçümleri gönder (otomatik) · ölçüm tetikle (iki kez = tuşa iki basış)
+async function glmWrite(bytes) { const chr = LZ.chr; if (!chr) return false; const v = new Uint8Array(bytes); for (const f of ['writeValueWithResponse', 'writeValue', 'writeValueWithoutResponse']) { if (!chr[f]) continue; try { await chr[f](v); LZ.wm = f; return true; } catch (e) { LZ.werr = String((e && e.message) || e); } } return false; } // yanıtlı yazma önce (GLM 50-27 CG yanıtsızı yok sayabiliyor)
 function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0.01 && v < 300 ? v : null; } // GLM 50 C: C0 55 10 06 .. .. .. [float32 LE, metre]
 function laserValue(m) { LZ.last = m; if (S.tool === 'yukseklik' && S.hs.f) { hsSet(m); return; } if (S.tool === 'kontrol' && S.kt.a && S.kt.b) { diagSet(m); return; } const l = S.ms.sel && lineById(S.ms.sel); if (S.tool === 'olc' && l) { if (S.ms.dim) applyDim(S.ms.dim, m); else applyMeasure(l, m, S.ms.fd); S.ms.sel = null; S.ms.pend = null; S.ms.fd = 0; S.ms.fs = null; S.ms.dim = null; } else { S.ms.pend = m; toast('Lazer: ' + fmtM(m, 3) + ' m · şimdi ölçtüğün çizgiye dokun'); } render(); }
 async function laserConnect() {
@@ -1059,13 +1061,16 @@ async function laserConnect() {
   } catch (e) { LZ.state = 'yok'; if (e && e.name !== 'NotFoundError') alert('Lazer bağlanamadı: ' + (e.message || e)); }
   render();
 }
-async function laserAttach(dev) { LZ.state = 'bağlanıyor'; render(); const srv = await dev.gatt.connect(); const svc = await srv.getPrimaryService(GLM_SVC); const chr = await svc.getCharacteristic(GLM_CHR); LZ.chr = chr;
-  if (!chr._rk) { chr._rk = true; chr.addEventListener('characteristicvaluechanged', e => { const dv = e.target.value; LZ.n++; try { const hx = []; for (let i = 0; i < Math.min(dv.byteLength, 14); i++) hx.push(dv.getUint8(i).toString(16).padStart(2, '0').toUpperCase()); LZ.raw = [hx.join(' ')].concat(LZ.raw).slice(0, 3); } catch (er) {} const v = laserParse(dv); if (v != null) laserValue(v); else render(); }); }
+async function laserAttach(dev) { LZ.state = 'bağlanıyor'; render(); const srv = await dev.gatt.connect(); const svc = await srv.getPrimaryService(GLM_SVC); const chr = await svc.getCharacteristic(GLM_CHR); LZ.chr = chr; LZ.armed = false;
+  if (!chr._rk) { chr._rk = true; chr.addEventListener('characteristicvaluechanged', e => { const dv = e.target.value; let hx = ''; try { const a = []; for (let i = 0; i < Math.min(dv.byteLength, 14); i++) a.push(dv.getUint8(i).toString(16).padStart(2, '0').toUpperCase()); hx = a.join(' '); } catch (er) {}
+    const b0 = dv.byteLength > 1 ? dv.getUint8(0) : 0, b1 = dv.byteLength > 1 ? dv.getUint8(1) : 0; if (b0 === 0xC0 && b1 === 0x11) { LZ.hb++; if (S.tool === 'olc' && LZ.hb % 5 === 1) render(); return; } // GLM 50-27 CG her ~2 sn "C0 11 00 3A" canlılık sinyali gönderir: ölçüm değil
+    LZ.n++; LZ.raw = [hx].concat(LZ.raw).slice(0, 3); if (b0 === 0xC0 && b1 === 0x55) LZ.armed = true; const v = laserParse(dv); if (v != null) laserValue(v); else if (S.tool === 'olc') render(); }); }
   await chr.startNotifications(); // GLM ölçümleri "indication" ile gönderir; tarayıcı ikisini de bu çağrıyla açar
-  const cmd = new Uint8Array([0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A]); LZ.auto = false; // otomatik gönderme (her ölçüm telefona gelir)
-  for (const f of ['writeValueWithoutResponse', 'writeValueWithResponse', 'writeValue']) { if (!chr[f]) continue; try { await chr[f](cmd); LZ.auto = true; break; } catch (e) {} }
-  LZ.state = 'bağlı'; render(); toast('Lazer bağlandı: ' + LZ.name + (LZ.auto ? '' : ' · otomatik gönderme açılamadı: ölçümden sonra lazerin Bluetooth tuşuna bas'));
+  await new Promise(r => setTimeout(r, 250)); LZ.auto = await glmWrite(GLM_ON); // otomatik gönderme (her ölçüm telefona gelir)
+  clearInterval(LZ.rt); let k = 0; LZ.rt = setInterval(() => { if (LZ.armed || !LZ.chr || LZ.state !== 'bağlı' || ++k > 6) { clearInterval(LZ.rt); return; } glmWrite(GLM_ON); }, 2500); // lazer onay vermediyse komutu yinele
+  LZ.state = 'bağlı'; render(); toast('Lazer bağlandı: ' + LZ.name + (LZ.auto ? '' : ' · ölçüm gönderme komutu yazılamadı'));
 }
+async function laserTrigger() { if (!LZ.chr) return toast('Önce lazeri bağla'); const a = await glmWrite(GLM_TRIG); await new Promise(r => setTimeout(r, 700)); const b = await glmWrite(GLM_TRIG); toast(a && b ? 'Lazere ölç komutu gönderildi' : 'Lazere komut yazılamadı: ' + LZ.werr); }
 function olcTap(X, Y) {
   const h = opLineAt(X, Y); if (!h) { S.ms.sel = null; render(); return toast('Ölçülecek çizgiye dokun'); }
   if (S.ms.pend != null) { const m = S.ms.pend; S.ms.pend = null; if (h.dim) applyDim(h.dim, m); else applyMeasure(h.l, m, h.fd); S.ms.sel = null; render(); return; }
@@ -1496,9 +1501,9 @@ function renderSheet() {
   }
   if (S.tool === 'disa') h += `<div class="row"><button class="p" data-a="dxf">⤓ DXF dışa aktar</button><button data-a="rep">📄 Ölçü raporu</button></div><div class="row"><span class="inf">DXF: metre, katmanlar: çizgi (eskiz/yazılan/lazer), duvar, kapı, pencere, oda, eleman, merdiven, nokta, ölçü.</span></div>`;
   if (S.tool === 'olc') { const l = S.ms.sel && lineById(S.ms.sel); const st = LZ.state;
-    h += `<div class="row"><span class="inf">Lazer: <b style="color:${st === 'bağlı' ? '#4ade80' : '#fca5a5'}">${st === 'bağlı' ? '● ' + esc(LZ.name) : st === 'bağlanıyor' ? 'bağlanıyor…' : 'bağlı değil'}</b></span><button data-a="lzc">${st === 'bağlı' ? 'Yeniden bağla' : '🔗 Bağlan'}</button></div>`;
+    h += `<div class="row"><span class="inf">Lazer: <b style="color:${st === 'bağlı' ? '#4ade80' : '#fca5a5'}">${st === 'bağlı' ? '● ' + esc(LZ.name) : st === 'bağlanıyor' ? 'bağlanıyor…' : 'bağlı değil'}</b></span>${st === 'bağlı' ? '<button data-a="lztr">📏 Uzaktan ölç</button>' : ''}<button data-a="lzc">${st === 'bağlı' ? 'Yeniden bağla' : '🔗 Bağlan'}</button></div>`;
     if (!navigator.bluetooth) h += `<div class="row"><span class="inf" style="color:#fca5a5">Bu tarayıcı Bluetooth'a izin vermiyor. iPhone'da <b>Bluefy</b> tarayıcısıyla aç; değeri elle de yazabilirsin.</span></div>`;
-    else if (st === 'bağlı') h += `<div class="row"><span class="inf" style="font-size:12px">Gelen veri: ${LZ.n} paket${LZ.raw.length ? ' · son: <code>' + esc(LZ.raw[0]) + '</code>' : ' · lazerde ölçüm yap'}${LZ.auto === false ? ' · otomatik gönderme kapalı' : ''}</span></div>`;
+    else if (st === 'bağlı') h += `<div class="row"><span class="inf" style="font-size:12px">Gelen veri: ${LZ.n} paket${LZ.hb ? ' (+' + LZ.hb + ' canlılık)' : ''}${LZ.raw.length ? ' · son: <code>' + esc(LZ.raw[0]) + '</code>' : ' · lazerde ölçüm yap'}${LZ.armed ? ' · ölçüm gönderme açık' : LZ.auto === false ? ' · komut yazılamadı' + (LZ.werr ? ' (' + esc(LZ.werr) + ')' : '') : ' · lazer onayı bekleniyor'}</span></div>`;
     if (S.ms.pend != null) h += `<div class="row"><span class="inf"><b style="color:#fff">Gelen ölçü ${fmtM(S.ms.pend, 3)} m</b> · ölçtüğün çizgiye dokun</span><button data-a="mspx">Vazgeç</button></div>`;
     h += `<div class="row"><span class="inf">${l ? (S.ms.fs ? (S.ms.dim ? 'Duvar yüzünde parça: ' : 'Duvarın diğer yüzü: ') + '<b style="color:#fff">' + fmtM(V.dist(...S.ms.fs), 3) + ' m</b> (çizgi ' + fmtM(lineLen(l), 3) + ') ' : 'Seçili: <b style="color:#fff">' + fmtM(lineLen(l), 3) + ' m</b> ') + (l.kind === 'laser' ? '(lazer ' + fmtM(l.m, 3) + ')' : l.kind === 'typed' ? '(yazılan)' : '(eskiz)') + ' · lazerle ölç ya da yaz' : 'Ölçülecek çizgiye dokun (önce ya da sonra lazerle ölç)'}</span></div>`;
     h += `<div class="row"><button class="val ${S.np ? 'act' : ''}" data-a="np">${S.ms.buf ? S.ms.buf + ' cm' : '⌨ cm'}</button><button class="p" data-a="msok" ${l && olcBufVal() ? '' : 'disabled'}>Uygula</button>${l && l.kind === 'laser' ? '<button data-a="msrm">Ölçüyü kaldır</button>' : ''}<button data-a="msadj">Yeniden hesapla</button></div>` + (S.np ? numpad() : '');
@@ -1597,6 +1602,7 @@ $('#sheet').addEventListener('click', e => {
     snap(); if (a === 'ptd') { P.pts = P.pts.filter(q => q !== t); S.ptSel = null; } else { const n = prompt('Nokta adı', t.name); if (!n || !n.trim() || (n.trim() !== t.name && P.pts.some(q => q.name === n.trim()))) { undoSt.pop(); if (n) toast('Bu ad zaten var'); return; } t.name = n.trim(); } commit(); return; }
   else if (a === 'dxf') { exportDXF(); return; }
   else if (a === 'lzc') { laserConnect(); return; }
+  else if (a === 'lztr') { laserTrigger(); return; }
   else if (a === 'mspx') S.ms.pend = null;
   else if (a === 'msok') { const l = lineById(S.ms.sel), v = olcBufVal(); if (l && v) { if (S.ms.dim) applyDim(S.ms.dim, v); else applyMeasure(l, v, S.ms.fd); S.ms = { sel: null, buf: '', pend: null }; S.np = false; } }
   else if (a === 'msrm') { const l = lineById(S.ms.sel); if (l) { snap(); l.kind = 'sketch'; delete l.m; commit(); toast('Ölçü kaldırıldı (çizgi yerinde kaldı)'); } }
