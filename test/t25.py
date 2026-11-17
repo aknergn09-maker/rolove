@@ -69,6 +69,24 @@ async def main():
         ck('Ölçü yazarak dış beyaz yüzden 100×50: beyaz yüz tam x 1–2, 50 cm dışarıda; soru var; oda 12.3', '[1,-0.2],[1,-0.7],[2,-0.7],[2,-0.2]' in fq and await ev(AR)==[12.3] and await ev(CUR)=='kayar', [fq, await ev(AR)])
         await olcu(-1, (1,0.2), 100, '→', 30, '↑')
         ck('Ölçü yazarak iç beyaz yüzden 100×30 içeri: kolon (kalınlaşsın), oda 9.36−0.3=9.06', await ev(CUR)=='sabit' and await ev(AR)==[9.06] and await ev(FL)==1, [await ev(CUR), await ev(AR)])
+        # 7) T bağlantıda turuncu taraftan kolon (bölme duvarın turuncusundan ana duvarın beyazına): kolon duvarı yutmaz, bölmenin beyazı yerinde
+        await ev("""(()=>{RK.S.faceAsk=null; const P=RK.P; P.nodes=[];P.lines=[];P.walls=[];P.rooms=[];P.openings=[];P.fills=[]; const C=[[0,0],[4,0],[4,3],[0,3]]; const ids=C.map(([x,y],i)=>{const id='a'+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<4;i++) P.lines.push({id:'A'+i,a:ids[i],b:ids[(i+1)%4],kind:'sketch'}); P.walls.push({id:'WA',nodes:ids,closed:true,t:0.2,side:-1});
+          P.nodes.push({id:'p0',x:2,y:0.2},{id:'p1',x:2,y:2.8}); P.lines.push({id:'PL',a:'p0',b:'p1',kind:'sketch'}); P.walls.push({id:'WP',nodes:['p0','p1'],closed:false,t:0.2,side:1});
+          P.rooms.push({id:'rA',name:'A',ax:1,ay:1.5},{id:'rB',name:'B',ax:3,ay:1.5}); RK.commit(); RK.view.s=120; RK.view.ox=-60; RK.view.oy=360; RK.commit()})()""")
+        await btn('#sheet button[data-a=cikm][data-v=el]')
+        for x,y in [(2,1.0),(2.6,1.0),(2.6,0.2)]: await ctap(x,y)
+        fp = await ev("JSON.stringify(RK.P.fills.map(f=>RK.fillPoly(f).map(p=>p.map(v=>+v.toFixed(3)))))")
+        ck('T bağlantı, turuncu taraftan kolon: dolgu turuncu çizgide başlar (2.0), bölmenin içinden beyaza (1.8) taşmaz; B 4.68−0.48=4.2', fp=='[[[2,1],[2.6,1],[2.6,0.2],[2,0.2]]]' and await ev(AR)==[4.16,4.2], [fp, await ev(AR)])
+        # 7) bölme duvarın turuncu tarafından kolon (öbür yüzü beyaz): uç turuncuda kalır, duvarın öbür yüzüne atlamaz
+        await ev("""(()=>{RK.S.faceAsk=null; const P=RK.P; P.nodes=[];P.lines=[];P.walls=[];P.rooms=[];P.openings=[];P.fills=[];
+          const C=[[0,0],[6,0],[6,4],[0,4]]; const ids=C.map(([x,y],i)=>{const id='a'+i; P.nodes.push({id,x,y}); return id}); for(let i=0;i<4;i++) P.lines.push({id:'A'+i,a:ids[i],b:ids[(i+1)%4],kind:'sketch'}); P.walls.push({id:'WA',nodes:ids,closed:true,t:0.2,side:-1});
+          RK.commit(); const n0=RK.nodeAt([3,0.2]); const n1=RK.nodeAt([3,3.8]); P.lines.push({id:'B0',a:n0,b:n1,kind:'sketch'}); P.walls.push({id:'WB',nodes:[n0,n1],closed:false,t:0.3,side:1});
+          P.rooms.push({id:'r1',name:'Sol',ax:1.5,ay:2},{id:'r2',name:'Sag',ax:4.5,ay:2}); RK.commit(); RK.view.s=150; RK.view.ox=-300; RK.view.oy=300; RK.commit()})()""")
+        await btn('#sheet button[data-a=cikm][data-v=el]')
+        for x,y in [(3,0.85),(3.5,0.85),(3.5,0.2)]: await ctap(x,y)
+        fn = await ev("JSON.stringify(RK.P.fills.map(f=>f.nodes.map(id=>{const n=RK.P.nodes.find(q=>q.id===id); return [+n.x.toFixed(3),+n.y.toFixed(3)]})))")
+        cr = await ev("RK.P.lines.some(l=>{const a=RK.P.nodes.find(n=>n.id===l.a),b=RK.P.nodes.find(n=>n.id===l.b); return Math.abs(a.y-0.85)<1e-6&&Math.abs(b.y-0.85)<1e-6&&Math.min(a.x,b.x)<2.99})")
+        ck('bölme duvarın turuncusundan kolon: uç turuncuda (x=3), duvarı geçen çizgi yok, sol oda aynı, sağ oda 10.08−0.5×0.65', fn=='[[[3,0.85],[3.5,0.85],[3.5,0.2]]]' and not cr and await ev("RK.P.rooms.map(r=>+RK.rA(r).toFixed(3))")==[9,9.755], [fn, cr, await ev("RK.P.rooms.map(r=>+RK.rA(r).toFixed(3))")])
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)
 asyncio.run(main())

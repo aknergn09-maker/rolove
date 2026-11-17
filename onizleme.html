@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.7-önizleme';
+const VER = 'v11.8-önizleme';
 const LS_P = 'rk4p_projects', LS_C = 'rk4p_current', LS_S = 'rk4p_settings'; // ÖNİZLEME: ayrı kayıt alanı (ilk açılışta ana uygulamanın projeleri kopyalanır), ana uygulamanın projelerine dokunmaz
 (function () { try { if (!localStorage.getItem(LS_P) && localStorage.getItem('rk3_projects')) { localStorage.setItem(LS_P, localStorage.getItem('rk3_projects')); localStorage.setItem(LS_C, localStorage.getItem('rk3_current') || ''); localStorage.setItem(LS_S, localStorage.getItem('rk3_settings') || '{}'); } } catch (e) {} })();
 const deg = Math.PI / 180;
@@ -455,9 +455,13 @@ function quadAt(p) { for (const pass of [1, 0]) for (const w of P.walls || []) {
 function faceInfoAt(p) { for (const w of P.walls || []) { const g = wallGeom(w); if (!g) continue; for (const q of g.quads) { if (segDist(p, q.poly[3], q.poly[2]) < 1e-4) return { w, i: q.i, fa: q.poly[3], fb: q.poly[2], r0: q.poly[0], r1: q.poly[1] }; } } return null; }
 function cikFaceCheck() { const c = S.chain; if (!c || c.n < 2) return false; const pts0 = c.nodes.map(nw); const k1 = pts0.length - 1;
   // uçlar: beyaz çizgi (yüz) ya da turuncu (referans) üstünde; turuncudaki uç son parçanın doğrultusunda beyaza taşınır. Uçlar aynı düz duvarda ya da köşeyle bağlı iki duvar parçasında olabilir (köşe kolonu)
-  const end = (k, kn) => { const q = quadAt(pts0[k]); if (!q) return null; if (q.face) return { q, p: pts0[k] }; const x = segX(pts0[kn], pts0[k], q.fa, q.fb); return x ? { q, p: x.p } : null; };
+  const end = (k, kn) => { const q = quadAt(pts0[k]); if (!q) return null; if (q.face) return { q, p: pts0[k] }; const x = segX(pts0[kn], pts0[k], q.fa, q.fb); if (x && x.t > -1e-6 && x.t < 1 + 1e-6) return { q, p: x.p }; return { q, p: pts0[k], ref: true }; }; // turuncudaki uç: son parça duvarı geçiyorsa beyaza taşınır; oda tarafından geliyorsa turuncuda kalır (duvarın öbür yüzüne atlamaz)
   let E0 = end(0, 1), E1 = end(k1, k1 - 1); if (!E0 || !E1 || (!E0.q.face && !E1.q.face) || V.dist(E0.p, E1.p) < 1e-3) return false;
+  if ((E0.ref || E1.ref) && E0.q.w === E1.q.w) return false;
   if (E0.q.w !== E1.q.w) { // iki ayrı duvarın beyaz çizgileri arasında (T bağlantı, köşe): turuncu çizgiler sabit, kolon duvar dolgusu
+    // turuncu çizgide biten uç: çizim turuncunun dış tarafındaysa (bandın karşısı) uç turuncuda kalır — duvarın içinden beyaza taşınmaz (yoksa kolon duvarı yutar)
+    const keepRef = (E, k, kn) => { if (E.q.face) return E; const nb = V.sub(E.q.fa, E.q.r0), pn = pts0[kn]; return (pn[0] - E.q.r0[0]) * nb[0] + (pn[1] - E.q.r0[1]) * nb[1] < 0 ? { q: E.q, p: pts0[k] } : E; };
+    E0 = keepRef(E0, 0, 1); E1 = keepRef(E1, k1, k1 - 1);
     pts0[0] = E0.p; pts0[k1] = E1.p; const kinds = []; for (let k = 0; k + 1 < c.nodes.length; k++) { const l = findLine(c.nodes[k], c.nodes[k + 1]); kinds.push(l ? l.kind : 'sketch'); }
     const tmpL = new Set(c.lines), tmpN = new Set(c.nodes); P.lines = P.lines.filter(l => !tmpL.has(l.id)); P.nodes = P.nodes.filter(n => !tmpN.has(n.id) || P.lines.some(l => l.a === n.id || l.b === n.id));
     const fn = pts0.map(q => { const ex = P.nodes.find(n => Math.hypot(n.x - q[0], n.y - q[1]) < 1e-6); return ex ? ex.id : addNode(...q); }); for (let k = 0; k + 1 < fn.length; k++) addLine(fn[k], fn[k + 1], kinds[k] || 'sketch'); P.fills = (P.fills || []).concat([{ id: uid('f'), nodes: fn }]); killUnderFill(P.fills[P.fills.length - 1]);
@@ -487,7 +491,7 @@ function killUnderFill(f) { const pp = fillPoly(f); if (!pp) return; const own =
   P.lines = P.lines.filter(l => { if (l.step || own.has(l.id) || wallOfLine(l)) return true; return !edges.some(([a, b]) => segDist(nw(l.a), a, b) < 1e-4 && segDist(nw(l.b), a, b) < 1e-4); }); }
 /* duvar kalınlaştırma (kolon) alanı: çizilen yol + beyaz çizgi boyunca kapanış */
 function fillPoly(f) { const ns0 = f.nodes.map(nodeById); if (ns0.some(n => !n)) return null; const pts = ns0.map(n => [n.x, n.y]); const qa = quadAt(pts[0]), qb = quadAt(pts[pts.length - 1]);
-  if (qa && qb && qa.face && qb.face && qa.w !== qb.w) { const x = segX(qa.fa, qa.fb, qb.fa, qb.fb); if (x) pts.push(x.p); }
+  if (qa && qb && (qa.face || qb.face) && qa.w !== qb.w) { const la = qa.face ? [qa.fa, qa.fb] : [qa.r0, qa.r1], lb = qb.face ? [qb.fa, qb.fb] : [qb.r0, qb.r1]; const x = segX(la[0], la[1], lb[0], lb[1]); if (x) pts.push(x.p); } // iki duvar arası kolon (uçlardan biri turuncu çizgide olabilir)
   else if (qa && qb && qa.face && qb.face && qa.w === qb.w && qa.i !== qb.i) { const g = wallGeom(qa.w); const byI = new Map(g.quads.map(q => [q.i, q])); for (let k = qb.i, g2 = 0; k !== qa.i && g2 < 50; g2++) { const q = byI.get(k); if (!q) break; pts.push(q.poly[3]); k = qa.w.closed ? (k - 1 + qa.n) % qa.n : k - 1; if (k < 0) break; } }
   return pts; }
 function drawFills() { (P.fills || []).forEach(f => { const pp = fillPoly(f); if (!pp || pp.length < 3) return; const pts = pp.map(p => w2s(...p)); ctx.save(); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fillStyle = '#1b1f24'; ctx.fill(); ctx.clip(); ctx.strokeStyle = '#454d58'; ctx.lineWidth = 1; const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys); ctx.strokeStyle = '#454d58'; ctx.beginPath(); for (let C = Math.floor((x0 + y0) / 7) * 7; C <= x1 + y1; C += 7) { ctx.moveTo(C - y1, y1); ctx.lineTo(C - y0, y0); } ctx.stroke(); ctx.restore(); }); } // duvar taramasıyla aynı ekran deseni (birleşimde dikiş yok)
