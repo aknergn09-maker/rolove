@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.10';
+const VER = 'v11.11';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -913,7 +913,7 @@ function faceVisible(a, b, FZ) { const F = FZ || (P.fills || []).map(fillPoly).f
 /* Ölç: beyaz çizgi, ona değen noktalardan (başka duvarın ucu/yüzü, kolon köşesi, çizgi ucu) kırılır; dokunulan parça ölçülür (iki uç düğüm arasında duvar doğrultusundaki mesafe) */
 function faceDim(fs, ends, tp, wSelf) { const [A, B] = fs; const L = V.dist(A, B); if (L < 1e-6) return null; const u = V.mul(V.sub(B, A), 1 / L); const pr = p => (p[0] - A[0]) * u[0] + (p[1] - A[1]) * u[1];
   const br = [{ t: 0, id: ends[0], e: pr(A) - pr(nw(ends[0])) }, { t: L, id: ends[1], e: pr(B) - pr(nw(ends[1])) }]; const add = (p, id) => { if (segDist(p, A, B) > 1e-4) return; const t = pr(p); if (t > 1e-3 && t < L - 1e-3 && !br.some(b => Math.abs(b.t - t) < 1e-4)) br.push({ t, id, e: t - pr(nw(id)) }); };
-  P.nodes.forEach(n => { if (!ends.includes(n.id)) add([n.x, n.y], n.id); }); (P.walls || []).forEach(w => { if (w === wSelf) return; const g = wallGeom(w); if (!g) return; const ids = w.nodes.filter(id => nodeById(id)); g.quads.forEach(q => { add(q.poly[3], ids[q.i]); add(q.poly[2], ids[(q.i + 1) % ids.length]); }); });
+  P.nodes.forEach(n => { if (!ends.includes(n.id)) add([n.x, n.y], n.id); }); (P.walls || []).forEach(w => { if (w === wSelf) return; const g = wallGeom(w); if (!g) return; const ids = w.nodes.filter(id => nodeById(id)); g.quads.forEach(q => { const ia = ids[q.i], ib = ids[(q.i + 1) % ids.length]; [[q.poly[3], ia, q.poly[0]], [q.poly[2], ib, q.poly[1]]].forEach(([fp, id, rp]) => { if (segDist(rp, A, B) < 1e-4) { const x = segX(q.poly[3], q.poly[2], A, B); add(x ? x.p : fp, id); } else add(fp, id); }); }); }); // bu yüze dayanan duvarın öbür yüzü: yüz eğikse kesişim noktası (duvar kalınlığı parçaya girmesin)
   if (br.length === 2) return null; br.sort((a, b) => a.t - b.t); const tt = pr(tp); const k = br.findIndex((b, i) => i + 1 < br.length && tt >= b.t - 1e-6 && tt <= br[i + 1].t + 1e-6); if (k < 0) return null; const a = br[k], b = br[k + 1];
   if (hiddenAt(V.add(A, V.mul(u, (a.t + b.t) / 2)), u, hideZones(wSelf))) return null; return { a: a.id, b: b.id, u, ea: a.e, eb: b.e, fs: [V.add(A, V.mul(u, a.t)), V.add(A, V.mul(u, b.t))] }; }
 function applyDim(d, m) { if (!(m > 0)) return; snap(); const mm = Math.round(m * 1000) / 1000; P.dims = (P.dims || []).filter(x => !(x.a === d.a && x.b === d.b) && !(x.a === d.b && x.b === d.a)); P.dims.push({ id: uid('d'), a: d.a, b: d.b, u: d.u, m: mm - d.eb + d.ea, fm: mm, ea: d.ea, eb: d.eb });

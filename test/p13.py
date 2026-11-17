@@ -26,7 +26,7 @@ async def main():
         await btn('#tabs button[data-tab=olcum]'); await btn('#tools button[data-tool=kontrol]')
         ck('Ölçüm sekmesinde Gönye aracı', await ev("RK.S.tool")=='kontrol' and 'Gönye' in await ev("document.querySelector('#tools').textContent"))
         await ctap(0,0); await ctap(4,3)
-        ck('Salon köşeleri seçildi (çapraz oda içinden)', await ev("RK.S.kt.b")=='C' and await ev("RK.S.kt.room")=='Salon', await ev("document.querySelector('#toast').textContent"))
+        ck('Salon köşeleri seçildi (çapraz oda içinden)', await ev("RK.S.kt.b.id")=='C' and await ev("RK.S.kt.room")=='Salon', await ev("document.querySelector('#toast').textContent"))
         await ev("RK.laserValue(5.05)")
         ck('lazer ölçüsü hemen kaydedilmedi, kutuya yazıldı (505 cm)', await ev("RK.S.ms.buf")=='505' and not await ev("(RK.P.diags||[]).length"), await ev("RK.S.ms.buf"))
         await btn('#sheet button[data-a=dgok]')
