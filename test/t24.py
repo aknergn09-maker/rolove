@@ -36,7 +36,7 @@ async def main():
         await ev("window._glmRaw([0xC0,0x55,0x10,0x06,0x08,0x02,0x08,0xE0,0x9C,0xE9,0x3F,0,0,0,0,0,0,0,0,0x06])"); await pg.wait_for_timeout(150)
         ck('gerçek GLM paketi (1.825 m) alındı', abs((await ev("RK.LZ.last") or 0)-1.825)<1e-4, await ev("RK.LZ.last"))
         await ev("window._glmRaw([0xC0,0x55,0x10,0x07,0x08,0x02,0x08,0x00,0x00,0x20,0x40,0,0,0,0,0,0,0,0,0])"); await pg.wait_for_timeout(150)
-        ck('  4. baytı 06 olmayan durum paketi (ölçüm yeri değişimi vb.) ölçü sayılmadı', abs((await ev("RK.LZ.last") or 0)-1.825)<1e-4, await ev("RK.LZ.last"))
+        ck('  ölçüm yeri değişince (4. bayt farklı) gelen ölçü de alındı (2.5 m)', abs((await ev("RK.LZ.last") or 0)-2.5)<1e-4, await ev("RK.LZ.last"))
         txt = await ev("document.querySelector('#sheet').textContent")
         ck('  panelde gelen veri sayısı ve son paket görünüyor', '2 paket' in txt and 'C0 55 10' in txt, txt[-160:])
         for _ in range(3): await ev("window._glmRaw([0xC0,0x11,0x00,0x3A])")
