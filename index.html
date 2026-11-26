@@ -94,7 +94,7 @@ body.nobar #bar{display:none}
 <script>
 'use strict';
 /* =================== Sabitler, durum =================== */
-const VER = 'v11.13';
+const VER = 'v11.14';
 const LS_P = 'rk3_projects', LS_C = 'rk3_current', LS_S = 'rk3_settings';
 const deg = Math.PI / 180;
 const defSet = { ortho: 'obj', snap: true, showLen: true, autoRoom: true, wallT: 0.2, wallSide: 1 };
@@ -515,7 +515,7 @@ function realize(c) { // hedefi düğüme çevir (gerekirse çizgiyi böl)
 const CATS = [['ciz', 'Çiz'], ['duz', 'Düzenle'], ['ekle', 'Ekle'], ['olc', 'Ölç']];
 const TOOLS = { ciz: [['cizgi', '╱', 'Çizgi'], ['duvar', '▥', 'Duvar'], ['serbest', '✎', 'Serbest'], ['dikdortgen', '▭', 'Dikdörtgen']], duz: [['sec', '⬚', 'Seç'], ['cikinti', '⊓', 'Çıkıntı'], ['sil', '⌫', 'Sil']], olc: [['olc', '📏', 'Lazer / Ölçü']], ekle: [['aciklik', '🚪', 'Kapı/Pen.'], ['oda', '▦', 'Oda'], ['eleman', '▣', 'Eleman'], ['merdiven', '☰', 'Merdiven']] };
 function setCat(c) { S.cat = c; if (!TOOLS[c].some(t => t[0] === S.tool)) setTool(TOOLS[c][0][0]); else render(); }
-function setTool(t) { if (S.chain && t !== S.tool) finishChain(); S.op = { type: S.op ? S.op.type : 'kapi', step: 1, f: 'w', d: '', w: '' }; S.pendOpen = null; S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.faceAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.np = false; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
+function setTool(t) { if (S.chain && t !== S.tool) finishChain(); if (t !== S.tool) S.measAsk = null; S.op = { type: S.op ? S.op.type : 'kapi', step: 1, f: 'w', d: '', w: '' }; S.pendOpen = null; S.mk = { mode: 'ciz', l1: null, l2: null, pts: [] }; S.cikAsk = null; S.faceAsk = null; S.strokeAsk = null; S.cik = { mode: (S.cik && S.cik.mode) || 'el', step: 1 }; S.offEdit = null; S.lastWall = null; S.lastWalls = null; S.tool = t; S.kbuf = ''; S.np = false; S.sel = null; S.move = null; S.lenEdit = null; S.rect = { w: '', h: '', c1: null }; S.field = null; aim = null; box = null; for (const c in TOOLS) if (TOOLS[c].some(x => x[0] === t)) S.cat = c; render(); }
 const kval = () => S.kbuf ? parseInt(S.kbuf, 10) / 100 : null;
 
 /* ---- Çizgi ---- */
@@ -923,7 +923,7 @@ function faceDim(fs, ends, tp, wSelf) { const [A, B] = fs; const L = V.dist(A, B
   if (br.length === 2) return null; br.sort((a, b) => a.t - b.t); const tt = pr(tp); const k = br.findIndex((b, i) => i + 1 < br.length && tt >= b.t - 1e-6 && tt <= br[i + 1].t + 1e-6); if (k < 0) return null; const a = br[k], b = br[k + 1];
   if (hiddenAt(V.add(A, V.mul(u, (a.t + b.t) / 2)), u, hideZones(wSelf))) return null; return { a: a.id, b: b.id, u, ea: a.e, eb: b.e, fs: [V.add(A, V.mul(u, a.t)), V.add(A, V.mul(u, b.t))] }; }
 function applyDim(d, m) { if (!(m > 0)) return; snap(); const mm = Math.round(m * 1000) / 1000; P.dims = (P.dims || []).filter(x => !(x.a === d.a && x.b === d.b) && !(x.a === d.b && x.b === d.a)); P.dims.push({ id: uid('d'), a: d.a, b: d.b, u: d.u, m: mm - d.eb + d.ea, fm: mm, ea: d.ea, eb: d.eb });
-  const r = adjustGeometry(); commit(); toast('Duvar yüzünde parça ' + fmtM(mm, 3) + ' m oturdu · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : '')); }
+  const pre = JSON.stringify(P); const r = adjustGeometry(); commit(); neighborAsk(pre, d.a, d.b); toast('Duvar yüzünde parça ' + fmtM(mm, 3) + ' m oturdu · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : '')); }
 function drawDims() { const RC = []; (P.dims || []).forEach(d => { if (!nodeById(d.a) || !nodeById(d.b)) return; const pa = V.add(nw(d.a), V.mul(d.u, d.ea)), pb = V.add(nw(d.b), V.mul(d.u, d.eb)); const m = w2s(...V.mul(V.add(pa, pb), 0.5)); ctx.save(); ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const tx = d.fm.toFixed(3); const w = ctx.measureText(tx).width + 8; for (let g = 0; g < 8 && RC.some(r => Math.abs(r[0] - m[0]) < (r[2] + w) / 2 && Math.abs(r[1] - m[1]) < 18); g++) m[1] -= 19; RC.push([m[0], m[1], w]); ctx.fillStyle = 'rgba(11,13,16,.85)'; ctx.fillRect(m[0] - w / 2, m[1] - 9, w, 18); ctx.fillStyle = '#4ade80'; ctx.fillText(tx, m[0], m[1]); ctx.restore(); }); }
 function opLineAt(X, Y) { // dokunulan yerdeki gerçek çizgi (duvar yüzüne dokunulduysa referans çizgisi) ve üstündeki nokta
   let best = null, bd = 26; const UF = underFillSet(); P.lines.forEach(l => { if (l.step || UF.has(l.id)) return; const a = ns(l.a), b = ns(l.b); const d = segDist([X, Y], a, b); if (d < bd) { bd = d; best = { l, q: footT(s2w(X, Y), nw(l.a), nw(l.b)).q }; } });
@@ -959,11 +959,11 @@ function opById(id) { return (P.openings || []).find(o => o.id === id); }
 function triOf(r) { const ids = [...new Set([...r._f.lids].map(id => lineById(id)).filter(Boolean).flatMap(l => [l.a, l.b]))]; if (ids.length < 3) return null; const p = ids.map(nw); let i0 = 0, i1 = 0, bd = 0; p.forEach((a, i) => p.forEach((b, j) => { const d = V.dist(a, b); if (d > bd) { bd = d; i0 = i; i1 = j; } }));
   let i2 = -1, ba = 0; p.forEach((c, k) => { const ar = Math.abs((p[i1][0] - p[i0][0]) * (c[1] - p[i0][1]) - (p[i1][1] - p[i0][1]) * (c[0] - p[i0][0])); if (ar > ba) { ba = ar; i2 = k; } }); return ba > 1e-6 ? [ids[i0], ids[i1], ids[i2]] : null; }
 function baryOf(p, T) { const [a, b, c] = T; const d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]); const l1 = ((b[1] - c[1]) * (p[0] - c[0]) + (c[0] - b[0]) * (p[1] - c[1])) / d, l2 = ((c[1] - a[1]) * (p[0] - c[0]) + (a[0] - c[0]) * (p[1] - c[1])) / d; return [l1, l2, 1 - l1 - l2]; }
-function adjustGeometry() {
+function adjustGeometry(opts) { opts = opts || {};
   const ids = new Map(); const lines = P.lines.filter(l => !l.step); lines.forEach(l => [l.a, l.b].forEach(id => { if (!ids.has(id)) ids.set(id, ids.size); }));
   const N = ids.size; if (!N) return null; const nv = 2 * N + 1, K = 2 * N; const x = new Float64Array(nv); ids.forEach((i, id) => { const n = nodeById(id); x[2 * i] = n.x; x[2 * i + 1] = n.y; }); x[K] = 1;
   const x0 = Float64Array.from(x); const D0 = new Map(lines.map(l => [l.id, [x0[2 * ids.get(l.b)] - x0[2 * ids.get(l.a)], x0[2 * ids.get(l.b) + 1] - x0[2 * ids.get(l.a) + 1]]]));
-  const meas = l => l.kind === 'laser' && l.m != null ? { m: l.m, w: 3000 } : l.kind === 'typed' ? { m: l.m != null ? l.m : Math.hypot(...D0.get(l.id)), w: 30 } : null;
+  const meas = l => l.kind === 'laser' && l.m != null ? { m: l.m, w: 1e4 } : l.kind === 'typed' ? { m: l.m != null ? l.m : Math.hypot(...D0.get(l.id)), w: 30 } : null;
   lines.forEach(l => { if (l.kind === 'typed' && l.m == null) l.m = Math.hypot(...D0.get(l.id)); });
   // k başlangıcı: ölçülenlerin oran ortancası
   const rs = lines.filter(l => l.kind === 'laser' && l.m != null).map(l => l.m / Math.max(1e-9, Math.hypot(...D0.get(l.id)))).sort((a, b) => a - b); if (rs.length) x[K] = rs[rs.length >> 1];
@@ -977,7 +977,7 @@ function adjustGeometry() {
       rows.push({ c: [[2 * j, px], [2 * j + 1, py], [2 * i, -px], [2 * i + 1, -py]], r: px * dx + py * dy, w: 300 }); // yön (açı) güçlü korunur
       if (!ms) rows.push({ c: [[2 * j, ex], [2 * j + 1, ey], [2 * i, -ex], [2 * i + 1, -ey], [K, -L0]], r: ex * dx + ey * dy - x[K] * L0, w: 1 }); // boy: ortak ölçekle zayıf
       else { const L = Math.hypot(dx, dy) || 1e-9, ux = dx / L, uy = dy / L; rows.push({ c: [[2 * j, ux], [2 * j + 1, uy], [2 * i, -ux], [2 * i + 1, -uy]], r: L - ms.m, w: ms.w }); } });
-    for (let v = 0; v < 2 * N; v++) rows.push({ c: [[v, 1]], r: x[v] - x0[v], w: 1e-6 });
+    { const FX = new Set(opts.fix ? [...opts.fix].filter(id => ids.has(id)).map(id => ids.get(id)) : []); for (let v = 0; v < 2 * N; v++) rows.push({ c: [[v, 1]], r: x[v] - x0[v], w: FX.has(v >> 1) ? 1e9 : 1e-6 }); }
     rows.push({ c: [[K, 1]], r: x[K] - 1, w: 1e-6 });
     onF.forEach(o => { const i = ids.get(o.n), a = ids.get(o.a); rows.push({ c: [[2 * i, o.nv[0]], [2 * i + 1, o.nv[1]], [2 * a, -o.nv[0]], [2 * a + 1, -o.nv[1]]], r: o.nv[0] * (x[2 * i] - x[2 * a]) + o.nv[1] * (x[2 * i + 1] - x[2 * a + 1]) - o.d, w: 3000 }); });
     (P.dims || []).forEach(dm => { const i = ids.get(dm.a), j = ids.get(dm.b); if (i == null || j == null) return; rows.push({ c: [[2 * j, dm.u[0]], [2 * j + 1, dm.u[1]], [2 * i, -dm.u[0]], [2 * i + 1, -dm.u[1]]], r: dm.u[0] * (x[2 * j] - x[2 * i]) + dm.u[1] * (x[2 * j + 1] - x[2 * i + 1]) - dm.m, w: 3000 }); });
@@ -995,8 +995,19 @@ function adjustGeometry() {
   let worst = 0; lines.forEach(l => { if (l.kind === 'laser' && l.m != null) worst = Math.max(worst, Math.abs(lineLen(l) - l.m)); }); (P.dims || []).forEach(dm => { if (nodeById(dm.a) && nodeById(dm.b)) worst = Math.max(worst, Math.abs(dm.u[0] * (nw(dm.b)[0] - nw(dm.a)[0]) + dm.u[1] * (nw(dm.b)[1] - nw(dm.a)[1]) - dm.m)); });
   return { k: x[K], shift, worst };
 }
+/* ölçü komşu odaları da değiştirdiyse sor: bağlantı korunsun (komşular uyar) mı, komşular yerinde kalsın (sadece ölçülen oda) mı */
+function roomsOfLine(a, b) { const M = V.mul(V.add(nw(a), nw(b)), 0.5); const on = pl => pl.some((q, i) => segDist(M, q, pl[(i + 1) % pl.length]) < 1e-4); return P.rooms.filter(r => r._f && !r.kind && on(r._f.poly)); }
+function neighborAsk(pre, a, b, baseOpts) { const Pg = JSON.stringify(P); P = JSON.parse(pre); commit(); const R = roomsOfLine(a, b); const onB = (pl, p) => pl.some((q, i) => segDist(p, q, pl[(i + 1) % pl.length]) < 1e-6);
+  const others = P.rooms.filter(r => r._f && !r.kind && !R.includes(r)); const G0 = JSON.parse(Pg); const pos = new Map(P.nodes.map(n => [n.id, [n.x, n.y]]));
+  const np = new Map(G0.nodes.map(n => [n.id, [n.x, n.y]])); const moved = others.filter(o => { const ls = P.lines.filter(l => !l.step && pos.has(l.a) && pos.has(l.b) && np.has(l.a) && np.has(l.b) && onB(o._f.poly, pos.get(l.a)) && onB(o._f.poly, pos.get(l.b))); if (!ls.length) return false; // şekli bozuldu mu (hepsi aynı oranla büyüyüp aynı açıyla döndüyse bozulma yok)
+    const rr = ls.map(l => V.dist(np.get(l.a), np.get(l.b)) / Math.max(1e-9, V.dist(pos.get(l.a), pos.get(l.b)))), aa = ls.map(l => { const u = V.sub(pos.get(l.b), pos.get(l.a)), v = V.sub(np.get(l.b), np.get(l.a)); return Math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1]); });
+    return Math.max(...rr) - Math.min(...rr) > 0.002 || Math.max(...aa) - Math.min(...aa) > 0.002; });
+  if (!R.length || !moved.length) { P = JSON.parse(Pg); commit(); return; }
+  const fix = new Set(baseOpts && baseOpts.fix ? [...baseOpts.fix] : []); P.nodes.forEach(n => { if (n.id === a || n.id === b) return; const p = [n.x, n.y]; if (!R.some(r => onB(r._f.poly, p)) || others.some(o => onB(o._f.poly, p))) fix.add(n.id); });
+  adjustGeometry(Object.assign({}, baseOpts || {}, { fix })); if (typeof thickAll === 'function') thickAll(); commit(); const local = JSON.stringify(P);
+  P = JSON.parse(Pg); commit(); S.measAsk = { koru: Pg, degis: local, cur: 'koru', names: moved.map(r => r.name), room: R.map(r => r.name).join(', ') }; render(); }
 function applyMeasure(l, m, fd) { // fd: duvarın diğer yüzü ölçüldüyse yüz − çizgi farkı (köşe uzantıları)
-  if (!l || !(m > 0)) return; fd = fd || 0; if (m - fd <= 0.01) return toast('Ölçü duvar kalınlığından küçük'); snap(); l.kind = 'laser'; l.m = Math.round((m - fd) * 1000) / 1000; const r = adjustGeometry(); commit();
+  if (!l || !(m > 0)) return; fd = fd || 0; if (m - fd <= 0.01) return toast('Ölçü duvar kalınlığından küçük'); snap(); l.kind = 'laser'; l.m = Math.round((m - fd) * 1000) / 1000; const pre = JSON.stringify(P); const r = adjustGeometry(); commit(); neighborAsk(pre, l.a, l.b);
   toast((fd ? 'Duvar yüzü ' + fmtM(m, 3) + ' → çizgi ' : '') + fmtM(l.m, 3) + ' m oturdu · ölçek ' + ((r.k - 1) * 100 >= 0 ? '+' : '') + ((r.k - 1) * 100).toFixed(1) + '% · en büyük kayma ' + Math.round(r.shift * 100) + ' cm' + (r.worst > 0.002 ? ' · UYARI ölçüler çelişiyor (' + Math.round(r.worst * 1000) + ' mm)' : ''));
 }
 /* ---- Bosch GLM (GLM 50 C ailesi) Bluetooth ---- */
@@ -1028,7 +1039,7 @@ async function laserAttach(dev) { LZ.state = 'bağlanıyor'; render(); const srv
   LZ.state = 'bağlı'; render(); toast('Lazer bağlandı: ' + LZ.name + (LZ.auto ? '' : ' · ölçüm gönderme komutu yazılamadı'));
 }
 async function laserTrigger() { if (!LZ.chr) return toast('Önce lazeri bağla'); const a = await glmWrite(GLM_TRIG); await new Promise(r => setTimeout(r, 700)); const b = await glmWrite(GLM_TRIG); toast(a && b ? 'Lazere ölç komutu gönderildi' : 'Lazere komut yazılamadı: ' + LZ.werr); }
-function olcTap(X, Y) {
+function olcTap(X, Y) { S.measAsk = null;
   const h = opLineAt(X, Y); if (!h) { S.ms.sel = null; render(); return toast('Ölçülecek çizgiye dokun'); }
   S.ms.sel = h.l.id; S.ms.fd = h.fd || 0; S.ms.fs = h.fs || null; S.ms.dim = h.dim || null; S.ms.buf = S.ms.pend != null ? cmStr(S.ms.pend) : ''; S.ms.pend = null; render(); if (h.fs) toast((h.dim ? 'Duvar yüzünde parça seçildi · ' : 'Duvarın diğer yüzü seçildi · ') + fmtM(V.dist(...h.fs), 2) + ' m');
 }
@@ -1166,6 +1177,7 @@ function numpad() { return `<div class="kp">${['7', '8', '9', '⌫', '4', '5', '
 function renderSheet() {
   let h = ''; if (S.lenEdit && !lineById(S.lenEdit.id)) S.lenEdit = null; if (S.sel && ((S.sel.lines || []).some(id => !lineById(id)) || (S.sel.nodes || []).some(id => !nodeById(id)) || (S.sel.wall && !(P.walls || []).some(w => w.id === S.sel.wall)) || (S.sel.room && !roomById(S.sel.room)))) S.sel = null;
   if (S.tool === 'olc') { const l = S.ms.sel && lineById(S.ms.sel); const st = LZ.state;
+    if (S.measAsk) h += `<div class="row"><span class="inf"><b style="color:#fff">Ölçü komşu odaları da değiştirdi: ${esc(S.measAsk.names.join(', '))}</b></span></div><div class="row"><button class="${S.measAsk.cur === 'koru' ? 'p' : ''}" data-a="mqK">🔗 Bağlantı korunsun</button><button class="${S.measAsk.cur === 'degis' ? 'p' : ''}" data-a="mqD">Komşular yerinde kalsın</button></div>`;
     h += `<div class="row"><span class="inf">Lazer: <b style="color:${st === 'bağlı' ? '#4ade80' : '#fca5a5'}">${st === 'bağlı' ? '● ' + esc(LZ.name) : st === 'bağlanıyor' ? 'bağlanıyor…' : 'bağlı değil'}</b></span>${st === 'bağlı' ? '<button data-a="lztr">📏 Uzaktan ölç</button>' : ''}<button data-a="lzc">${st === 'bağlı' ? 'Yeniden bağla' : '🔗 Bağlan'}</button></div>`;
     if (!navigator.bluetooth) h += `<div class="row"><span class="inf" style="color:#fca5a5">Bu tarayıcı Bluetooth'a izin vermiyor. iPhone'da <b>Bluefy</b> tarayıcısıyla aç; değeri elle de yazabilirsin.</span></div>`;
     else if (st === 'bağlı') h += `<div class="row"><span class="inf" style="font-size:12px">Gelen veri: ${LZ.n} paket${LZ.hb ? ' (+' + LZ.hb + ' canlılık)' : ''}${LZ.raw.length ? ' · son: <code>' + esc(LZ.raw[0]) + '</code>' : ' · lazerde ölçüm yap'}${LZ.armed ? ' · ölçüm gönderme açık' : LZ.auto === false ? ' · komut yazılamadı' + (LZ.werr ? ' (' + esc(LZ.werr) + ')' : '') : ' · lazer onayı bekleniyor'}</span></div>`;
@@ -1233,6 +1245,7 @@ $('#sheet').addEventListener('click', e => {
   const a = b.dataset.a;
   if (a === 'np') S.np = !S.np;
   else if (a === 'lzc') { laserConnect(); return; }
+  else if (a === 'mqK' || a === 'mqD') { const k = S.measAsk, want = a === 'mqK' ? 'koru' : 'degis'; if (k && k.cur !== want) { snap(); P = JSON.parse(k[want]); k.cur = want; commit(); } toast(want === 'koru' ? 'Bağlantı korundu · komşu odalar ölçüye uydu' : 'Komşu odalar yerinde · sadece ' + (k ? k.room : 'bu oda') + ' değişti'); }
   else if (a === 'lztr') { laserTrigger(); return; }
   else if (a === 'mspx') S.ms.pend = null;
   else if (a === 'msok') { const l = lineById(S.ms.sel), v = olcBufVal(); if (l && v) { if (S.ms.dim) applyDim(S.ms.dim, v); else applyMeasure(l, v, S.ms.fd); S.ms = { sel: null, buf: '', pend: null }; S.np = false; } }
@@ -1339,7 +1352,7 @@ $('#fileIn').addEventListener('change', async e => { const f = e.target.files[0]
 /* =================== Başlat =================== */
 loadInitial(); resize(); commit(); fit(); if (needBackup()) setTimeout(() => toast('Bu projenin güncel yedeği yok · ☰ → JSON yedek'), 900);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.RK = { fillPoly, underFillSet, faceVisible, get LB() { return LB; }, polyHit, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
+window.RK = { neighborAsk, fillPoly, underFillSet, faceVisible, get LB() { return LB; }, polyHit, adjustGeometry, applyMeasure, laserParse, laserValue, LZ, nodeAt, lineLen, doorHand, doorSide, opGeom, addOpening, VER, regenSteps, uniqName, needBackup, rA, computeFaces, closeAlongFace, faceWallAt, applyOuterAsk, offsetWall, applyDetour, collinearRun, oppositeGroups, get P() { return P; }, set P(v) { P = v; }, S, get G() { return G; }, SET, processStroke, wallGeom, commit, fit, w2s, s2w, ns, candidate, faceAt, setTool, undo, redo, get view() { return view; }, get aim() { return aim; } };
 </script>
 </body>
 </html>
