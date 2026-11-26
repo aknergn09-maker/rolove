@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#121417"><link rel="manifest" href="cad-manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
+<title>Roleve CAD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{height:100%;overflow:hidden;background:#121417;overscroll-behavior:none}
+#cv{position:fixed;inset:0;touch-action:none;display:block}
+#cv.nope{animation:nope .35s}
+@keyframes nope{0%,100%{box-shadow:none}40%{box-shadow:inset 0 0 0 4px rgba(255,80,80,.7)}}
+#col{position:fixed;right:0;top:calc(env(safe-area-inset-top) + 8px);bottom:calc(env(safe-area-inset-bottom) + 8px);width:62px;padding:6px 7px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;background:rgba(30,34,40,.92);border-radius:14px 0 0 14px;touch-action:pan-y;scrollbar-width:none}
+#col::-webkit-scrollbar{display:none}
+#col i{display:block;height:1px;flex:0 0 1px;background:#444;margin:1px 4px}
+.b{width:48px;height:48px;flex:0 0 48px;border:0;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#d8dde3;background:#262b33;touch-action:manipulation}
+.b svg{width:27px;height:27px}.b.on{background:#2b6fd6;color:#fff}.b.sn{background:#262b33;color:#8a929c}.b.sn.on{background:#1e5a3a;color:#7dffb0}
+.b.open{outline:2px solid #2b6fd6}.b.dis{opacity:.35}.b.okb{background:#2b6fd6;color:#fff}
+#fly{position:fixed;right:68px;display:none;flex-direction:column;gap:6px;padding:6px 7px;background:rgba(30,34,40,.95);border-radius:14px;max-height:calc(100% - 16px);overflow-y:auto}
+#qp,#np{position:fixed;right:68px;bottom:calc(env(safe-area-inset-bottom) + 12px);display:none;gap:6px;padding:6px;background:rgba(30,34,40,.92);border-radius:14px}
+#qp{grid-template-columns:46px 46px 46px;gap:5px}#qp .b,#qp .num{width:46px;height:46px;flex:0 0 46px}#np{grid-template-columns:48px 48px 48px}
+.sum{grid-column:1/-1;text-align:center;font:bold 20px Arial;color:#ffcf70;padding:0;line-height:26px}
+.num{width:48px;height:48px;border:0;border-radius:11px;background:#3a3020;color:#ffcf70;font:bold 17px Arial;touch-action:manipulation}
+.ver{margin-top:auto;text-align:center;font:10px Arial;color:#4a525c;padding-top:6px}
+.num.k{background:#2a2f37;color:#e8e8e8}
+</style></head><body>
+<canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div>
+<script>
+const ICONS = /*ICONS*/;
+/*GEO*/
+/*APP*/
+</script></body></html>

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#121417"><link rel="manifest" href="cad-manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
+<title>Roleve CAD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{height:100%;overflow:hidden;background:#121417;overscroll-behavior:none}
+#cv{position:fixed;inset:0;touch-action:none;display:block}
+#cv.nope{animation:nope .35s}
+@keyframes nope{0%,100%{box-shadow:none}40%{box-shadow:inset 0 0 0 4px rgba(255,80,80,.7)}}
+#col{position:fixed;right:0;top:calc(env(safe-area-inset-top) + 8px);bottom:calc(env(safe-area-inset-bottom) + 8px);width:62px;padding:6px 7px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;background:rgba(30,34,40,.92);border-radius:14px 0 0 14px;touch-action:pan-y;scrollbar-width:none}
+#col::-webkit-scrollbar{display:none}
+#col i{display:block;height:1px;flex:0 0 1px;background:#444;margin:1px 4px}
+.b{width:48px;height:48px;flex:0 0 48px;border:0;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#d8dde3;background:#262b33;touch-action:manipulation}
+.b svg{width:27px;height:27px}.b.on{background:#2b6fd6;color:#fff}.b.sn{background:#262b33;color:#8a929c}.b.sn.on{background:#1e5a3a;color:#7dffb0}
+.b.open{outline:2px solid #2b6fd6}.b.dis{opacity:.35}.b.okb{background:#2b6fd6;color:#fff}
+#fly{position:fixed;right:68px;display:none;flex-direction:column;gap:6px;padding:6px 7px;background:rgba(30,34,40,.95);border-radius:14px;max-height:calc(100% - 16px);overflow-y:auto}
+#qp,#np{position:fixed;right:68px;bottom:calc(env(safe-area-inset-bottom) + 12px);display:none;gap:6px;padding:6px;background:rgba(30,34,40,.92);border-radius:14px}
+#qp{grid-template-columns:46px 46px 46px;gap:5px}#qp .b,#qp .num{width:46px;height:46px;flex:0 0 46px}#np{grid-template-columns:48px 48px 48px}
+.sum{grid-column:1/-1;text-align:center;font:bold 20px Arial;color:#ffcf70;padding:0;line-height:26px}
+.num{width:48px;height:48px;border:0;border-radius:11px;background:#3a3020;color:#ffcf70;font:bold 17px Arial;touch-action:manipulation}
+.ver{margin-top:auto;text-align:center;font:10px Arial;color:#4a525c;padding-top:6px}
+.num.k{background:#2a2f37;color:#e8e8e8}
+</style></head><body>
+<canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div>
+<script>
+const ICONS = {"line": "<line x1=\"5\" y1=\"19\" x2=\"19\" y2=\"5\"/><circle cx=\"5\" cy=\"19\" r=\"2\" fill=\"currentColor\"/><circle cx=\"19\" cy=\"5\" r=\"2\" fill=\"currentColor\"/>", "pline": "<polyline points=\"3,19 8,8 14,15 21,5\" fill=\"none\"/><circle cx=\"3\" cy=\"19\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"21\" cy=\"5\" r=\"1.6\" fill=\"currentColor\"/>", "circle": "<circle cx=\"12\" cy=\"12\" r=\"8\" fill=\"none\"/><circle cx=\"12\" cy=\"12\" r=\"1.3\" fill=\"currentColor\"/>", "arc": "<path d=\"M4 18 A9 9 0 0 1 20 18\" fill=\"none\"/><circle cx=\"4\" cy=\"18\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"20\" cy=\"18\" r=\"1.6\" fill=\"currentColor\"/>", "offset": "<line x1=\"4\" y1=\"8\" x2=\"20\" y2=\"8\"/><line x1=\"4\" y1=\"17\" x2=\"20\" y2=\"17\" stroke-dasharray=\"3 2\"/><path d=\"M12 9.5v5M10 12.5l2 2 2-2\" fill=\"none\"/>", "fillet": "<path d=\"M4 4v9a7 7 0 0 0 7 7h9\" fill=\"none\"/>", "stretch": "<polyline points=\"4,20 4,9 15,9\" fill=\"none\" stroke-dasharray=\"2.5 2\"/><polyline points=\"4,20 9,4 15,9\" fill=\"none\"/><rect x=\"7\" y=\"2\" width=\"4\" height=\"4\" fill=\"currentColor\"/>", "trim": "<line x1=\"12\" y1=\"3\" x2=\"12\" y2=\"21\"/><line x1=\"3\" y1=\"12\" x2=\"10\" y2=\"12\"/><line x1=\"14\" y1=\"12\" x2=\"21\" y2=\"12\" stroke-dasharray=\"2 2\" opacity=\".5\"/><path d=\"M16 9l4 6M20 9l-4 6\"/>", "extend": "<line x1=\"20\" y1=\"3\" x2=\"20\" y2=\"21\"/><line x1=\"3\" y1=\"12\" x2=\"10\" y2=\"12\"/><path d=\"M10 12h8M15 9l3 3-3 3\" fill=\"none\" stroke-dasharray=\"2 1.5\"/>", "move": "<path d=\"M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3\" fill=\"none\"/>", "erase": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "door": "<line x1=\"3\" y1=\"20\" x2=\"21\" y2=\"20\"/><line x1=\"7\" y1=\"20\" x2=\"7\" y2=\"7\"/><path d=\"M7 7a13 13 0 0 1 12 13\" fill=\"none\" stroke-dasharray=\"2 1.5\"/>", "window": "<rect x=\"3\" y=\"9\" width=\"18\" height=\"6\" fill=\"none\"/><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"/>", "laser": "<rect x=\"2\" y=\"9\" width=\"7\" height=\"6\" rx=\"1\" fill=\"none\"/><path d=\"M9 12h12\" stroke-dasharray=\"2 2\"/><circle cx=\"21\" cy=\"12\" r=\"1.6\" fill=\"#e33\"/>", "undo": "<path d=\"M9 8H4V3M4 8a8 8 0 1 1-1 7\" fill=\"none\"/>", "redo": "<path d=\"M15 8h5V3M20 8a8 8 0 1 0 1 7\" fill=\"none\"/>", "s_end": "<rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" fill=\"none\"/>", "s_mid": "<polygon points=\"12,5 19,18 5,18\" fill=\"none\"/>", "s_near": "<path d=\"M6 6h12L6 18h12z\" fill=\"none\"/>", "s_orth": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"4\" opacity=\".5\"/><path d=\"M8 16l5 5M10.5 18.5l2.5-2.5 2.5 2.5\" fill=\"none\"/>", "s_xy": "<path d=\"M5 3v16h16\" fill=\"none\"/><path d=\"M5 3l-2 3M5 3l2 3M21 19l-3-2M21 19l-3 2\" fill=\"none\"/>", "imp": "<path d=\"M12 3v11M8 10l4 4 4-4M4 16v4h16v-4\" fill=\"none\"/>", "exp": "<path d=\"M12 14V3M8 7l4-4 4 4M4 16v4h16v-4\" fill=\"none\"/>", "fit": "<path d=\"M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5\" fill=\"none\"/>", "pts": "<circle cx=\"6\" cy=\"17\" r=\"2\" fill=\"currentColor\"/><path d=\"M9 14l3-3\" /><text x=\"12\" y=\"10\" font-size=\"8\" fill=\"currentColor\" stroke=\"none\" font-family=\"Arial\">X1</text>", "gear": "<circle cx=\"12\" cy=\"12\" r=\"3.5\" fill=\"none\"/><path d=\"M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2\"/>", "left": "<path d=\"M19 18V10H6M10 6L6 10l4 4\" fill=\"none\"/>", "right": "<path d=\"M5 18V10h13M14 6l4 4-4 4\" fill=\"none\"/>", "up": "<path d=\"M12 20V5M7 10l5-5 5 5\" fill=\"none\"/>", "down": "<path d=\"M12 4v15M7 14l5 5 5-5\" fill=\"none\"/>", "ok": "<path d=\"M4 13l5 5L20 6\" fill=\"none\"/>", "clr": "<path d=\"M9 5h11v14H9l-6-7z\" fill=\"none\"/><path d=\"M12 9l5 6M17 9l-5 6\"/>", "sel": "<path d=\"M5 3l14 8-6 1.5L10 19z\" fill=\"none\"/>", "draw": "<path d=\"M4 20l3-1L19 7l-2-2L5 17z\" fill=\"none\"/><path d=\"M15 7l2 2\"/>", "edit": "<path d=\"M6 4l12 16M18 4L6 20\" opacity=\".0\"/><circle cx=\"7\" cy=\"17\" r=\"3\" fill=\"none\"/><circle cx=\"17\" cy=\"17\" r=\"3\" fill=\"none\"/><path d=\"M9 15L17 4M15 15L7 4\" fill=\"none\"/>", "snap": "<rect x=\"7\" y=\"7\" width=\"10\" height=\"10\" fill=\"none\"/><path d=\"M12 2v4M12 18v4M2 12h4M18 12h4\"/>", "explode": "<path d=\"M12 12l-6-6M12 12l6-6M12 12l-6 6M12 12l6 6\"/><circle cx=\"12\" cy=\"12\" r=\"2\" fill=\"currentColor\"/>", "join": "<polyline points=\"3,18 9,8\" /><polyline points=\"15,8 21,18\"/><path d=\"M9 8h6\" stroke-dasharray=\"2 2\"/><circle cx=\"9\" cy=\"8\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"8\" r=\"1.6\" fill=\"currentColor\"/>", "copy": "<rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" fill=\"none\"/><path d=\"M4 16V4h12\" fill=\"none\"/>", "trk": "<line x1=\"3\" y1=\"12\" x2=\"13\" y2=\"12\"/><line x1=\"13\" y1=\"12\" x2=\"22\" y2=\"12\" stroke-dasharray=\"2 2\"/><path d=\"M17 8l4 4-4 4\" fill=\"none\" opacity=\".0\"/><circle cx=\"13\" cy=\"12\" r=\"1.8\" fill=\"currentColor\"/>", "s_int": "<path d=\"M6 6l12 12M18 6L6 18\"/>"};
+/* ROLEVE CAD — geometri çekirdeği (DOM yok). Birimler metre, y yukarı. */
+const TAU = Math.PI * 2, GE = 1e-9, CO = 1e-4;
+const vsub = (a, b) => [a[0] - b[0], a[1] - b[1]], vadd = (a, b) => [a[0] + b[0], a[1] + b[1]], vmul = (a, k) => [a[0] * k, a[1] * k];
+const vdot = (a, b) => a[0] * b[0] + a[1] * b[1], vcross = (a, b) => a[0] * b[1] - a[1] * b[0];
+const vlen = a => Math.hypot(a[0], a[1]), vdist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const vunit = a => { const l = vlen(a) || 1; return [a[0] / l, a[1] / l]; }, vperp = a => [-a[1], a[0]];
+const vang = a => Math.atan2(a[1], a[0]), nrm = a => ((a % TAU) + TAU) % TAU, vsame = (a, b) => vdist(a, b) < CO;
+const cl = p => [p[0], p[1]];
+
+function prims(e) {
+  if (e.t === 'line') return [{ k: 's', a: e.a, b: e.b, s0: 0, i: 0, e }];
+  if (e.t === 'pl') {
+    const out = [], n = e.p.length, m = e.c ? n : n - 1; let s = 0;
+    for (let i = 0; i < m; i++) { const a = e.p[i], b = e.p[(i + 1) % n]; out.push({ k: 's', a, b, s0: s, i, e }); s += vdist(a, b); }
+    return out;
+  }
+  if (e.t === 'cir') return [{ k: 'c', c: e.c, r: e.r, a0: 0, sw: TAU, e }];
+  if (e.t === 'arc') return [{ k: 'c', c: e.c, r: e.r, a0: e.a0, sw: arcSw(e), e }];
+  return [];
+}
+function arcSw(e) { const s = nrm(e.a1 - e.a0); return s < 1e-9 ? TAU : s; }
+function entU(e) { if (e.t === 'cir') return TAU; if (e.t === 'arc') return arcSw(e); return prims(e).reduce((s, p) => s + vdist(p.a, p.b), 0); }
+function periodic(e) { return e.t === 'cir' || (e.t === 'pl' && e.c); }
+function inSweep(P, pt) { return P.sw >= TAU - 1e-9 || nrm(vang(vsub(pt, P.c)) - P.a0) <= P.sw + 1e-7; }
+function uOf(P, pt) { return P.k === 's' ? P.s0 + vdist(P.a, pt) : nrm(vang(vsub(pt, P.c)) - P.a0) + (P.e.t === 'cir' ? 0 : 0); }
+function ptAt(e, u) {
+  if (e.t === 'cir' || e.t === 'arc') { const a0 = e.t === 'cir' ? 0 : e.a0; return [e.c[0] + e.r * Math.cos(a0 + u), e.c[1] + e.r * Math.sin(a0 + u)]; }
+  const ps = prims(e); for (const P of ps) { const L = vdist(P.a, P.b); if (u <= P.s0 + L + GE || P === ps[ps.length - 1]) { const t = L ? Math.min(1, Math.max(0, (u - P.s0) / L)) : 0; return vadd(P.a, vmul(vsub(P.b, P.a), t)); } }
+  return cl(ps[0].a);
+}
+function nearPrim(P, q) {
+  if (P.k === 's') { const d = vsub(P.b, P.a), l2 = vdot(d, d) || 1; const t = Math.max(0, Math.min(1, vdot(vsub(q, P.a), d) / l2)); const p = vadd(P.a, vmul(d, t)); return { p, d: vdist(p, q), t }; }
+  const a = vang(vsub(q, P.c)); let p;
+  if (P.sw >= TAU - 1e-9 || nrm(a - P.a0) <= P.sw) p = vadd(P.c, [P.r * Math.cos(a), P.r * Math.sin(a)]);
+  else { const p1 = vadd(P.c, [P.r * Math.cos(P.a0), P.r * Math.sin(P.a0)]), p2 = vadd(P.c, [P.r * Math.cos(P.a0 + P.sw), P.r * Math.sin(P.a0 + P.sw)]); p = vdist(p1, q) < vdist(p2, q) ? p1 : p2; }
+  return { p, d: vdist(p, q) };
+}
+function nearEnt(e, q) { let best = null; prims(e).forEach(P => { const r = nearPrim(P, q); if (!best || r.d < best.d) best = { ...r, P }; }); if (best) best.u = uOf(best.P, best.p); return best; }
+
+/* kesişimler */
+function segSeg(a, b, c, d, inf) {
+  const r = vsub(b, a), s = vsub(d, c), den = vcross(r, s); if (Math.abs(den) < 1e-12) return [];
+  const t = vcross(vsub(c, a), s) / den, u = vcross(vsub(c, a), r) / den;
+  if (!inf && (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9)) return [];
+  return [{ p: vadd(a, vmul(r, t)), t, u }];
+}
+function lineCirc(a, b, c, r) {
+  const d = vsub(b, a), f = vsub(a, c), A = vdot(d, d), B = 2 * vdot(f, d), C = vdot(f, f) - r * r; const D = B * B - 4 * A * C; if (D < 0 || A < 1e-18) return [];
+  const sq = Math.sqrt(D), ts = D < 1e-14 ? [-B / (2 * A)] : [(-B - sq) / (2 * A), (-B + sq) / (2 * A)]; return ts.map(t => ({ t, p: vadd(a, vmul(d, t)) }));
+}
+function circCirc(c1, r1, c2, r2) {
+  const d = vdist(c1, c2); if (d < 1e-12 || d > r1 + r2 + 1e-9 || d < Math.abs(r1 - r2) - 1e-9) return [];
+  const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, r1 * r1 - a * a)); const m = vadd(c1, vmul(vsub(c2, c1), a / d)); const n = vperp(vunit(vsub(c2, c1)));
+  return h < 1e-9 ? [{ p: m }] : [{ p: vadd(m, vmul(n, h)) }, { p: vsub(m, vmul(n, h)) }];
+}
+function primInts(P, Q) {
+  if (P.k === 's' && Q.k === 's') return segSeg(P.a, P.b, Q.a, Q.b).map(x => x.p);
+  if (P.k === 's') return lineCirc(P.a, P.b, Q.c, Q.r).filter(x => x.t >= -1e-9 && x.t <= 1 + 1e-9 && inSweep(Q, x.p)).map(x => x.p);
+  if (Q.k === 's') return primInts(Q, P);
+  return circCirc(P.c, P.r, Q.c, Q.r).filter(x => inSweep(P, x.p) && inSweep(Q, x.p)).map(x => x.p);
+}
+function cutsOn(e, ents) {
+  const us = [], ps = prims(e);
+  ents.forEach(f => { if (f === e) return; const qs = prims(f); ps.forEach(P => qs.forEach(Q => primInts(P, Q).forEach(pt => us.push(uOf(P, pt))))); });
+  return uniqSort(us);
+}
+function uniqSort(us) { us.sort((a, b) => a - b); const o = []; us.forEach(u => { if (!o.length || u - o[o.length - 1] > 1e-7) o.push(u); }); return o; }
+
+/* alt parça (u1→u2, periyodikte sarmalı) */
+function subEnt(e, u1, u2) {
+  if (e.t === 'line') return { t: 'line', a: ptAt(e, u1), b: ptAt(e, u2) };
+  if (e.t === 'cir' || e.t === 'arc') { const a0 = e.t === 'cir' ? 0 : e.a0; return { t: 'arc', c: cl(e.c), r: e.r, a0: nrm(a0 + u1), a1: nrm(a0 + u2) }; }
+  const U = entU(e); if (u2 < u1) u2 += U;
+  const ps = prims(e), pts = [ptAt(e, u1 % U)];
+  const vs = []; ps.forEach(P => vs.push(P.s0 + vdist(P.a, P.b)));
+  for (let lap = 0; lap < 2; lap++) ps.forEach((P, i) => { const s = vs[i] + lap * U; if (s > u1 + 1e-9 && s < u2 - 1e-9) pts.push(cl(P.b)); });
+  pts.push(ptAt(e, u2 > U + 1e-12 ? u2 - U : u2));
+  return { t: 'pl', p: pts, c: false };
+}
+function trimEnt(e, q, ents) {
+  const cuts = cutsOn(e, ents), U = entU(e), u0 = nearEnt(e, q).u;
+  if (periodic(e)) {
+    if (cuts.length < 2) return null;
+    let i = cuts.findIndex(u => u > u0); if (i < 0) i = 0; const hi = cuts[i], lo = cuts[(i - 1 + cuts.length) % cuts.length];
+    return [subEnt(e, hi, lo)];
+  }
+  const inner = cuts.filter(u => u > 1e-7 && u < U - 1e-7); if (!inner.length) return null;
+  const lo = Math.max(0, ...inner.filter(u => u < u0)), hi = Math.min(U, ...inner.filter(u => u > u0));
+  const out = []; if (lo > 1e-7) out.push(subEnt(e, 0, lo)); if (hi < U - 1e-7) out.push(subEnt(e, hi, U));
+  if (e.t === 'arc' && !out.length) return null;
+  return out;
+}
+function rayHit(o, d, ents, skip) { /* o'dan d yönünde ilk kesişim (t>0) */
+  let best = null; const far = vadd(o, d);
+  ents.forEach(f => { if (f === skip) return; prims(f).forEach(Q => {
+    let hs = [];
+    if (Q.k === 's') hs = segSeg(o, far, Q.a, Q.b, true).filter(x => x.u >= -1e-9 && x.u <= 1 + 1e-9).map(x => ({ t: x.t, p: x.p }));
+    else hs = lineCirc(o, far, Q.c, Q.r).filter(x => inSweep(Q, x.p));
+    hs.forEach(h => { if (h.t > 1e-7 && (!best || h.t < best.t)) best = h; });
+  }); });
+  return best;
+}
+function extendEnt(e, q, ents) {
+  if (e.t === 'line' || (e.t === 'pl' && !e.c)) {
+    const pts = e.t === 'line' ? [e.a, e.b] : e.p, u0 = nearEnt(e, q).u, U = entU(e), atEnd = u0 > U / 2;
+    const n = pts.length, end = atEnd ? pts[n - 1] : pts[0], prev = atEnd ? pts[n - 2] : pts[1];
+    const h = rayHit(end, vunit(vsub(end, prev)), ents, e); if (!h) return null;
+    const ne = JSON.parse(JSON.stringify(e)); const np = cl(h.p);
+    if (e.t === 'line') { if (atEnd) ne.b = np; else ne.a = np; } else { if (atEnd) ne.p[n - 1] = np; else ne.p[0] = np; }
+    return ne;
+  }
+  if (e.t === 'arc') {
+    const sw = arcSw(e), u0 = nearEnt(e, q).u, atEnd = u0 > sw / 2; let best = null;
+    const C = { k: 'c', c: e.c, r: e.r, a0: 0, sw: TAU };
+    ents.forEach(f => { if (f === e) return; prims(f).forEach(Q => primInts(C, Q).forEach(pt => { const th = vang(vsub(pt, e.c)); const dd = atEnd ? nrm(th - e.a1) : nrm(e.a0 - th); if (dd > 1e-7 && dd < TAU - sw - 1e-7 && (best === null || dd < best)) best = dd; })); });
+    if (best === null) return null; const ne = JSON.parse(JSON.stringify(e)); if (atEnd) ne.a1 = nrm(e.a1 + best); else ne.a0 = nrm(e.a0 - best); return ne;
+  }
+  return null;
+}
+/* fillet r=0: iki çizgiyi kesişimde birleştir */
+function filletEnts(e1, q1, e2, q2) {
+  const s1 = nearEnt(e1, q1), s2 = nearEnt(e2, q2); if (!s1 || !s2 || s1.P.k !== 's' || s2.P.k !== 's') return null;
+  const X = segSeg(s1.P.a, s1.P.b, s2.P.a, s2.P.b, true)[0]; if (!X) return null;
+  const fix = (e, s, tx) => {
+    const P = s.P, d = vsub(P.b, P.a), tp = vdot(vsub(s.p, P.a), d) / (vdot(d, d) || 1); const ne = JSON.parse(JSON.stringify(e)); const x = cl(X.p);
+    if (e.t === 'line') { if (tx > tp) ne.b = x; else ne.a = x; return ne; }
+    if (e.c) return null; const i = P.i, n = e.p.length;
+    if (tx > tp) { ne.p = ne.p.slice(0, i + 1).concat([x]); } else { ne.p = [x].concat(ne.p.slice(i + 1)); }
+    void n; return ne;
+  };
+  const d1 = vsub(s1.P.b, s1.P.a), d2 = vsub(s2.P.b, s2.P.a);
+  const tx1 = vdot(vsub(X.p, s1.P.a), d1) / vdot(d1, d1), tx2 = vdot(vsub(X.p, s2.P.a), d2) / vdot(d2, d2);
+  if (e1 === e2) return null;
+  const n1 = fix(e1, s1, tx1), n2 = fix(e2, s2, tx2); if (!n1 || !n2) return null; return [n1, n2];
+}
+/* offset */
+function offsetEnt(e, dist, q) {
+  if (e.t === 'line') { const n = vunit(vperp(vsub(e.b, e.a))), sg = vcross(vsub(e.b, e.a), vsub(q, e.a)) > 0 ? 1 : -1; const o = vmul(n, dist * sg); return { t: 'line', a: vadd(e.a, o), b: vadd(e.b, o) }; }
+  if (e.t === 'cir' || e.t === 'arc') { const r = vdist(q, e.c) > e.r ? e.r + dist : e.r - dist; if (r <= 1e-6) return null; const ne = JSON.parse(JSON.stringify(e)); ne.r = r; return ne; }
+  if (e.t === 'pl') {
+    const s = nearEnt(e, q), P = s.P, sg = vcross(vsub(P.b, P.a), vsub(q, P.a)) > 0 ? 1 : -1, ps = prims(e), n = e.p.length;
+    const L = ps.map(P => { const nn = vmul(vunit(vperp(vsub(P.b, P.a))), dist * sg); return { a: vadd(P.a, nn), b: vadd(P.b, nn), nn }; });
+    const pts = e.p.map((p, i) => {
+      const before = e.c ? L[(i - 1 + L.length) % L.length] : (i > 0 ? L[i - 1] : null), after = e.c ? L[i % L.length] : (i < L.length ? L[i] : null);
+      if (!before) return after.a; if (!after) return before.b;
+      const X = segSeg(before.a, before.b, after.a, after.b, true)[0]; return X ? X.p : after.a;
+    });
+    void n; return { t: 'pl', p: pts, c: e.c };
+  }
+  return null;
+}
+/* üç noktadan yay */
+function arc3(p1, p2, p3) {
+  const ax = p1[0], ay = p1[1], bx = p2[0], by = p2[1], cx = p3[0], cy = p3[1]; const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)); if (Math.abs(d) < 1e-12) return null;
+  const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d, uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
+  const c = [ux, uy], r = vdist(c, p1), ccw = vcross(vsub(p2, p1), vsub(p3, p2)) > 0;
+  return ccw ? { t: 'arc', c, r, a0: nrm(vang(vsub(p1, c))), a1: nrm(vang(vsub(p3, c))) } : { t: 'arc', c, r, a0: nrm(vang(vsub(p3, c))), a1: nrm(vang(vsub(p1, c))) };
+}
+function arcPts(e) { const sw = arcSw(e); return [ptAt(e, 0), ptAt(e, sw / 2), ptAt(e, sw)]; }
+/* join: uç uca değen çizgi/açık pline'ları birleştir */
+function chainPts(e) { return e.t === 'line' ? [cl(e.a), cl(e.b)] : e.p.map(cl); }
+function joinEnts(list) {
+  const pool = list.filter(e => e.t === 'line' || (e.t === 'pl' && !e.c)); if (pool.length < 2) return null;
+  let pts = chainPts(pool[0]); const used = new Set([pool[0]]); let grew = true;
+  while (grew) { grew = false; for (const f of pool) { if (used.has(f)) continue; const q = chainPts(f), A = pts[0], B = pts[pts.length - 1];
+    if (vsame(B, q[0])) pts = pts.concat(q.slice(1)); else if (vsame(B, q[q.length - 1])) pts = pts.concat(q.reverse().slice(1));
+    else if (vsame(A, q[q.length - 1])) pts = q.concat(pts.slice(1)); else if (vsame(A, q[0])) pts = q.reverse().concat(pts.slice(1)); else continue;
+    used.add(f); grew = true; } }
+  if (used.size < 2) return null; let c = false; if (pts.length > 3 && vsame(pts[0], pts[pts.length - 1])) { pts.pop(); c = true; }
+  return { ent: { t: 'pl', p: pts, c }, used: [...used] };
+}
+function explodeEnt(e) { if (e.t !== 'pl') return null; return prims(e).map(P => ({ t: 'line', a: cl(P.a), b: cl(P.b) })); }
+/* aynı doğrultudaki ardışık pline parçaları = tek kenar */
+function plRuns(e) {
+  const ps = prims(e), m = ps.length, col = (i, j) => { const a = vunit(vsub(ps[i].b, ps[i].a)), b = vunit(vsub(ps[j].b, ps[j].a)); return Math.abs(vcross(a, b)) < 1e-6 && vdot(a, b) > 0; };
+  let start = 0; if (e.c && m > 1) { let k = 0; while (k < m && col((start - 1 + m) % m, start)) { start = (start + 1) % m; k++; } if (k >= m) start = 0; }
+  const runs = []; let cur = null;
+  for (let k = 0; k < m; k++) { const i = (start + k) % m; if (cur && col(cur.j, i)) cur.j = i; else { if (cur) runs.push(cur); cur = { i, j: i }; } }
+  if (cur) runs.push(cur);
+  return runs.map(r => ({ i0: r.i, i1: (r.j + 1) % (e.c ? m : m + 1) }));
+}
+/* kapalı alanlar: tüm doğru parçalarının düzlem grafı */
+function faces(ents) {
+  const segs = []; ents.forEach(e => prims(e).forEach(P => { if (P.k === 's' && vdist(P.a, P.b) > 1e-9) segs.push(P); }));
+  const ts = segs.map(() => [0, 1]);
+  for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) { const x = segSeg(segs[i].a, segs[i].b, segs[j].a, segs[j].b)[0]; if (x) { ts[i].push(x.t); ts[j].push(x.u); } }
+  const key = p => Math.round(p[0] * 1e4) + ',' + Math.round(p[1] * 1e4); const nodes = new Map(), adj = new Map(), E = new Set();
+  const node = p => { const k = key(p); if (!nodes.has(k)) { nodes.set(k, p); adj.set(k, new Set()); } return k; };
+  segs.forEach((P, i) => { const t = uniqSort(ts[i].map(v => Math.max(0, Math.min(1, v)))); for (let k = 0; k + 1 < t.length; k++) { const a = node(vadd(P.a, vmul(vsub(P.b, P.a), t[k]))), b = node(vadd(P.a, vmul(vsub(P.b, P.a), t[k + 1]))); if (a !== b) { adj.get(a).add(b); adj.get(b).add(a); } } });
+  let ch = true; while (ch) { ch = false; adj.forEach((s, k) => { if (s.size === 1) { const o = [...s][0]; adj.get(o).delete(k); s.clear(); ch = true; } }); }
+  const ord = new Map(); adj.forEach((s, k) => { const p = nodes.get(k); ord.set(k, [...s].sort((a, b) => vang(vsub(nodes.get(a), p)) - vang(vsub(nodes.get(b), p)))); });
+  const out = [];
+  adj.forEach((s, u) => s.forEach(v => { if (E.has(u + '>' + v)) return; const loop = []; let a = u, b = v, g = 0;
+    while (!E.has(a + '>' + b) && g++ < 10000) { E.add(a + '>' + b); loop.push(nodes.get(a)); const L = ord.get(b), i = L.indexOf(a); const c = L[(i - 1 + L.length) % L.length]; a = b; b = c; }
+    let A = 0; for (let i = 0; i < loop.length; i++) { const p = loop[i], q = loop[(i + 1) % loop.length]; A += p[0] * q[1] - q[0] * p[1]; }
+    if (A > 1e-8) out.push(loop); }));
+  return out;
+}
+if (typeof module !== 'undefined' && typeof window === 'undefined') module.exports = { prims, trimEnt, extendEnt, filletEnts, offsetEnt, arc3, joinEnts, explodeEnt, plRuns, faces, subEnt, nearEnt, entU, cutsOn, rayHit, arcSw, arcPts, segSeg, primInts };
+
+/* ROLEVE CAD — uygulama */
+const VER = 'cad-1.0';
+const KEY = 'rcad1_doc';
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+let D = { ents: [], nid: 1 };
+let view = { s: 50, ox: 0, oy: 0 };
+let hist = [], hi = -1;
+const S = {
+  tool: 'sec', draw: 'line', edit: 'offset', fly: null, sel: new Set(),
+  chain: null, cir: null, arc: null, pick: null, sum: 0, sumH: [], offD: 0.2, offStr: '',
+  snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
+  cur: null, snap: null, drag: null, preview: null, hl: null
+};
+const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'move', 'copy', 'explode', 'join', 'erase'];
+const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
+const ICON = { line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
+const svg = k => `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[k] || ''}</svg>`;
+
+/* ---------- belge ---------- */
+const entById = id => D.ents.find(e => e.id === id);
+function addEnt(e) { e.id = 'e' + (D.nid++); D.ents.push(e); return e; }
+function delEnt(e) { D.ents = D.ents.filter(x => x !== e); S.sel.delete(e.id); }
+function replEnt(e, list) { const i = D.ents.indexOf(e); D.ents.splice(i, 1); S.sel.delete(e.id); list.forEach((n, k) => { n.id = 'e' + (D.nid++); D.ents.splice(i + k, 0, n); }); }
+let CACHE = { v: -1 };
+function invalidate() { CACHE = { v: -1 }; }
+function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.stringify(D)); if (hist.length > 300) hist.shift(); hi = hist.length - 1; save(); render(); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit })); } catch (e) { } }
+function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; } } catch (e) { } hist = [JSON.stringify(D)]; hi = 0; }
+function undo() {
+  if (S.chain && S.chain.pts.length === 1) { S.chain = null; render(); return; }
+  if (hi <= 0) return; hi--; D = JSON.parse(hist[hi]); invalidate();
+  if (S.chain) { S.chain.pts.pop(); if (S.chain.k === 'pl' && S.chain.pts.length < 2) { S.chain.eid = null; } }
+  S.sel = new Set([...S.sel].filter(id => entById(id))); save(); render();
+}
+function redo() { if (hi >= hist.length - 1) return; hi++; D = JSON.parse(hist[hi]); invalidate(); S.chain = null; save(); render(); }
+
+/* ---------- görünüm ---------- */
+let W = 0, H = 0, DPR = 1;
+function resize() { DPR = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; if (!view.ox && !view.oy) { view.ox = W * 0.42; view.oy = H * 0.55; } render(); }
+const w2s = (x, y) => [view.ox + x * view.s, view.oy - y * view.s];
+const s2w = (X, Y) => [(X - view.ox) / view.s, (view.oy - Y) / view.s];
+function fit() {
+  const pts = []; D.ents.forEach(e => { if (e.t === 'line') pts.push(e.a, e.b); else if (e.t === 'pl') pts.push(...e.p); else { pts.push([e.c[0] - e.r, e.c[1] - e.r], [e.c[0] + e.r, e.c[1] + e.r]); } });
+  if (!pts.length) { view.s = 50; view.ox = W * 0.42; view.oy = H * 0.55; render(); save(); return; }
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const aw = W - 90 - 30, ah = H - 140; view.s = Math.min(400, Math.max(2, Math.min(aw / Math.max(x1 - x0, 0.5), ah / Math.max(y1 - y0, 0.5))));
+  view.ox = 15 + aw / 2 - (x0 + x1) / 2 * view.s; view.oy = 70 + ah / 2 + (y0 + y1) / 2 * view.s; render(); save();
+}
+
+/* ---------- yakalama ---------- */
+function allInts() {
+  if (CACHE.ints) return CACHE.ints; const out = [], E = D.ents;
+  for (let i = 0; i < E.length; i++) { const A = prims(E[i]); for (let j = i + 1; j < E.length; j++) { const B = prims(E[j]); A.forEach(P => B.forEach(Q => primInts(P, Q).forEach(p => out.push(p)))); } }
+  return (CACHE.ints = out);
+}
+function keyPts(ex) {
+  const out = []; D.ents.forEach(e => { if (ex && ex.has(e.id)) return;
+    if (e.t === 'line') out.push({ p: e.a, P: prims(e)[0] }, { p: e.b, P: prims(e)[0] });
+    else if (e.t === 'pl') { const ps = prims(e); e.p.forEach((p, i) => out.push({ p, P: ps[Math.min(i, ps.length - 1)] })); }
+    else if (e.t === 'arc') { const a = arcPts(e); out.push({ p: a[0] }, { p: a[2] }, { p: e.c }); }
+    else out.push({ p: e.c }); });
+  return out;
+}
+function snapAt(X, Y, o) {
+  o = o || {}; const q = s2w(X, Y), R = 18 / view.s, ex = o.ex, sn = S.snaps; let best = null;
+  const ents = D.ents.filter(e => !(ex && ex.has(e.id)));
+  const consider = (p, k, P, g) => { const d = vdist(p, q); if (d <= R && (!best || d < best.d - 1e-12)) best = { p: cl(p), k, P, d, g }; };
+  if (sn.end) { keyPts(ex).forEach(k => consider(k.p, 'end', k.P)); (o.extra || []).forEach(p => consider(p, 'end')); if (!ex) allInts().forEach(p => consider(p, 'int')); else intsAmong(ents).forEach(p => consider(p, 'int')); }
+  if (best) return best;
+  if (sn.mid) { ents.forEach(e => { if (e.t === 'arc') consider(arcPts(e)[1], 'mid'); else prims(e).forEach(P => { if (P.k === 's') consider(vmul(vadd(P.a, P.b), 0.5), 'mid', P); }); }); }
+  if (best) return best;
+  const segs = []; ents.forEach(e => prims(e).forEach(P => { if (P.k === 's' && vdist(P.a, P.b) > 1e-6) segs.push(P); }));
+  let dirs = [];
+  if (o.from) { const base = o.dir ? vunit(o.dir) : [1, 0]; if (sn.orth) { const b = o.dir ? base : [1, 0]; dirs.push(b, vperp(b), vmul(b, -1), vmul(vperp(b), -1)); } if (sn.xy) dirs.push([1, 0], [0, 1], [-1, 0], [0, -1]); }
+  if (dirs.length && vdist(q, o.from) > 1e-9) {
+    const u = vunit(vsub(q, o.from)); let bd = dirs[0]; dirs.forEach(d => { if (vdot(d, u) > vdot(bd, u)) bd = d; });
+    const proj = vadd(o.from, vmul(bd, Math.max(0, vdot(vsub(q, o.from), bd)))); const far = vadd(o.from, bd);
+    let hit = null; const tryP = (p, k, g) => { const d = vdist(p, proj); if (d <= R && vdot(vsub(p, o.from), bd) > 1e-9 && (!hit || d < hit.d)) hit = { p: cl(p), k, d, g }; };
+    if (sn.near) ents.forEach(e => prims(e).forEach(P => { if (P.k === 's') segSeg(o.from, far, P.a, P.b, true).forEach(x => { if (x.u >= -1e-9 && x.u <= 1 + 1e-9) tryP(x.p, 'int'); }); else lineCirc2(o.from, far, P).forEach(p => tryP(p, 'int')); }));
+    if (sn.trk) segs.forEach(P => segSeg(o.from, far, P.a, P.b, true).forEach(x => { if (x.u < -1e-6 || x.u > 1 + 1e-6) if (vdist(x.p, proj) <= 10 / view.s) tryP(x.p, 'trk', [x.u < 0 ? P.a : P.b, x.p]); }));
+    if (hit) return { ...hit, g: [[o.from, hit.p]].concat(hit.g ? [hit.g] : []), ortho: true };
+    return { p: proj, k: 'orth', g: [[o.from, proj]], ortho: true };
+  }
+  if (sn.near) ents.forEach(e => prims(e).forEach(P => { const r = nearPrim(P, q); consider(r.p, 'near', P); }));
+  if (best) return best;
+  if (sn.trk) {
+    const RT = 10 / view.s, near = []; segs.forEach(P => { const d = vsub(P.b, P.a), l2 = vdot(d, d), t = vdot(vsub(q, P.a), d) / l2; if (t > -1e-6 && t < 1 + 1e-6) return; const p = vadd(P.a, vmul(d, t)); if (vdist(p, q) <= RT) near.push({ P, p, t }); });
+    for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) { const x = segSeg(near[i].P.a, near[i].P.b, near[j].P.a, near[j].P.b, true)[0]; if (x) consider(x.p, 'trk', null, [[near[i].t < 0 ? near[i].P.a : near[i].P.b, x.p], [near[j].t < 0 ? near[j].P.a : near[j].P.b, x.p]]); }
+    if (best) return best;
+    near.sort((a, b) => vdist(a.p, q) - vdist(b.p, q)); if (near[0]) { const n = near[0]; return { p: n.p, k: 'trk', P: n.P, g: [[n.t < 0 ? n.P.a : n.P.b, n.p]] }; }
+  }
+  return { p: q, k: 'free' };
+}
+function lineCirc2(a, b, P) { const d = vsub(b, a), f = vsub(a, P.c), A = vdot(d, d), B = 2 * vdot(f, d), C = vdot(f, f) - P.r * P.r, Dd = B * B - 4 * A * C; if (Dd < 0) return []; const s = Math.sqrt(Dd); return [(-B - s) / (2 * A), (-B + s) / (2 * A)].map(t => vadd(a, vmul(d, t))).filter(p => inSweep(P, p)); }
+function intsAmong(E) { const out = []; for (let i = 0; i < E.length; i++) { const A = prims(E[i]); for (let j = i + 1; j < E.length; j++) prims(E[j]).forEach(Q => A.forEach(P => primInts(P, Q).forEach(p => out.push(p)))); } return out; }
+
+/* ---------- isabet ---------- */
+function hitEnt(X, Y, tolPx) { const q = s2w(X, Y), R = (tolPx || 16) / view.s; let best = null; D.ents.forEach(e => { const r = nearEnt(e, q); if (r && r.d <= R && (!best || r.d < best.d)) best = { e, d: r.d, r }; }); return best; }
+
+/* ---------- tutamaklar ---------- */
+function gripsOf(e) {
+  const g = [];
+  if (e.t === 'line') { g.push({ k: 'v', i: 0, p: e.a }, { k: 'v', i: 1, p: e.b }, { k: 'm', p: vmul(vadd(e.a, e.b), 0.5) }); }
+  else if (e.t === 'pl') { e.p.forEach((p, i) => g.push({ k: 'v', i, p })); plRuns(e).forEach(r => g.push({ k: 'm', run: r, p: vmul(vadd(e.p[r.i0], e.p[r.i1 % e.p.length]), 0.5) })); }
+  else if (e.t === 'cir') { g.push({ k: 'c', p: e.c }); [0, 1, 2, 3].forEach(i => g.push({ k: 'r', p: vadd(e.c, [e.r * Math.cos(i * Math.PI / 2), e.r * Math.sin(i * Math.PI / 2)]) })); }
+  else if (e.t === 'arc') { const a = arcPts(e); g.push({ k: 'a', i: 0, p: a[0] }, { k: 'a', i: 1, p: a[1] }, { k: 'a', i: 2, p: a[2] }, { k: 'c', p: e.c }); }
+  return g;
+}
+function gripAt(X, Y) { let best = null; S.sel.forEach(id => { const e = entById(id); if (!e) return; gripsOf(e).forEach(g => { const s = w2s(g.p[0], g.p[1]); const d = Math.hypot(s[0] - X, s[1] - Y); if (d < 24 && (!best || d < best.d)) best = { e, g, d }; }); }); return best; }
+/* nokta çakışanlar: diğer objelerin uç/köşe noktaları */
+function coincident(p, skipE, skipI) {
+  const out = []; D.ents.forEach(f => {
+    if (f.t === 'line') { if (!(f === skipE && skipI === 0) && vsame(f.a, p)) out.push({ f, set: v => { f.a = v; }, other: f.b }); if (!(f === skipE && skipI === 1) && vsame(f.b, p)) out.push({ f, set: v => { f.b = v; }, other: f.a }); }
+    else if (f.t === 'pl') f.p.forEach((q, i) => { if (f === skipE && i === skipI) return; if (vsame(q, p)) { const n = f.p.length; const nb = (i > 0 || f.c) ? f.p[(i - 1 + n) % n] : (n > 1 ? f.p[1] : null); out.push({ f, set: v => { f.p[i] = v; }, other: (i === 0 && !f.c) ? f.p[1] : nb, end: !f.c && (i === 0 || i === n - 1) }); } });
+  });
+  return out;
+}
+function applyVertex(e, i, P) {
+  const old = e.t === 'line' ? cl(i === 0 ? e.a : e.b) : cl(e.p[i]);
+  coincident(old, e, i).forEach(c => c.set(cl(P)));
+  if (e.t === 'line') { if (i === 0) e.a = cl(P); else e.b = cl(P); } else e.p[i] = cl(P);
+}
+function lineX(p, d, q, e) { const x = segSeg(p, vadd(p, d), q, vadd(q, e), true)[0]; return x ? x.p : null; }
+/* kenarı paralel kaydır: komşular kendi doğrultusunda uzar/kısalır */
+function applyEdge(e, g, P) {
+  let A, B, idx;
+  if (e.t === 'line') { A = cl(e.a); B = cl(e.b); }
+  else { const n = e.p.length; A = cl(e.p[g.run.i0]); B = cl(e.p[g.run.i1 % n]); idx = []; let k = g.run.i0; for (let s = 0; s <= n; s++) { idx.push(k % n); if (k % n === g.run.i1 % n) break; k++; } }
+  const t = vunit(vsub(B, A)), nn = vperp(t), M = vmul(vadd(A, B), 0.5), d = vdot(vsub(P, M), nn); if (Math.abs(d) < 1e-9) return;
+  const off = vmul(nn, d), A2 = vadd(A, off);
+  const neighDir = (V, isA) => {
+    if (e.t === 'pl') { const n = e.p.length, i = isA ? g.run.i0 : g.run.i1 % n, j = isA ? i - 1 : i + 1; if (e.c || (j >= 0 && j < n)) { const q = e.p[(j + n) % n]; return { q, dir: vsub(V, q) }; } }
+    const cs = coincident(V, e, e.t === 'line' ? (isA ? 0 : 1) : (isA ? g.run.i0 : g.run.i1 % e.p.length)).filter(c => c.other && !vsame(c.other, V));
+    if (cs.length === 1) return { q: cs[0].other, dir: vsub(V, cs[0].other) }; return null;
+  };
+  const newEnd = (V, isA) => { const nb = neighDir(V, isA); if (nb && Math.abs(vcross(vunit(nb.dir), t)) > 1e-6) { const x = lineX(nb.q, nb.dir, A2, t); if (x) return x; } return vadd(V, off); };
+  const nA = newEnd(A, true), nB = newEnd(B, false);
+  /* T bağlantıları: kenarın üstünde biten uçlar */
+  const tees = []; D.ents.forEach(f => { if (f === e) return; const ends = f.t === 'line' ? [[0, f.a, f.b], [1, f.b, f.a]] : (f.t === 'pl' && !f.c ? [[0, f.p[0], f.p[1]], [f.p.length - 1, f.p[f.p.length - 1], f.p[f.p.length - 2]]] : []);
+    ends.forEach(([i, p, o]) => { if (vsame(p, A) || vsame(p, B)) return; const r = nearPrim({ k: 's', a: A, b: B }, p); if (r.d < CO && r.t > 1e-6 && r.t < 1 - 1e-6) { const x = Math.abs(vcross(vunit(vsub(p, o)), t)) > 1e-6 ? lineX(o, vsub(p, o), A2, t) : vadd(p, off); if (x) tees.push({ f, i, x }); } }); });
+  const cA = coincident(A, e, e.t === 'line' ? 0 : g.run.i0), cB = coincident(B, e, e.t === 'line' ? 1 : g.run.i1 % (e.p ? e.p.length : 2));
+  cA.forEach(c => c.set(cl(nA))); cB.forEach(c => c.set(cl(nB)));
+  tees.forEach(({ f, i, x }) => { if (f.t === 'line') { if (i === 0) f.a = cl(x); else f.b = cl(x); } else f.p[i] = cl(x); });
+  if (e.t === 'line') { e.a = cl(nA); e.b = cl(nB); }
+  else { idx.forEach((k, j) => { if (j === 0) e.p[k] = cl(nA); else if (j === idx.length - 1) e.p[k] = cl(nB); else e.p[k] = vadd(e.p[k], off); }); }
+}
+function applyGrip(e, g, P) {
+  if (g.k === 'v') applyVertex(e, g.i, P);
+  else if (g.k === 'm') applyEdge(e, g, P);
+  else if (g.k === 'c') { const d = vsub(P, e.c); e.c = cl(P); if (e.t === 'arc') { } void d; }
+  else if (g.k === 'r') { e.r = Math.max(1e-3, vdist(P, e.c)); }
+  else if (g.k === 'a') { const a = arcPts(e); a[g.i] = P; const n = arc3(a[0], a[1], a[2]); if (n) Object.assign(e, { c: n.c, r: n.r, a0: n.a0, a1: n.a1 }); }
+}
+function gripDir(e, g) { if (e.t === 'line') return vsub(e.b, e.a); if (e.t === 'pl' && g.k === 'v') { const n = e.p.length, j = g.i > 0 ? g.i - 1 : (e.c ? n - 1 : 1); return vsub(e.p[g.i], e.p[j]); } return null; }
+
+/* ---------- çizim zinciri ---------- */
+function chainAdd(p, snapP) {
+  const c = S.chain;
+  if (!c) { S.chain = { k: S.tool, pts: [cl(p)], dir0: snapP && snapP.k === 's' ? vsub(snapP.b, snapP.a) : null, eid: null }; render(); return; }
+  const last = c.pts[c.pts.length - 1]; if (vsame(p, last)) { endChain(); return; }
+  const closing = vsame(p, c.pts[0]) && c.pts.length >= 3;
+  if (c.k === 'line') { addEnt({ t: 'line', a: cl(last), b: cl(p) }); c.pts.push(cl(p)); commit(); if (closing) endChain(); return; }
+  if (closing && c.pts.length >= 3) { const e = entById(c.eid); if (e) { e.c = true; commit(); } endChain(); return; }
+  c.pts.push(cl(p));
+  if (!c.eid || !entById(c.eid)) { const e = addEnt({ t: 'pl', p: c.pts.map(cl), c: false }); c.eid = e.id; } else entById(c.eid).p = c.pts.map(cl);
+  commit();
+}
+function endChain() { S.chain = null; S.sum = 0; S.sumH = []; render(); }
+function chainDir() { const c = S.chain; if (!c) return null; if (c.pts.length >= 2) return vsub(c.pts[c.pts.length - 1], c.pts[c.pts.length - 2]); return c.dir0; }
+function quickArrow(dx, dy) { const c = S.chain; if (!c || !S.sum) return; const last = c.pts[c.pts.length - 1]; const p = vadd(last, vmul([dx, dy], S.sum / 100)); S.sum = 0; S.sumH = []; chainAdd(p); ui(); }
+
+/* ---------- işaretçi ---------- */
+const ptrs = new Map(); let G = null;
+cv.addEventListener('pointerdown', ev => {
+  ev.preventDefault(); cv.setPointerCapture(ev.pointerId); ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
+  if (S.fly) { S.fly = null; ui(); G = { k: 'none' }; return; }
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; G = { k: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), c0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], v0: { ...view } }; S.cur = null; S.drag = null; render(); return; }
+  if (ptrs.size > 2) return;
+  const X = ev.clientX, Y = ev.clientY; G = { k: 'one', x0: X, y0: Y, moved: false };
+  const t = S.tool;
+  if (t === 'sec') { const gp = gripAt(X, Y); if (gp) { G.k = 'grip'; G.gp = gp; G.base = JSON.stringify(D); G.orig = cl(gp.g.p); } else G.k = 'tap'; }
+  else if (DRAW.includes(t)) { G.k = 'place'; }
+  else if (t === 'move' || t === 'copy') { G.k = 'mv'; }
+  else G.k = 'tap';
+  pmove(X, Y);
+});
+cv.addEventListener('pointermove', ev => {
+  if (!ptrs.has(ev.pointerId)) return; ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]); if (!G) return;
+  if (G.k === 'pinch' && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]), c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; const k = d / (G.d0 || 1), v = G.v0; const ns = Math.max(1, Math.min(3000, v.s * k)); const w = [(G.c0[0] - v.ox) / v.s, (v.oy - G.c0[1]) / v.s]; view.s = ns; view.ox = c[0] - w[0] * ns; view.oy = c[1] + w[1] * ns; render(); return; }
+  pmove(ev.clientX, ev.clientY);
+});
+function pmove(X, Y) {
+  if (!G || G.k === 'none') return; const dx = X - G.x0, dy = Y - G.y0; if (Math.hypot(dx, dy) > 8) G.moved = true;
+  if (G.k === 'tap' && G.moved) { G.k = 'pan'; G.v0 = { ...view }; }
+  if (G.k === 'pan') { view.ox = G.v0.ox + dx; view.oy = G.v0.oy + dy; render(); return; }
+  if (G.k === 'place') { const o = drawSnapOpts(); S.snap = snapAt(X, Y, o); S.cur = [X, Y]; render(); return; }
+  if (G.k === 'grip') { const { e, g } = G.gp; D = JSON.parse(G.base); const e2 = entById(e.id); const sn = snapAt(X, Y, { ex: new Set([e.id]), from: g.k === 'm' ? null : G.orig, dir: gripDir(e2, g) }); S.snap = sn; S.cur = [X, Y]; if (G.moved) applyGrip(e2, g, sn.p); invalidate(); render(); return; }
+  if (G.k === 'mv') { if (!G.base0) { G.sb = snapAt(G.x0, G.y0, {}); G.base0 = G.sb.p; G.doc = JSON.stringify(D); G.h0 = hitEnt(G.x0, G.y0); }
+    if (!G.moved) { S.snap = G.sb; S.cur = [X, Y]; render(); return; }
+    if (!G.ids) { if (!S.sel.size && G.h0) S.sel.add(G.h0.e.id); G.ids = new Set(S.sel); if (!G.ids.size) { G.k = 'pan'; G.v0 = { ...view }; return; } }
+    D = JSON.parse(G.doc); const sn = snapAt(X, Y, { ex: G.ids, from: G.base0 }); S.snap = sn; S.cur = [X, Y]; const dl = vsub(sn.p, G.base0);
+    if (S.tool === 'move') D.ents.forEach(e => { if (G.ids.has(e.id)) moveEnt(e, dl); }); else { G.copies = []; D.ents.filter(e => G.ids.has(e.id)).forEach(e => { const c = JSON.parse(JSON.stringify(e)); moveEnt(c, dl); G.copies.push(c); }); }
+    S.preview = S.tool === 'copy' ? G.copies : null; invalidate(); render(); }
+}
+function moveEnt(e, d) { if (e.t === 'line') { e.a = vadd(e.a, d); e.b = vadd(e.b, d); } else if (e.t === 'pl') e.p = e.p.map(p => vadd(p, d)); else e.c = vadd(e.c, d); }
+function drawSnapOpts() {
+  const t = S.tool, o = {};
+  if ((t === 'line' || t === 'pl') && S.chain) { o.from = S.chain.pts[S.chain.pts.length - 1]; o.dir = chainDir(); if (S.chain.pts.length >= 2) o.extra = [S.chain.pts[0]]; }
+  if (t === 'cir' && S.cir) { o.from = S.cir.c; }
+  return o;
+}
+function pend(ev) {
+  ptrs.delete(ev.pointerId); if (!G) return; if (G.k === 'pinch') { if (ptrs.size === 0) { G = null; save(); } return; }
+  const X = ev.clientX, Y = ev.clientY, g = G; G = null; S.cur = null; S.preview = null;
+  if (g.k === 'pan') { save(); render(); return; }
+  if (g.k === 'none') return;
+  if (g.k === 'grip') { if (g.moved) commit(); else { D = JSON.parse(g.base); render(); } S.snap = null; render(); return; }
+  if (g.k === 'mv') { if (!g.moved) { const h = hitEnt(X, Y); if (h) { if (S.sel.has(h.e.id)) S.sel.delete(h.e.id); else S.sel.add(h.e.id); } else S.sel.clear(); S.snap = null; render(); return; }
+    if (S.tool === 'copy' && g.copies) { D = JSON.parse(g.doc); g.copies.forEach(c => addEnt(c)); } commit(); S.snap = null; render(); return; }
+  if (g.k === 'place') { const sn = snapAt(X, Y, drawSnapOpts()); S.snap = null; placePoint(sn); return; }
+  if (g.k === 'tap') { tapTool(X, Y); }
+}
+cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', ev => { ptrs.delete(ev.pointerId); G = null; S.cur = null; render(); });
+function placePoint(sn) {
+  const t = S.tool, p = sn.p;
+  if (t === 'line' || t === 'pl') { chainAdd(p, sn.P); ui(); return; }
+  if (t === 'cir') { if (!S.cir) { S.cir = { c: cl(p) }; render(); return; } const r = vdist(p, S.cir.c); if (r > 1e-4) { addEnt({ t: 'cir', c: S.cir.c, r }); S.cir = null; commit(); } return; }
+  if (t === 'arc') { if (!S.arc) { S.arc = { pts: [cl(p)] }; render(); return; } if (vsame(p, S.arc.pts[S.arc.pts.length - 1])) return; S.arc.pts.push(cl(p)); if (S.arc.pts.length === 3) { const a = arc3(...S.arc.pts); S.arc = null; if (a) { addEnt(a); commit(); } else render(); } else render(); }
+}
+function flash() { cv.classList.remove('nope'); void cv.offsetWidth; cv.classList.add('nope'); }
+function tapTool(X, Y) {
+  const t = S.tool, h = hitEnt(X, Y), q = s2w(X, Y);
+  if (t === 'sec') { if (h) { if (S.sel.has(h.e.id)) S.sel.delete(h.e.id); else S.sel.add(h.e.id); } else S.sel.clear(); render(); ui(); return; }
+  if (t === 'trim') { if (!h) return; const r = trimEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, r); commit(); return; }
+  if (t === 'extend') { if (!h) return; const r = extendEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, [r]); commit(); return; }
+  if (t === 'fillet') { if (!h) { S.pick = null; render(); return; } if (!S.pick) { S.pick = { id: h.e.id, q: h.r.p }; render(); return; } const e1 = entById(S.pick.id); const r = e1 && filletEnts(e1, S.pick.q, h.e, h.r.p); S.pick = null; if (!r) { flash(); render(); return; } const i1 = D.ents.indexOf(e1), i2 = D.ents.indexOf(h.e); r[0].id = e1.id; r[1].id = h.e.id; D.ents[i1] = r[0]; D.ents[i2] = r[1]; commit(); return; }
+  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (r) { addEnt(r); commit(); } else render(); return; }
+  if (t === 'erase') { if (h) { delEnt(h.e); commit(); } return; }
+  if (t === 'explode') { if (h) { const r = explodeEnt(h.e); if (r) { replEnt(h.e, r); commit(); } else flash(); } return; }
+  if (t === 'join') { if (h) { const r = joinChain(h.e); if (r) { applyJoin(r); commit(); } else flash(); } return; }
+}
+function joinChain(e0) {
+  const pool = D.ents.filter(e => e.t === 'line' || (e.t === 'pl' && !e.c)); if (!pool.includes(e0)) return null;
+  const ends = e => { const p = chainPts(e); return [p[0], p[p.length - 1]]; };
+  const deg = p => pool.reduce((n, e) => n + ends(e).filter(q => vsame(q, p)).length, 0);
+  const set = [e0]; let grew = true;
+  while (grew) { grew = false; for (const e of set.slice()) for (const p of ends(e)) { if (deg(p) !== 2) continue; const f = pool.find(x => !set.includes(x) && ends(x).some(q => vsame(q, p))); if (f) { set.push(f); grew = true; } } }
+  return joinEnts(set);
+}
+function applyJoin(r) { const i = Math.min(...r.used.map(e => D.ents.indexOf(e))); D.ents = D.ents.filter(e => !r.used.includes(e)); r.ent.id = 'e' + (D.nid++); D.ents.splice(i, 0, r.ent); S.sel = new Set([r.ent.id]); }
+
+/* ---------- araç seçimi ---------- */
+function setTool(t) {
+  S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
+  if (DRAW.includes(t)) S.draw = t; if (EDIT.includes(t)) S.edit = t;
+  if (['erase', 'explode', 'join'].includes(t) && S.sel.size) {
+    const sel = D.ents.filter(e => S.sel.has(e.id));
+    if (t === 'erase') sel.forEach(delEnt);
+    if (t === 'explode') sel.forEach(e => { const r = explodeEnt(e); if (r) replEnt(e, r); });
+    if (t === 'join') { const r = joinEnts(sel); if (r) applyJoin(r); else flash(); }
+    S.sel.clear(); commit(); t = 'sec';
+  }
+  if (t !== 'sec' && t !== 'move' && t !== 'copy') S.sel.clear();
+  S.tool = t; S.fly = null; ui(); render(); save();
+}
+
+/* ---------- arayüz ---------- */
+const col = document.getElementById('col'), fly = document.getElementById('fly'), qp = document.getElementById('qp'), np = document.getElementById('np');
+function btn(a, icon, on, extra) { return `<button class="b ${on ? 'on' : ''} ${extra || ''}" data-a="${a}">${svg(icon)}</button>`; }
+function ui() {
+  const t = S.tool;
+  col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + '<i></i>' + btn('fit', 'fit') + `<div class="ver">${VER.replace('cad-', '')}</div>`;
+  if (S.fly) {
+    let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
+    fly.innerHTML = h; fly.style.display = 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
+  } else fly.style.display = 'none';
+  if (t === 'line' || t === 'pl') {
+    const d = chainDir(), c = S.chain; let ar = [];
+    if (c) { if (c.pts.length < 2 && !d) ar = ['up', 'down', 'left', 'right']; else { const v = d || [1, 0]; ar = Math.abs(v[0]) >= Math.abs(v[1]) ? ['up', 'down'] : ['left', 'right']; } }
+    qp.innerHTML = `<div class="sum">${S.sum || 0}</div><button class="num" data-a="q:10">10</button><button class="num" data-a="q:50">50</button><button class="num" data-a="q:100">100</button>${btn('qback', 'clr')}` + ar.map(k => btn('qa:' + k, k, false, S.sum ? '' : 'dis')).join('') + (c ? btn('qok', 'ok', false, 'okb') : '');
+    qp.style.display = 'grid';
+  } else qp.style.display = 'none';
+  if (t === 'offset') { const v = S.offStr !== '' ? S.offStr : String(Math.round(S.offD * 1000) / 10); np.innerHTML = `<div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(k => `<button class="num k" data-a="k:${k}">${k}</button>`).join('') + btn('kback', 'clr'); np.style.display = 'grid'; }
+  else np.style.display = 'none';
+}
+function onBtn(a) {
+  if (a === 'undo') { undo(); ui(); return; } if (a === 'redo') { redo(); ui(); return; }
+  if (a === 'sec') { setTool('sec'); return; } if (a === 'fit') { fit(); return; }
+  if (a.startsWith('fly:')) { const f = a.slice(4); S.fly = S.fly === f ? null : f; ui(); return; }
+  if (a.startsWith('t:')) { setTool(a.slice(2)); return; }
+  if (a.startsWith('s:')) { const k = a.slice(2); S.snaps[k] = S.snaps[k] ? 0 : 1; save(); ui(); return; }
+  if (a.startsWith('q:')) { const v = +a.slice(2); S.sum += v; S.sumH.push(v); ui(); return; }
+  if (a === 'qback') { const v = S.sumH.pop(); if (v) S.sum -= v; ui(); return; }
+  if (a.startsWith('qa:')) { const k = a.slice(3); quickArrow(...{ up: [0, 1], down: [0, -1], left: [-1, 0], right: [1, 0] }[k]); return; }
+  if (a === 'qok') { endChain(); ui(); return; }
+  if (a.startsWith('k:')) { let s = S.offStr; const k = a.slice(2); if (k === '.' && s.includes('.')) return; s += k; S.offStr = s; const v = parseFloat(s); if (v > 0) S.offD = v / 100; save(); ui(); return; }
+  if (a === 'kback') { S.offStr = S.offStr.slice(0, -1); const v = parseFloat(S.offStr); if (v > 0) S.offD = v / 100; ui(); return; }
+}
+let BP = null;
+document.addEventListener('pointerdown', ev => { const b = ev.target.closest('button[data-a]'); BP = b ? { b, x: ev.clientX, y: ev.clientY } : null; }, true);
+document.addEventListener('pointerup', ev => { const p = BP; BP = null; if (!p) return; const b = ev.target.closest('button[data-a]'); if (b !== p.b || Math.hypot(ev.clientX - p.x, ev.clientY - p.y) > 12) return; ev.preventDefault(); onBtn(b.dataset.a); }, true);
+document.addEventListener('pointercancel', () => { BP = null; }, true);
+
+/* ---------- çizim ---------- */
+function pathEnt(e) {
+  cx.beginPath();
+  if (e.t === 'line') { const a = w2s(...e.a), b = w2s(...e.b); cx.moveTo(...a); cx.lineTo(...b); }
+  else if (e.t === 'pl') { e.p.forEach((p, i) => { const s = w2s(...p); if (i) cx.lineTo(...s); else cx.moveTo(...s); }); if (e.c) cx.closePath(); }
+  else if (e.t === 'cir') { const c = w2s(...e.c); cx.arc(c[0], c[1], e.r * view.s, 0, TAU); }
+  else if (e.t === 'arc') { const c = w2s(...e.c); cx.arc(c[0], c[1], e.r * view.s, -e.a0, -(e.a0 + arcSw(e)), true); }
+}
+function render() {
+  if (!W) return; cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.fillStyle = '#121417'; cx.fillRect(0, 0, W, H);
+  if (!CACHE.faces) CACHE.faces = faces(D.ents);
+  cx.fillStyle = 'rgba(90,160,255,0.09)'; CACHE.faces.forEach(f => { cx.beginPath(); f.forEach((p, i) => { const s = w2s(...p); if (i) cx.lineTo(...s); else cx.moveTo(...s); }); cx.closePath(); cx.fill(); });
+  D.ents.forEach(e => { if (e.t === 'cir') { pathEnt(e); cx.fill(); } });
+  cx.lineWidth = 1.6; cx.lineJoin = 'round'; cx.lineCap = 'round';
+  D.ents.forEach(e => { const sel = S.sel.has(e.id), pk = S.pick && S.pick.id === e.id; cx.strokeStyle = pk ? '#f5a623' : sel ? '#6fb0ff' : '#e8e8e8'; cx.lineWidth = sel || pk ? 2.6 : 1.6; cx.setLineDash(sel ? [8, 5] : []); pathEnt(e); cx.stroke(); });
+  cx.setLineDash([]);
+  if (S.preview) { cx.strokeStyle = '#4cd964'; cx.lineWidth = 1.6; S.preview.forEach(e => { pathEnt(e); cx.stroke(); }); }
+  /* tutamaklar */
+  if (S.tool === 'sec') S.sel.forEach(id => { const e = entById(id); if (!e) return; gripsOf(e).forEach(g => { const s = w2s(...g.p); cx.fillStyle = g.k === 'm' ? '#f5a623' : '#2b6fd6'; cx.strokeStyle = '#fff'; cx.lineWidth = 1.2; cx.fillRect(s[0] - 6, s[1] - 6, 12, 12); cx.strokeRect(s[0] - 6, s[1] - 6, 12, 12); }); });
+  /* lastik bant */
+  const sn = S.snap, cur = S.cur && G && (G.k === 'place') ? sn : null;
+  if (cur) {
+    cx.strokeStyle = '#4cd964'; cx.lineWidth = 1.6; cx.setLineDash([6, 4]); const p = w2s(...cur.p);
+    if ((S.tool === 'line' || S.tool === 'pl') && S.chain) { const a = w2s(...S.chain.pts[S.chain.pts.length - 1]); cx.beginPath(); cx.moveTo(...a); cx.lineTo(...p); cx.stroke(); lenLabel(S.chain.pts[S.chain.pts.length - 1], cur.p); }
+    if (S.tool === 'cir' && S.cir) { const c = w2s(...S.cir.c); cx.beginPath(); cx.arc(c[0], c[1], vdist(cur.p, S.cir.c) * view.s, 0, TAU); cx.stroke(); lenLabel(S.cir.c, cur.p); }
+    if (S.tool === 'arc' && S.arc) { if (S.arc.pts.length === 2) { const a = arc3(S.arc.pts[0], S.arc.pts[1], cur.p); if (a) { pathEnt(a); cx.stroke(); } } else { const a = w2s(...S.arc.pts[0]); cx.beginPath(); cx.moveTo(...a); cx.lineTo(...p); cx.stroke(); } }
+    cx.setLineDash([]);
+  }
+  if (S.chain && S.chain.pts.length && S.tool === 'line') { const a = w2s(...S.chain.pts[S.chain.pts.length - 1]); cx.strokeStyle = '#4cd964'; cx.beginPath(); cx.arc(a[0], a[1], 5, 0, TAU); cx.stroke(); }
+  if (S.chain && S.tool === 'pl') { const a = w2s(...S.chain.pts[S.chain.pts.length - 1]); cx.strokeStyle = '#4cd964'; cx.beginPath(); cx.arc(a[0], a[1], 5, 0, TAU); cx.stroke(); }
+  if (S.cir) { const a = w2s(...S.cir.c); cx.fillStyle = '#4cd964'; cx.fillRect(a[0] - 3, a[1] - 3, 6, 6); }
+  if (S.arc) S.arc.pts.forEach(p => { const a = w2s(...p); cx.fillStyle = '#4cd964'; cx.fillRect(a[0] - 3, a[1] - 3, 6, 6); });
+  /* yakalama işareti + kılavuzlar */
+  if (sn && S.cur) {
+    (sn.g || []).forEach(g => { if (!g) return; cx.strokeStyle = 'rgba(255,207,112,.8)'; cx.lineWidth = 1; cx.setLineDash([4, 4]); cx.beginPath(); cx.moveTo(...w2s(...g[0])); cx.lineTo(...w2s(...g[1])); cx.stroke(); }); cx.setLineDash([]);
+    const p = w2s(...sn.p); cx.strokeStyle = '#7dffb0'; cx.lineWidth = 2; cx.beginPath();
+    if (sn.k === 'end') cx.rect(p[0] - 7, p[1] - 7, 14, 14); else if (sn.k === 'mid') { cx.moveTo(p[0], p[1] - 8); cx.lineTo(p[0] + 8, p[1] + 6); cx.lineTo(p[0] - 8, p[1] + 6); cx.closePath(); }
+    else if (sn.k === 'int') { cx.moveTo(p[0] - 7, p[1] - 7); cx.lineTo(p[0] + 7, p[1] + 7); cx.moveTo(p[0] + 7, p[1] - 7); cx.lineTo(p[0] - 7, p[1] + 7); }
+    else if (sn.k === 'near') { cx.moveTo(p[0] - 7, p[1] - 7); cx.lineTo(p[0] + 7, p[1] - 7); cx.lineTo(p[0] - 7, p[1] + 7); cx.lineTo(p[0] + 7, p[1] + 7); cx.closePath(); }
+    else if (sn.k === 'trk') { cx.arc(p[0], p[1], 5, 0, TAU); } else { cx.moveTo(p[0] - 9, p[1]); cx.lineTo(p[0] + 9, p[1]); cx.moveTo(p[0], p[1] - 9); cx.lineTo(p[0], p[1] + 9); }
+    cx.stroke();
+    loupe(p);
+  }
+}
+function lenLabel(a, b) { const d = vdist(a, b); if (d < 1e-3) return; const m = w2s(...vmul(vadd(a, b), 0.5)); cx.font = 'bold 14px Arial'; cx.fillStyle = '#ffcf70'; cx.fillText(d.toFixed(2), m[0] + 8, m[1] - 8); }
+function loupe(p) {
+  const R = 52, Z = 2, x = Math.min(W - 90 - R, Math.max(R + 6, p[0])), y = p[1] - 120 < R + 6 ? p[1] + 120 : p[1] - 120;
+  cx.save(); cx.beginPath(); cx.arc(x, y, R, 0, TAU); cx.clip(); cx.fillStyle = '#121417'; cx.fillRect(x - R, y - R, 2 * R, 2 * R);
+  cx.setTransform(1, 0, 0, 1, 0, 0); const sw = R * 2 / Z * DPR; cx.drawImage(cv, p[0] * DPR - sw / 2, p[1] * DPR - sw / 2, sw, sw, (x - R) * DPR, (y - R) * DPR, 2 * R * DPR, 2 * R * DPR);
+  cx.restore(); cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.strokeStyle = '#7dffb0'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, R, 0, TAU); cx.stroke(); cx.strokeStyle = 'rgba(125,255,176,.6)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(x - 8, y); cx.lineTo(x + 8, y); cx.moveTo(x, y - 8); cx.lineTo(x, y + 8); cx.stroke();
+}
+
+window.CAD = { get D() { return D; }, set D(v) { D = v; invalidate(); }, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
+addEventListener('resize', resize);
+load(); ui(); resize();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+</script></body></html>

@@ -448,3 +448,19 @@ Eski sürüm (v7e) yedek kalacak. Kullanıcı "başla" demeden kod yazılmayacak
 - Seç: duvar (taralı alan) seçilince tüm duvar köşelerinde tutamak çıkar; köşeden tutup sürükleyince duvar ve oda birlikte gelir. Panelde "Köşeden tutup sürükle" ipucu.
 - Seç: kırık çizgisi seçilince (iki ucunda tek komşu, komşular ±25° paralel, kırık komşulardan kısa) "Kırığı sil" düğmesi. Basınca kırık silinir, uç düğüm iki komşunun düz hattına (p–q) taşınıp birleşir; duvar/oda korunur. Duvar yüzü seçiliyken o parça kırıksa aynı düğme orada da çıkar. Geri al ile döner.
 - jogInfo / jogDelete / faceJog fonksiyonları. Test: t27 (her iki sayfa).
+
+## YENİ PROGRAM: cad.html (cad-1.0) — sıfırdan, duvarsız, AutoCAD mantığı (aşama 1+2)
+Adres: https://aknergn09-maker.github.io/rolove/cad.html — v11 (index.html) ve önizleme dokunulmadan duruyor.
+Kaynak: cad_src/ (shell.html, icons.json, cad_geo.js = geometri çekirdeği DOM'suz, cad_app.js = arayüz). `python3 cad_src/build.py` → cad.html. Kayıt anahtarı rcad1_doc.
+Kararlar (kullanıcıyla netleşti):
+- Duvar/oda/m² yok. Sadece objeler: line, pl (pline, kapalı/açık), cir, arc. Koordinat obje içinde (paylaşımlı düğüm yok).
+- Arayüz: sadece sağda tek kaydırmalı sütun, sadece simge. Sıra: geri, ileri | Seç, Çiz, Düzenle | Yakalama | Sığdır. Çiz/Düzenle/Yakalama'ya basınca yanında aynı genişlikte pencere açılır, seçince kapanır.
+- Çiz: Line, Pline, Circle (merkez+yarıçap), Arc (3 nokta). İlk noktaya dokununca kapanır; son noktaya tekrar dokununca veya ✓ ile biter. Geri al çizim sırasında son noktayı siler.
+- Hızlı uzunluk (line/pline): 10/50/100 cm basıldıkça toplar, ⌫ son basışı siler. Oklar ekran yönünde: yatay giderken ↑↓, dikey giderken ←→, ilk noktada 4 ok. Oka basınca çizgi atılır. Kroki ölçeği.
+- Yakalama (aç/kapa): köşe(+kesişim), orta, obje üstü, Ortho (önceki çizgiye/başlanan objeye göre 90°), XY (ekrana göre 90°), aks takibi (çizgi uzantısı, 10 px). Dokunurken büyüteç.
+- Kapalı alanlar hafif mavi dolgu (düzlem grafı, faces()).
+- Seç: dokun = seç/bırak, boşa dokun = temizle, boşta sürükle = kaydır. Mavi köşe tutamağı = köşeyi taşı (aynı noktadaki diğer objelerin uçları da gelir). Turuncu orta tutamak = kenarı paralel kaydır; komşu kenarlar kendi doğrultusunda uzar/kısalır, kenar üstünde T ile biten çizgiler kenarda kalır. Aynı doğrultudaki ardışık pline parçaları tek kenar (ileride kapı noktaları için).
+- Düzenle: Offset (cm tuş takımı; obje sonra taraf), Trim (tüm objeler kesici), Extend, Fillet (r=0 köşe birleştir), Taşı/Kopyala (temel noktadan hedefe sürükle; seçim yoksa dokunulan obje), Explode, Join (seçim ya da dokunulan zincir), Sil. Offset grup YOK (kullanıcı kararı).
+- Düğmeler click değil pointerup ile (sürükleme sonrası ilk dokunuş kaybolmasın).
+Sonraki aşamalar (konuşuldu, yapılmadı): kapı/pencere (2 dokunuş, pline'a aynı doğrultuda kırık noktası ekler, DXF'te çizgi kesintisiz + ayrı katman), lazer ölçü notları (nokta-nokta, noktadan dik, çizgiden dik, dik ayak/dik boy; çizimi değiştirmez), nokta adları export'ta (kullanıcınınkiler kalır, diğerleri X1..), total CSV/NCN içe alma (sabit), DXF import (ayrı katman) ve export, PC'de gönye/ölçek programı.
+Testler: test/c1.py, test/c2.py (`PAGE=cad.html python3 test/run_all.py`).
