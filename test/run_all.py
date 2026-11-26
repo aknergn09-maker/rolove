@@ -9,7 +9,7 @@ if os.environ.get('PAGE', 'index.html') != 'index.html':
     files = files + sorted(d.glob('p*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem)))
 if os.environ.get('PAGE') == 'cad.html':
     # yeni CAD programı: sadece c* testleri
-    files = sorted(d.glob('c*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem)))
+    files = sorted(d.glob('c*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem))) + sorted(d.glob('g[0-9]*.py'), key=lambda p: int(re.sub(r'\D', '', p.stem)))
 bad = 0
 for f in files:
     r = subprocess.run([sys.executable, str(f)], capture_output=True, text=True, timeout=600)

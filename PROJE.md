@@ -561,3 +561,13 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 
 ### cad-2.4
 - DXF içe aktarma blokları açar: BLOCKS bölümü okunur, INSERT yerine blok içeriği konur (konum, X/Y ölçek, dönme, aynalı yay, iç içe 4 kat; katman 0 içerik INSERT katmanını alır). NetCAD/AutoCAD bloklu çizimler ve kendi kapı/pencere bloklarımız altlıkta görünür.
+
+## PC GÖNYE PROGRAMI: gonye.html (gonye-1.0)
+Adres: https://aknergn09-maker.github.io/rolove/gonye.html — PC'de Chrome/Edge, kurulum yok, internetsiz çalışır.
+Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js arayüz; shell.html). `python3 pc_src/build.py` → gonye.html.
+- Girdi: telefondan DXF (cad-2.4+) + total NCN/CSV (sürükle-bırak veya dosya seç; UTF-8/1254). Total: 7 haneli değer X (kuzey); çıktı DXF x=Y, y=X.
+- Model: NOKTA_AD/NOKTA_X noktaları (yazı = nokta + 0.05), CIZIM kenarları (köşeler ada eşlenir), OLCU/GONYE/DIKAYAK satırları (NN, OB, GN, ND, CC, DA), META "OP blok a b tür" (kapı/pencere), bloklar.
+- Dengeleme (Gauss-Newton, yoğun normal denklem, Cholesky, sayısal türev): total ad eşleşmesi sabit (0.5 mm); ölçüler lazer 3 mm / yazılan 10 mm; kroki boyları ortak ölçek K ile zayıf (3 cm + %5); kroki köşe açıları 2°; düz duvar (180°) 0.05°; kenar üstündeki adlı noktalar kenarda (2 mm); DA: ayak, boy ve 90° (0.2°). Başlangıç: eşleşen adlarla Helmert. 1 eşleşme: konum; 0: yerel.
+- Çıktı: dengelenmiş DXF (CIZIM, kapı/pencere blokları döndürülüp ölçeklenmiş INSERT, NOKTA_TOTAL / NOKTA_AD / NOKTA_X, krokide olmayan totaller TOTAL_DIGER, OLCU/GONYE/DIKAYAK, Arial) + koordinat listesi CSV (AD;Y;X;KAYNAK). Rapor: her ölçünün düzeltmesi (1 cm üstü dikkat, 3 cm üstü kontrol et), en çok düzelen kroki köşeleri.
+- Sentetik test (g_make.py + g1.py): 16° dönük, bir köşesi 88.5° bina, %8 küçük ve dik açılı çizilmiş kroki → ölçülen noktalar gerçeğe < 1 mm. Ölçülmeyen noktalar (kapı) krokideki oranla yerleşir.
+- Telefon DXF'ine META katmanı (donuk) eklendi: kapı/pencere bağlı olduğu iki nokta.

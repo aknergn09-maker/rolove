@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roleve Gönye</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 Arial,sans-serif;background:#16191d;color:#dde2e8;display:grid;grid-template-columns:420px 1fr;height:100vh}
+#side{padding:16px;overflow:auto;border-right:1px solid #2a2f36}#main{position:relative}#cv{width:100%;height:100%;display:block}
+h1{font-size:19px;margin:0 0 4px}h3{font-size:15px;margin:16px 0 6px}#ver{color:#667;font-size:12px}
+#drop{border:2px dashed #3a414b;border-radius:10px;padding:16px;text-align:center;margin:12px 0;color:#9aa3ad}#drop.on{border-color:#2b6fd6;background:#1b2533}
+#drop label{display:inline-block;margin-top:8px;background:#2b6fd6;color:#fff;padding:7px 14px;border-radius:7px;cursor:pointer}#drop input{display:none}
+.f{padding:6px 9px;border-radius:7px;background:#20252c;margin:4px 0}.f.ok{border-left:4px solid #4cd964}.f i{color:#778}
+.sum{color:#aeb6bf;margin:6px 0}.warn{color:#ffcf70;margin:6px 0}.bad{color:#ff7b7b}
+button{font:inherit;border:0;border-radius:8px;padding:9px 16px;background:#2b6fd6;color:#fff;cursor:pointer}button:disabled{background:#333a43;color:#778;cursor:default}
+#dl{display:none;gap:8px;margin:10px 0}#dl button{background:#1e5a3a}
+table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{padding:4px 5px;border-bottom:1px solid #2a2f36;text-align:left}th{color:#8a929c;font-weight:normal}
+tr.mid td{color:#ffcf70}tr.bad td{color:#ff7b7b}
+details{margin:12px 0}summary{cursor:pointer;color:#9aa3ad}#sets label{display:flex;justify-content:space-between;align-items:center;margin:5px 0;gap:8px}#sets input{width:90px;background:#20252c;color:#dde2e8;border:1px solid #333a43;border-radius:5px;padding:4px}
+.help{color:#8a929c;font-size:12.5px}
+</style></head><body>
+<div id="side">
+<h1>Roleve Gönye</h1><div id="ver"></div>
+<div id="drop">Telefondan gelen <b>DXF</b> ile <b>total</b> dosyasını (NCN / CSV) buraya sürükle<br><label>Dosya seç<input id="pick" type="file" multiple accept=".dxf,.ncn,.csv,.txt"></label></div>
+<div id="info"></div>
+<button id="run" disabled>Hesapla</button>
+<div id="dl"><button id="dxf">Dengelenmiş DXF</button><button id="csv">Koordinat listesi</button></div>
+<div id="out"></div>
+<details><summary>Ayarlar (standart sapmalar)</summary><div id="sets"></div>
+<div class="help">Küçük değer = o bilgiye daha çok güven. Total noktaları sabittir. Kroki açıları ve boyları zayıf tutulur, ölçüler onları düzeltir; düz duvarlar düz kalır.</div></details>
+</div>
+<div id="main"><canvas id="cv"></canvas></div>
+<script>
+/*CORE*/
+/*APP*/
+</script></body></html>
