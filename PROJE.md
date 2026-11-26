@@ -485,3 +485,14 @@ Testler: test/c1.py, test/c2.py (`PAGE=cad.html python3 test/run_all.py`).
 - Çizim sürerken (line/pline zinciri, daire merkezi, yay noktaları varken) sağ sütun küçülür: ≡ (normal sütun), geri, ileri, sığdır. 10/50/100 paneli sağ altta, sütunla aynı kenarda, 40 px düğmeler.
 - Parmak tuvaldeyken ikisi %30 soluk. ✓ / kapanma / geri al ile çizim bitince normal sütun kendiliğinden döner. ≡ çizimi bozmadan normal sütunu açar; tuvale dokununca küçük sütuna dönüp çizime devam eder.
 - Test: c4.py (c3 güncellendi: çizim sırasında araç değiştirmek için önce ≡).
+
+### cad-1.5 — aşama 3 (kapı/pencere) + aşama 4'ün netleşen kısmı (DXF)
+- Kaynak: cad_src/cad_ops.js (build: GEO + OPS + APP). Kapı/pencere D.ops: {id, t:'door'|'win', a, b, hinge, sw}.
+- Sütun: Kapı/Pencere grubu (son kullanılan direkt), Dosya grubu (DXF dışa, DXF içe, yeni çizim — yeni çizim 3 sn içinde ikinci dokunuşla).
+- Yerleştirme: çizgiye 2 dokunuş (yakalamalı, çizgi üstüne izdüşüm). Pline'a aynı doğrultuda 2 kırık noktası eklenir (pline ve kapalı alan bozulmaz). 3–60 cm içinde paralel çizgi (offset ikizi) varsa kapı/pencere iki yüze yayılır, ikiz pline'a da kırık noktası eklenir; kapı ikizden uzağa (odaya) açılır. İkiz yoksa tek çizgide ±5 cm sembol.
+- Kapı aracıyla kapıya dokununca 4 durum döner (menteşe sağ/sol × açılış tarafı). Seç ile kapı seçilir: panel (menteşe ↔, taraf ↕, kapı⇄pencere, sil) + iki uç tutamağı (çizgi boyunca, pline köşeleri ve ikiz köşeleri birlikte). Kenar orta tutamağıyla kayan kenardaki kapılar birlikte gelir; köşe taşınınca o köşedeki kapı ucu gelir; Taşı/Kopyala kapıları da taşır/kopyalar. Sil aracı kapıyı siler ve eklenen kırık noktalarını kaldırır.
+- Ekranda kapı/pencere yerinde çizgi boşluk gibi boyanır (geometri kesintisiz). Şablon v11 ile aynı (söveler, kanat + kesik yay; pencere 3 çizgi).
+- DXF dışa (R12, AC1009, ANSI_1254): CIZIM (LINE, kapalı/açık POLYLINE, CIRCLE, ARC), KAPI, PENCERE, NOKTA (POINT + TEXT X1.. — tüm köşe/uçlar ve kapı uçları; kullanıcı adı verme henüz yok), IMPORT (altlık). Dosya adı cizim_YYYYMMDD_HHMM.dxf, iPhone'da paylaş menüsü.
+- DXF içe: LINE, LWPOLYLINE, POLYLINE/VERTEX, CIRCLE, ARC, POINT (TEXT/INSERT/blok yok). Altlık gri, seçilemez/düzenlenemez, yakalanır, kapalı alan dolgusu yapmaz, trim/extend sınırı olur.
+- Test: c5.py.
+Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nokta adı verme, total CSV/NCN, ölçü/koordinat listesi.

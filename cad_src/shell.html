@@ -25,9 +25,11 @@ html,body{height:100%;overflow:hidden;background:#121417;overscroll-behavior:non
 #col.mini{bottom:auto;width:52px;padding:5px;gap:5px}#col.mini .b,#qp.mini .b,#qp.mini .num{width:40px;height:40px;flex:0 0 40px;border-radius:10px}#col.mini .b svg,#qp.mini .b svg{width:24px;height:24px}
 #qp.mini{right:0;grid-template-columns:40px;padding:5px;border-radius:14px 0 0 14px}#qp.mini .num{font-size:15px}
 #col,#qp{transition:opacity .15s}body.touching #col.mini,body.touching #qp.mini{opacity:.3}
+#opp{position:fixed;z-index:10;right:68px;bottom:calc(env(safe-area-inset-bottom) + 12px);display:none;grid-template-columns:48px;gap:6px;padding:6px;background:rgba(30,34,40,.92);border-radius:14px}
+.b.dng{background:#5a1f24;color:#ff9b9b}
 .num.k{background:#2a2f37;color:#e8e8e8}
 </style></head><body>
-<canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div>
+<canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div><div id="opp"></div><input type="file" id="fileIn" accept=".dxf,.DXF" style="display:none">
 <script>
 const ICONS = /*ICONS*/;
 /*GEO*/
