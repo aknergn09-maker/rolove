@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-1.8';
+const VER = 'cad-1.9';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -255,7 +255,7 @@ function tapTool(X, Y) {
   if (t === 'trim') { if (!h) return; const r = trimEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, r); commit(); return; }
   if (t === 'extend') { if (!h) return; const r = extendEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, [r]); commit(); return; }
   if (t === 'fillet') { if (!h) { S.pick = null; render(); return; } if (!S.pick) { S.pick = { id: h.e.id, q: h.r.p }; render(); return; } const e1 = entById(S.pick.id); const r = e1 && filletEnts(e1, S.pick.q, h.e, h.r.p); S.pick = null; if (!r) { flash(); render(); return; } const i1 = D.ents.indexOf(e1), i2 = D.ents.indexOf(h.e); r[0].id = e1.id; r[1].id = h.e.id; D.ents[i1] = r[0]; D.ents[i2] = r[1]; commit(); return; }
-  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (!r) { render(); return; } const pcs = S.autoCut ? offsetCut(r, e, S.offD, D.ents) : [r]; if (!pcs.length) { flash(); render(); return; } pcs.forEach(addEnt); commit(); if (pcs.length > 1 || pcs[0] !== r) flashOk(pcs.map(x => x.id), true); return; }
+  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (!r) { render(); return; } const pcs = S.autoCut ? offsetCut(r, e, S.offD, D.ents) : [r]; if (!pcs.length) { flash(); render(); return; } const ex = S.autoCut ? cutExisting(pcs, e, S.offD, D.ents) : []; const fl = []; ex.forEach(({ f, repl }) => { if (repl.length) { replEnt(f, repl); repl.forEach(x => fl.push(x.id)); } else delEnt(f); }); pcs.forEach(addEnt); commit(); if (pcs.length > 1 || pcs[0] !== r || ex.length) flashOk(pcs.map(x => x.id).concat(fl), true); return; }
   if (t === 'flat') { if (!h || h.e.t !== 'pl') { flash(); return; } if (flattenAt(h.e, h.r.p)) { commit(); flashOk([h.e.id], false); } else flash(); return; }
   if (t === 'erase') { const oh = opHit(X, Y); if (oh) { opDelete(oh.o); commit(); return; } if (h) { delEnt(h.e); commit(); } return; }
   if (t === 'explode') { if (h) { const r = explodeEnt(h.e); if (r) { replEnt(h.e, r); commit(); flashOk(r.map(x => x.id), true); } else flash(); } return; }
@@ -280,10 +280,14 @@ function flattenAt(e, q) {
   const r = runs.findIndex(R => runSegs(e, R).includes(seg)); if (r < 0) return false;
   const get = i => e.c ? runs[((i % m) + m) % m] : (i >= 0 && i < m ? runs[i] : null);
   const P0 = R => e.p[R.i0], P1 = R => e.p[R.i1 % n], dirOf = R => vunit(vsub(P1(R), P0(R))), lenOf = R => vdist(P0(R), P1(R));
-  for (const [a, b] of [[r, r], [r - 1, r + 1], [r, r + 2], [r - 2, r]]) {
+  const tol = 26 / view.s, nearRun = k => { const R = get(k); return R && runSegs(e, R).some(i => nearPrim(prims(e)[i], q).d <= tol); };
+  const WS = []; [[r, r], [r - 1, r + 1], [r, r + 2], [r - 2, r]].forEach(w => WS.push(w)); [-1, 1, -2, 2].forEach(c => [[r + c, r + c], [r + c - 1, r + c + 1]].forEach(w => WS.push(w)));
+  for (const pass of [0, 1]) for (const [a, b] of WS) {
     const P = get(a - 1), N = get(b + 1); if (!P || !N || P === N || b - a + 3 > m) continue;
+    let nr = false; for (let k = a; k <= b; k++) if (nearRun(k)) nr = true; if (!nr) continue;
     const dp = dirOf(P), dn = dirOf(N); if (Math.abs(vcross(dp, dn)) > 0.02 || vdot(dp, dn) <= 0) continue;
-    const v1 = P1(P), v4 = P0(N), off = Math.abs(vcross(dp, vsub(v4, v1)));
+    const lim = Math.min(lenOf(P), lenOf(N)); let okW = true; for (let k = a; k <= b; k++) if (lenOf(get(k)) >= lim) okW = false; if (!okW) continue;
+    const v1 = P1(P), v4 = P0(N), off = Math.abs(vcross(dp, vsub(v4, v1))); if (pass === 0 ? off >= 1e-4 : off < 1e-4) continue;
     /* pencere içindeki köşeler (P sonu → N başı) */
     const idx = []; let k = P.i1 % n; for (let g = 0; g <= n; g++) { idx.push(k); if (k === N.i0 % n) break; k = (k + 1) % n; }
     if (idx.some(i => isOpPt(e.p[i]))) return false;

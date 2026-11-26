@@ -41,6 +41,21 @@ async def main():
         await wtap(2,3); await wtap(2,5)
         ck('kapalıyken offset kesilmeden tam kapalı çıkar', await ev("CAD.D.ents.length")==n0+1 and await ev("CAD.D.ents[CAD.D.ents.length-1].c"))
         await pg.screenshot(path=str(OUT/'c8.png'))
+        # önce tek oda offset'lenir (kapalı dış hat), sonra yanına oda çizilip offset atılır → mevcut dış hat bağlandığı yerde kesilir
+        await ev("""CAD.D={nid:10,ents:[{id:'r1',t:'pl',p:[[0,0],[4,0],[4,3],[0,3]],c:true}],ops:[]}; CAD.S.autoCut=1; CAD.S.offD=0.2; CAD.S.sel.clear(); CAD.commit()""")
+        await btn('fly:edit'); await btn('t:offset'); await wtap(2,0); await wtap(2,-1)
+        ck('tek oda: dış hat kapalı', await ev("CAD.D.ents.length")==2 and await ev("CAD.D.ents[1].c"))
+        await ev("CAD.D.ents.push({id:'r2',t:'pl',p:[[4.2,0],[7,0],[7,2],[4.2,2]],c:true}); CAD.commit()")
+        await wtap(5.5,0); await wtap(5.5,-1)
+        segs=[]
+        for e in await ev("CAD.D.ents.filter(e=>!['r1','r2'].includes(e.id)).map(e=>JSON.parse(JSON.stringify(e)))"):
+            pts=e['p'] if e['t']=='pl' else [e['a'],e['b']]
+            if e.get('c'): pts=pts+[pts[0]]
+            for i in range(len(pts)-1): segs.append((pts[i],pts[i+1]))
+        mid=[s for s in segs if 3.9<(s[0][0]+s[1][0])/2<4.3 and -0.19<(s[0][1]+s[1][1])/2<2.19]
+        ck('mevcut dış hat bağlandığı yerde kesildi: odalar arasında çizgi/uç yok', not mid, mid)
+        ck('  dış hat parçaları birleşince kapalı', await ev("(()=>{const n=CAD.D.ents.filter(e=>!['r1','r2'].includes(e.id)); const j=joinEnts(n); return !!j && j.ent.c && j.used.length===n.length})()"))
+        ck('  odaların kendi çizgileri aynen duruyor', await ev("CAD.D.ents.find(e=>e.id==='r1').p.length===4 && CAD.D.ents.find(e=>e.id==='r1').c && CAD.D.ents.find(e=>e.id==='r2').c"))
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)
 asyncio.run(main())

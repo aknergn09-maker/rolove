@@ -46,6 +46,20 @@ async def main():
         ck('düz duvara dokununca bir şey yapmaz', len((await E())['in'])==n)
         await btn('undo')
         ck('geri al çalışıyor', any(near(q,(3,0)) for q in (await E())['in']))
+        # offset'te dar girinti: genişlik < 2×offset → girinti dışarıda hiç oluşmaz (kendini kesen çizgi yok)
+        await ev("""CAD.D={nid:10,ents:[{id:'n',t:'pl',p:[[0,0],[3,0],[3,6],[0,6],[0,4],[0.15,4],[0.15,3.7],[0,3.7]],c:true}],ops:[]}; CAD.S.sel.clear(); CAD.commit()""")
+        await btn('fly:edit'); await btn('t:offset'); await wtap(1.5,0); await wtap(1.5,-1)
+        o=[v for k,v in (await E()).items() if k!='n'][0]
+        ck('dar girinti (30 cm) + 20 cm offset: dışta girinti yok, düz', len(o)==4, o)
+        # 10 cm offset'te girinti dışta kalır; yan kenarına, ağzına, dibine dokununca tamamen silinir
+        for q in [(-0.1,3.85),(0.0,3.85),(0.05,3.85)]:
+            await ev("""CAD.D={nid:10,ents:[{id:'n',t:'pl',p:[[0,0],[3,0],[3,6],[0,6],[0,4],[0.15,4],[0.15,3.7],[0,3.7]],c:true}],ops:[]}; CAD.S.sel.clear(); CAD.S.offD=0.1; CAD.commit()""")
+            await btn('fly:edit'); await btn('t:offset'); await wtap(1.5,0); await wtap(1.5,-1)
+            await btn('fly:edit'); await btn('t:flat'); await wtap(*q)
+            o=[v for k,v in (await E()).items() if k!='n'][0]
+            ck(f'  offset girintisi {q} dokunuşuyla tamamen silindi', len(o)==4, o)
+        await wtap(-0.1,1.5)
+        ck('girintisiz uzun duvara dokununca şekil bozulmadı', len([v for k,v in (await E()).items() if k!='n'][0])==4)
         await pg.screenshot(path=str(OUT/'c7.png'))
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)

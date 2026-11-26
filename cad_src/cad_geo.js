@@ -138,14 +138,31 @@ function offsetEnt(e, dist, q) {
   if (e.t === 'line') { const n = vunit(vperp(vsub(e.b, e.a))), sg = vcross(vsub(e.b, e.a), vsub(q, e.a)) > 0 ? 1 : -1; const o = vmul(n, dist * sg); return { t: 'line', a: vadd(e.a, o), b: vadd(e.b, o) }; }
   if (e.t === 'cir' || e.t === 'arc') { const r = vdist(q, e.c) > e.r ? e.r + dist : e.r - dist; if (r <= 1e-6) return null; const ne = JSON.parse(JSON.stringify(e)); ne.r = r; return ne; }
   if (e.t === 'pl') {
-    const s = nearEnt(e, q), P = s.P, sg = vcross(vsub(P.b, P.a), vsub(q, P.a)) > 0 ? 1 : -1, ps = prims(e), n = e.p.length;
-    const L = ps.map(P => { const nn = vmul(vunit(vperp(vsub(P.b, P.a))), dist * sg); return { a: vadd(P.a, nn), b: vadd(P.b, nn), nn }; });
-    const pts = e.p.map((p, i) => {
-      const before = e.c ? L[(i - 1 + L.length) % L.length] : (i > 0 ? L[i - 1] : null), after = e.c ? L[i % L.length] : (i < L.length ? L[i] : null);
-      if (!before) return after.a; if (!after) return before.b;
-      const X = segSeg(before.a, before.b, after.a, after.b, true)[0]; return X ? X.p : after.a;
-    });
-    void n; return { t: 'pl', p: pts, c: e.c };
+    const s = nearEnt(e, q), P = s.P, sg = vcross(vsub(P.b, P.a), vsub(q, P.a)) > 0 ? 1 : -1;
+    return offPl(e, dist * sg);
+  }
+  return null;
+}
+/* pline offset: köşeler miter; ters dönen (kendini kesen) parçalar temizlenir — dar girinti offset'te kapanır */
+function offPl(e, sd) {
+  let L = prims(e).filter(P => vdist(P.a, P.b) > 1e-9).map(P => { const u = vunit(vsub(P.b, P.a)), nn = vmul(vperp(u), sd); return { a: vadd(P.a, nn), b: vadd(P.b, nn), u }; });
+  const closed = e.c;
+  const par = (A, B) => Math.abs(vcross(A.u, B.u)) < 1e-9;
+  const colin = (A, B) => par(A, B) && Math.abs(vcross(A.u, vsub(B.a, A.a))) < 1e-7;
+  for (let it = 0; it < 400; it++) {
+    const m = L.length; if (m < (closed ? 3 : 1)) return null;
+    let ch = false;
+    for (let i = closed ? 0 : 1; i < m && !ch; i++) { const A = L[(i - 1 + m) % m], B = L[i]; if (!par(A, B)) continue;
+      if (vdot(A.u, B.u) > 0) { if (colin(A, B)) { A.b = B.b; L.splice(i, 1); } else L.splice(i, 0, { a: A.b, b: B.a, u: vunit(vsub(B.a, A.b)) }); }
+      else { const lo = Math.min(i - 1, i), hi = i; if (closed && i === 0) { L.splice(0, 1); L.pop(); } else L.splice(lo, hi - lo + 1); }
+      ch = true; }
+    if (ch) continue;
+    const V = []; for (let i = 0; i < m; i++) { if (!closed && i === 0) { V.push(L[0].a); continue; } const A = L[(i - 1 + m) % m], B = L[i]; V.push(segSeg(A.a, A.b, B.a, B.b, true)[0].p); }
+    if (!closed) V.push(L[m - 1].b);
+    let bad = -1; for (let i = 0; i < m; i++) { const p0 = V[i], p1 = closed ? V[(i + 1) % m] : V[i + 1]; if (vdot(vsub(p1, p0), L[i].u) < -1e-9) { bad = i; break; } }
+    if (bad < 0) return { t: 'pl', p: V.map(cl), c: closed };
+    if (!closed && (bad === 0 || bad === m - 1)) return { t: 'pl', p: V.map(cl), c: closed };
+    L.splice(bad, 1);
   }
   return null;
 }
@@ -232,4 +249,44 @@ function offsetCut(ne, src, d, ents) {
   for (let g = 0, k = start; g < iv.length; g++, k++) { const i = k % iv.length; if (!keep[i]) continue; const last = runs[runs.length - 1]; if (last && last.end === (i - 1 + iv.length) % iv.length && (per || i > 0)) { last.b = iv[i][1]; last.end = i; } else runs.push({ a: iv[i][0], b: iv[i][1], end: i }); }
   return runs.map(r => { const a = r.a % U; let b = r.b % U; if (b < 1e-9) b = U; if (ne.t === 'line') return subEnt(ne, a, b); if (ne.t === 'cir') return subEnt(ne, a, b > a ? b : b + 0); return subEnt(ne, a, b); });
 }
-if (typeof module !== 'undefined') module.exports = { offsetCut, inPoly, prims, trimEnt, extendEnt, filletEnts, offsetEnt, arc3, joinEnts, explodeEnt, plRuns, faces, subEnt, nearEnt, entU, cutsOn, rayHit, arcSw, arcPts, segSeg, primInts };
+
+/* offset bağlandığı yerde mevcut çizgileri kes: kesişim noktasına bitişik, duvar bandında kalan kısa uçlar
+   ve kaynağın üstüne binen dış hat parçaları silinir. Sadece açık çizgiler ve içinde başka kapalı alan olan (dış hat) kapalı pline'lar kesilir. */
+function splitKeep(e, cuts, keepFn) {
+  const U = entU(e), per = periodic(e); cuts = uniqSort(cuts.filter(u => u > 1e-7 && u < U - 1e-7));
+  if (per && e.t === 'pl') { /* kapalı pline: köşe 0'dan da bölünebilir */ }
+  const bounds = per ? cuts : [0].concat(cuts, [U]); if (per && cuts.length < 1) return null;
+  const iv = []; const n = per ? bounds.length : bounds.length - 1;
+  for (let k = 0; k < n; k++) { let a = bounds[k], b = per ? bounds[(k + 1) % bounds.length] : bounds[k + 1]; if (per && b <= a) b += U; iv.push([a, b]); }
+  const keep = iv.map(x => keepFn(x[0], x[1], ptAt(e, ((x[0] + x[1]) / 2) % U)));
+  if (keep.every(Boolean)) return null; if (!keep.some(Boolean)) return [];
+  const runs = []; const start = per ? keep.indexOf(false) + 1 : 0;
+  for (let g = 0, k = start; g < iv.length; g++, k++) { const i = k % iv.length; if (!keep[i]) continue; const last = runs[runs.length - 1]; if (last && last.end === (i - 1 + iv.length) % iv.length && (per || i > 0)) { last.b = iv[i][1]; last.end = i; } else runs.push({ a: iv[i][0], b: iv[i][1], end: i }); }
+  return runs.map(r => { const a = r.a % U; let b = r.b % U; if (b < 1e-9) b = U; return subEnt(e, a, b); });
+}
+function cutExisting(pieces, src, d, ents) {
+  if (!pieces.length) return [];
+  const closedPl = ents.filter(e => e.t === 'pl' && e.c);
+  const srcIn = m => src.t === 'pl' && src.c ? inPoly(m, src.p) : src.t === 'cir' ? vdist(m, src.c) < src.r : null;
+  const pm = ptAt(pieces[0], entU(pieces[0]) / 2), side = srcIn(pm);
+  const sideOf = m => { if (side !== null) return srcIn(m) === side; const r = nearEnt(src, m), rp = nearEnt(src, pm); const sg = x => x.P.k === 's' ? Math.sign(vcross(vsub(x.P.b, x.P.a), vsub(x.q, x.P.a))) : 0; r.q = m; rp.q = pm; return sg(r) === sg(rp); };
+  const out = [];
+  ents.forEach(f => {
+    if (f === src || f.imp || pieces.includes(f) || f.t === 'pt' || f.t === 'cir') return;
+    if (f.t === 'pl' && f.c && !closedPl.some(g => g !== f && g.p.every(p => inPoly(p, f.p)))) return;
+    const hitU = []; prims(f).forEach(P => pieces.forEach(pc => prims(pc).forEach(Q => primInts(P, Q).forEach(x => hitU.push(uOf(P, x))))));
+    if (!hitU.length) return;
+    const us = hitU.concat(cutsOn(f, [src]));
+    prims(f).forEach(P => { if (P.k !== 's') return; prims(src).forEach(Q => { if (Q.k !== 's' || Math.abs(vcross(vunit(vsub(P.b, P.a)), vunit(vsub(Q.b, Q.a)))) > 1e-7) return; [Q.a, Q.b].forEach(x => { const r = nearPrim(P, x); if (r.d < 1e-4) us.push(uOf(P, r.p)); }); }); });
+    const nearHit = u => hitU.some(h => Math.abs(h - u) < 1e-6);
+    const res = splitKeep(f, us, (a, b, m) => {
+      const rs = nearEnt(src, m); if (!rs) return true;
+      if (rs.d < 1e-4) return false;
+      if ((nearHit(a) || nearHit(b)) && b - a <= 2 * d + 1e-6 && rs.d < d - 1e-6 && sideOf(m)) return false;
+      return true;
+    });
+    if (res) out.push({ f, repl: res });
+  });
+  return out;
+}
+if (typeof module !== 'undefined') module.exports = { cutExisting, splitKeep, offsetCut, inPoly, prims, trimEnt, extendEnt, filletEnts, offsetEnt, arc3, joinEnts, explodeEnt, plRuns, faces, subEnt, nearEnt, entU, cutsOn, rayHit, arcSw, arcPts, segSeg, primInts };

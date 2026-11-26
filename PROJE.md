@@ -517,3 +517,9 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - Ayarlar'da aç/kapa düğmesi (varsayılan açık, kaydedilir). Kesilen offset 1 sn yanıp söner.
 - Offset değer düğmesinin kutusu daraltıldı.
 - Test: c8.py.
+
+### cad-1.9
+- Pline offset (offPl): ters dönen (kendini kesen) parçalar temizlenir; paralel komşular birleşir/silinir. Offset mesafesinin 2 katından dar girinti dışarıda hiç oluşmaz (eski küçük çıkıntı sorunu). İçe offset sığmazsa null.
+- Düzleştir: önce "iki yanı aynı hizada" (girinti) deseni, yoksa kademe aranır; kaldırılacak parçalar iki yandaki duvarlardan kısa olmalı (uzun duvara dokununca şekil bozulmaz); dokunulan yerin 26 px yakınındaki girinti de bulunur (ağzına/yan kenarına/dibine dokunmak yeter).
+- Offset otomatik kesme mevcut çizgilere de uygulanır (cutExisting): yeni offset'in bağlandığı yerde, kesişime bitişik + duvar bandında (kaynağa < d, offset tarafında) + ≤ 2d uzunlukta uçlar ve kaynağın üstüne binen parçalar silinir. Sadece açık çizgiler/pline'lar/yaylar ve içinde başka kapalı pline olan kapalı pline'lar (dış hat) kesilir; oda çizgileri kesilmez. Ayardaki aç/kapa düğmesine bağlı.
+- Test: c7 (genişletildi), c8 (genişletildi).
