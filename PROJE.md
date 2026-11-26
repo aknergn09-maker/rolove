@@ -558,3 +558,6 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - Kapı/pencere her biri tek blok: BLOCKS bölümünde KAPI_n / PENCERE_n (taban = kapı a ucu, içerik katman 0), çizimde INSERT (KAPI, PENCERE; kopyalarda KOPYA_* katmanı).
 - Nokta adları iki katman: NOKTA_AD (kullanıcının verdiği adlar = total eşleşmesi, yeşil 3), NOKTA_X (programın verdiği X.., kırmızı 1).
 - ezdxf denetiminden hatasız geçiyor.
+
+### cad-2.4
+- DXF içe aktarma blokları açar: BLOCKS bölümü okunur, INSERT yerine blok içeriği konur (konum, X/Y ölçek, dönme, aynalı yay, iç içe 4 kat; katman 0 içerik INSERT katmanını alır). NetCAD/AutoCAD bloklu çizimler ve kendi kapı/pencere bloklarımız altlıkta görünür.

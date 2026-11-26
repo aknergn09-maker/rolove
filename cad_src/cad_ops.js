@@ -146,21 +146,43 @@ function exportDXF() { const d = new Date(), z = v => String(v).padStart(2, '0')
 /* ---------- DXF içe aktarma ---------- */
 function parseDXF(txt) {
   const L = txt.split(/\r?\n/); const pr = []; for (let i = 0; i + 1 < L.length; i += 2) pr.push([parseInt(L[i].trim(), 10), L[i + 1].trim()]);
-  let i = 0; while (i < pr.length && !(pr[i][0] === 2 && pr[i][1] === 'ENTITIES')) i++;
-  const out = []; let cur = null, poly = null;
-  const flush = () => { if (!cur) return; const g = cur.g, n = k => (g[k] || []).map(Number), v = k => Number((g[k] || [0])[0]); const ly = (g[8] || ['0'])[0];
-    const T = cur.type;
-    if (T === 'LINE') out.push({ t: 'line', a: [v(10), v(20)], b: [v(11), v(21)], lay: ly });
-    else if (T === 'LWPOLYLINE') { const xs = n(10), ys = n(20); const p = xs.map((x, k) => [x, ys[k]]); if (p.length >= 2) out.push({ t: 'pl', p, c: !!(v(70) & 1), lay: ly }); }
-    else if (T === 'POLYLINE') poly = { p: [], c: !!(v(70) & 1), lay: ly };
+  /* bölümleri sırayla oku: BLOCKS (blok tanımları) ve ENTITIES */
+  const blocks = {}; let out = [], cur = null, poly = null, blk = null, sect = null, list = out;
+  const conv = (T, g, ly) => {
+    const n = k => (g[k] || []).map(Number), v = k => Number((g[k] || [0])[0]);
+    if (T === 'LINE') return [{ t: 'line', a: [v(10), v(20)], b: [v(11), v(21)], lay: ly }];
+    if (T === 'LWPOLYLINE') { const xs = n(10), ys = n(20); const p = xs.map((x, k) => [x, ys[k]]); return p.length >= 2 ? [{ t: 'pl', p, c: !!(v(70) & 1), lay: ly }] : []; }
+    if (T === 'CIRCLE') return [{ t: 'cir', c: [v(10), v(20)], r: v(40), lay: ly }];
+    if (T === 'ARC') return [{ t: 'arc', c: [v(10), v(20)], r: v(40), a0: nrm(v(50) * Math.PI / 180), a1: nrm(v(51) * Math.PI / 180), lay: ly }];
+    if (T === 'POINT') return [{ t: 'pt', p: [v(10), v(20)], lay: ly }];
+    if (T === 'INSERT') return [{ t: 'ins', name: (g[2] || [''])[0], at: [v(10), v(20)], sx: g[41] ? v(41) : 1, sy: g[42] ? v(42) : 1, rot: v(50) * Math.PI / 180, lay: ly }];
+    return [];
+  };
+  const flush = () => { if (!cur) return; const g = cur.g, ly = (g[8] || ['0'])[0], T = cur.type, v = k => Number((g[k] || [0])[0]);
+    if (T === 'POLYLINE') poly = { p: [], c: !!(v(70) & 1), lay: ly };
     else if (T === 'VERTEX' && poly) poly.p.push([v(10), v(20)]);
-    else if (T === 'SEQEND' && poly) { if (poly.p.length >= 2) out.push({ t: 'pl', p: poly.p, c: poly.c, lay: poly.lay }); poly = null; }
-    else if (T === 'CIRCLE') out.push({ t: 'cir', c: [v(10), v(20)], r: v(40), lay: ly });
-    else if (T === 'ARC') out.push({ t: 'arc', c: [v(10), v(20)], r: v(40), a0: nrm(v(50) * Math.PI / 180), a1: nrm(v(51) * Math.PI / 180), lay: ly });
-    else if (T === 'POINT') out.push({ t: 'pt', p: [v(10), v(20)], lay: ly });
+    else if (T === 'SEQEND' && poly) { if (poly.p.length >= 2) list.push({ t: 'pl', p: poly.p, c: poly.c, lay: poly.lay }); poly = null; }
+    else if (T === 'BLOCK') { blk = { name: (g[2] || [''])[0], base: [v(10), v(20)], ents: [] }; list = blk.ents; }
+    else if (T === 'ENDBLK') { if (blk) blocks[blk.name] = blk; blk = null; list = out; }
+    else conv(T, g, ly).forEach(e => list.push(e));
     cur = null; };
-  for (i++; i < pr.length; i++) { const [c, val] = pr[i]; if (c === 0) { flush(); if (val === 'ENDSEC') break; cur = { type: val, g: {} }; } else if (cur) (cur.g[c] = cur.g[c] || []).push(val); }
+  for (let i = 0; i < pr.length; i++) { const [c, val] = pr[i];
+    if (c === 0) { flush(); if (val === 'SECTION') { sect = null; continue; } if (val === 'ENDSEC') { sect = null; continue; } cur = (sect === 'BLOCKS' || sect === 'ENTITIES') ? { type: val, g: {} } : null; continue; }
+    if (c === 2 && !cur && sect === null) { sect = val; continue; }
+    if (cur) (cur.g[c] = cur.g[c] || []).push(val); }
   flush();
-  return out.filter(e => (e.t !== 'pl' || e.p.length >= 2) && (e.t !== 'cir' && e.t !== 'arc' || e.r > 0));
+  /* INSERT → blok içeriğini yerine koy (konum, ölçek, dönme; iç içe en fazla 4 kat) */
+  const place = (e, ins, base, depth) => {
+    const c = Math.cos(ins.rot), sn = Math.sin(ins.rot), tf = p => { const x = (p[0] - base[0]) * ins.sx, y = (p[1] - base[1]) * ins.sy; return [ins.at[0] + x * c - y * sn, ins.at[1] + x * sn + y * c]; };
+    const ly = !e.lay || e.lay === '0' ? ins.lay : e.lay;
+    if (e.t === 'line') return [{ t: 'line', a: tf(e.a), b: tf(e.b), lay: ly }];
+    if (e.t === 'pl') return [{ t: 'pl', p: e.p.map(tf), c: e.c, lay: ly }];
+    if (e.t === 'pt') return [{ t: 'pt', p: tf(e.p), lay: ly }];
+    if (e.t === 'cir' || e.t === 'arc') { const k = Math.abs(ins.sx); const r = { ...e, c: tf(e.c), r: e.r * k, lay: ly }; if (e.t === 'arc') { const mir = ins.sx * ins.sy < 0; const a0 = mir ? Math.PI - e.a1 : e.a0, a1 = mir ? Math.PI - e.a0 : e.a1; r.a0 = nrm(a0 + ins.rot); r.a1 = nrm(a1 + ins.rot); } return [r]; }
+    if (e.t === 'ins' && depth < 4) { const b = blocks[e.name]; if (!b) return []; const inner = { ...e, at: tf(e.at), rot: e.rot + ins.rot, sx: e.sx * ins.sx, sy: e.sy * ins.sy, lay: ly }; return b.ents.flatMap(x => place(x, inner, b.base, depth + 1)); }
+    return [];
+  };
+  const res = []; out.forEach(e => { if (e.t !== 'ins') { res.push(e); return; } const b = blocks[e.name]; if (b) b.ents.forEach(x => place(x, e, b.base, 0).forEach(y => res.push(y))); });
+  return res.filter(e => (e.t !== 'pl' || e.p.length >= 2) && (e.t !== 'cir' && e.t !== 'arc' || e.r > 0));
 }
 function importDXF(txt) { const list = parseDXF(txt); if (!list.length) { flash(); return 0; } list.forEach(e => { e.imp = true; addEnt(e); }); commit(); fit(); return list.length; }
