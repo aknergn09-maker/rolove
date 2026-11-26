@@ -496,3 +496,10 @@ Testler: test/c1.py, test/c2.py (`PAGE=cad.html python3 test/run_all.py`).
 - DXF içe: LINE, LWPOLYLINE, POLYLINE/VERTEX, CIRCLE, ARC, POINT (TEXT/INSERT/blok yok). Altlık gri, seçilemez/düzenlenemez, yakalanır, kapalı alan dolgusu yapmaz, trim/extend sınırı olur.
 - Test: c5.py.
 Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nokta adı verme, total CSV/NCN, ölçü/koordinat listesi.
+
+### cad-1.6 — kalınlık sınırı ayarı
+- Sütunda ⚙ Ayarlar: kapı/pencere kalınlık arama sınırı (cm, varsayılan 60, 5–300). Kaydedilir (rcad1_doc.thMax).
+- opCands: sınır içindeki paralel çizgiler yakından uzağa. Kapı/pencere o.th: yerleştirirken en yakın; 0 = tek çizgi; sonradan duvar kaysa da hatırlanan değere en yakın aday seçilir (başka çizgiye atlamaz).
+- Kapı/pencere panelinde kalınlık düğmesi: en yakın → sonraki … → tek çizgi → en yakın; eski ikizdeki kırık noktaları kalkar, yenisine eklenir.
+- Tutamaklar üst üste gelirse orta (kenar) tutamağı öncelikli.
+- Test: c6.py.

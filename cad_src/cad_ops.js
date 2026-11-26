@@ -8,16 +8,30 @@ function opById(id) { return opsList().find(o => o.id === id); }
 function segsAll() { const out = []; D.ents.forEach(e => { if (e.imp) return; prims(e).forEach(P => { if (P.k === 's' && vdist(P.a, P.b) > 1e-6) out.push(P); }); }); return out; }
 function opN(o) { return vunit(vperp(vsub(o.b, o.a))); }
 /* offset ikizi: kapının karşısındaki paralel çizgi (3–60 cm) → işaretli kalınlık */
-function opTh(o) {
-  const u = vunit(vsub(o.b, o.a)), n = vperp(u), L = vdist(o.a, o.b), m = vmul(vadd(o.a, o.b), 0.5); let best = 0;
+function opCands(o) { /* kapı ortasının karşısındaki paralel çizgiler (ayar sınırı içinde), yakından uzağa */
+  const u = vunit(vsub(o.b, o.a)), n = vperp(u), L = vdist(o.a, o.b), out = [];
   segsAll().forEach(P => {
     const d = vsub(P.b, P.a); if (Math.abs(vcross(vunit(d), u)) > 0.02) return;
-    const dd = vdot(vsub(P.a, o.a), n); if (Math.abs(dd) < 0.03 || Math.abs(dd) > 0.6) return;
-    const t1 = vdot(vsub(P.a, o.a), u), t2 = vdot(vsub(P.b, o.a), u); const lo = Math.min(t1, t2), hi = Math.max(t1, t2);
-    if (hi < L * 0.5 - 1e-6 || lo > L * 0.5 + 1e-6) { void m; return; }
-    if (!best || Math.abs(dd) < Math.abs(best)) best = dd;
+    const dd = vdot(vsub(P.a, o.a), n); if (Math.abs(dd) < 0.03 || Math.abs(dd) > (S.thMax || 0.6) + 1e-9) return;
+    const t1 = vdot(vsub(P.a, o.a), u), t2 = vdot(vsub(P.b, o.a), u); if (Math.max(t1, t2) < L * 0.5 - 1e-6 || Math.min(t1, t2) > L * 0.5 + 1e-6) return;
+    if (!out.some(x => Math.abs(x - dd) < 1e-4)) out.push(dd);
   });
-  return best;
+  return out.sort((a, b) => Math.abs(a) - Math.abs(b));
+}
+function opTh(o) { /* kapının seçtiği kalınlık: o.th = 0 → tek çizgi; yoksa hatırlanan değere en yakın aday */
+  if (o.th === 0) return 0; const c = opCands(o); if (!c.length) return 0; if (o.th == null) return c[0];
+  let best = c[0]; c.forEach(x => { if (Math.abs(x - o.th) < Math.abs(best - o.th)) best = x; }); return best;
+}
+function plRemoveAt(p) {
+  if (opsList().some(x => vsame(x.a, p) || vsame(x.b, p))) return;
+  D.ents.forEach(e => { if (e.t !== 'pl') return; const k = e.p.length; for (let i = 0; i < k; i++) { if (!vsame(e.p[i], p)) continue; if (!e.c && (i === 0 || i === k - 1)) continue; const a = e.p[(i - 1 + k) % k], b = e.p[(i + 1) % k]; if (Math.abs(vcross(vunit(vsub(p, a)), vunit(vsub(b, p)))) < 1e-6 && vdot(vsub(p, a), vsub(b, p)) > 0 && k > (e.c ? 3 : 2)) e.p.splice(i, 1); break; } });
+}
+function twinInsert(o, th) { if (!th) return; const n = vmul(opN(o), th), pa = vadd(o.a, n), pb = vadd(o.b, n); D.ents.forEach(e => { if (e.imp || e.t !== 'pl') return; if (prims(e).some(P => P.k === 's' && nearPrim(P, pa).d < CO)) { plInsert(e, pa); plInsert(e, pb); } }); }
+function twinRemove(o, th) { if (!th) return; const n = vmul(opN(o), th); plRemoveAt(vadd(o.a, n)); plRemoveAt(vadd(o.b, n)); }
+/* kalınlık düğmesi: en yakın → tek çizgi → sonraki paralel çizgi … */
+function opWall(o) {
+  const c = opCands(o), opts = c.concat([0]), cur = opTh(o); let i = 0, bd = Infinity; opts.forEach((x, k) => { const d = Math.abs(x - cur); if (d < bd) { bd = d; i = k; } });
+  const nx = opts[(i + 1) % opts.length]; twinRemove(o, cur); o.th = nx; twinInsert(o, nx); if (nx) o.sw = nx > 0 ? -1 : 1;
 }
 function plInsert(e, p) {
   if (e.t !== 'pl') return false; const ps = prims(e);
@@ -32,15 +46,13 @@ function opPlace(sn, X, Y) {
   if (vdist(A.a, b) < 0.2) { flash(); render(); return; }
   const o = { id: 'o' + (D.nid++), t: S.tool, a: cl(A.a), b: cl(b), hinge: 0, sw: 1 };
   const host = entById(A.eid); if (host) { plInsert(host, o.a); plInsert(host, o.b); }
-  const th = opTh(o);
-  if (th) { const n = vmul(opN(o), th); D.ents.forEach(e => { if (e === host || e.imp || e.t !== 'pl') return; const pa = vadd(o.a, n), pb = vadd(o.b, n); if (prims(e).some(P => P.k === 's' && nearPrim(P, pa).d < CO)) { plInsert(e, pa); plInsert(e, pb); } }); o.sw = th > 0 ? -1 : 1; }
+  const c = opCands(o), th = c.length ? c[0] : 0; o.th = th;
+  if (th) { twinInsert(o, th); o.sw = th > 0 ? -1 : 1; }
   opsList().push(o); commit();
 }
 function opCycle(o) { const st = [[0, 1], [1, 1], [1, -1], [0, -1]]; let i = st.findIndex(s => s[0] === o.hinge && s[1] === o.sw); i = (i + 1) % 4; o.hinge = st[i][0]; o.sw = st[i][1]; }
 function opDelete(o) {
-  D.ops = opsList().filter(x => x !== o); const th = opTh(o), n = vmul(opN(o), th);
-  const pts = [o.a, o.b].concat(th ? [vadd(o.a, n), vadd(o.b, n)] : []);
-  pts.forEach(p => { if (opsList().some(x => vsame(x.a, p) || vsame(x.b, p))) return; D.ents.forEach(e => { if (e.t !== 'pl') return; const k = e.p.length; for (let i = 0; i < k; i++) { if (!vsame(e.p[i], p)) continue; if (!e.c && (i === 0 || i === k - 1)) continue; const a = e.p[(i - 1 + k) % k], b = e.p[(i + 1) % k]; if (Math.abs(vcross(vunit(vsub(p, a)), vunit(vsub(b, p)))) < 1e-6 && vdot(vsub(p, a), vsub(b, p)) > 0 && k > (e.c ? 3 : 2)) { e.p.splice(i, 1); } break; } }); });
+  const th = opTh(o); D.ops = opsList().filter(x => x !== o); plRemoveAt(o.a); plRemoveAt(o.b); twinRemove(o, th);
 }
 function opHit(X, Y) { const q = s2w(X, Y), R = 16 / view.s; let best = null; opsList().forEach(o => { const th = opTh(o), n = vmul(opN(o), th / 2), m = [vadd(o.a, n), vadd(o.b, n)]; const d = Math.min(nearPrim({ k: 's', a: o.a, b: o.b }, q).d, nearPrim({ k: 's', a: m[0], b: m[1] }, q).d); if (d <= R && (!best || d < best.d)) best = { o, d }; }); return best; }
 /* kenar kaydırma / köşe taşıma ile kapıların gelmesi */
@@ -69,7 +81,7 @@ function drawOps() {
 }
 function opPanel() {
   const o = S.tool === 'sec' && S.selOp && opById(S.selOp); if (!o || S.fly) return '';
-  return (o.t === 'door' ? btn('oph', 'dhinge') + btn('ops', 'dswing') : '') + btn('opt', o.t === 'door' ? 'window' : 'door') + btn('opdel', 'erase', false, 'dng');
+  return (o.t === 'door' ? btn('oph', 'dhinge') + btn('ops', 'dswing') : '') + btn('opw', 'wallth') + btn('opt', o.t === 'door' ? 'window' : 'door') + btn('opdel', 'erase', false, 'dng');
 }
 
 /* ---------- DXF dışa aktarma (R12) ---------- */

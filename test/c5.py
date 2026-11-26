@@ -45,7 +45,7 @@ async def main():
         O=await OPS()
         ck('pencere üst kenara kondu', len(O)==2 and O[1]['t']=='win' and abs(O[1]['a'][1]-3)<1e-9)
         await btn('sec'); await wtap(0.95,0)
-        ck('Seç: kapı seçildi, simgeli panel (4 düğme)', await ev("CAD.S.selOp")==O[0]['id'] and await ev("document.querySelectorAll('#opp button').length")==4)
+        ck('Seç: kapı seçildi, simgeli panel (5 düğme)', await ev("CAD.S.selOp")==O[0]['id'] and await ev("document.querySelectorAll('#opp button').length")==5)
         sw0=(await OPS())[0]['sw']; await btn('ops')
         ck('  panelden açılış tarafı değişti', (await OPS())[0]['sw']==-sw0)
         await drag((1.4,0),(1.6,0))
