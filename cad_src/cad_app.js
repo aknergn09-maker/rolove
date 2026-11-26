@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-1.6';
+const VER = 'cad-1.7';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -11,9 +11,9 @@ const S = {
   snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
   cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: ''
 };
-const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'move', 'copy', 'explode', 'join', 'erase'];
+const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'flat', 'move', 'copy', 'explode', 'join', 'erase'];
 const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
-const ICON = { door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
+const ICON = { door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
 const svg = k => `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[k] || ''}</svg>`;
 
 /* ---------- belge ---------- */
@@ -256,6 +256,7 @@ function tapTool(X, Y) {
   if (t === 'extend') { if (!h) return; const r = extendEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, [r]); commit(); return; }
   if (t === 'fillet') { if (!h) { S.pick = null; render(); return; } if (!S.pick) { S.pick = { id: h.e.id, q: h.r.p }; render(); return; } const e1 = entById(S.pick.id); const r = e1 && filletEnts(e1, S.pick.q, h.e, h.r.p); S.pick = null; if (!r) { flash(); render(); return; } const i1 = D.ents.indexOf(e1), i2 = D.ents.indexOf(h.e); r[0].id = e1.id; r[1].id = h.e.id; D.ents[i1] = r[0]; D.ents[i2] = r[1]; commit(); return; }
   if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (r) { addEnt(r); commit(); } else render(); return; }
+  if (t === 'flat') { if (!h || h.e.t !== 'pl') { flash(); return; } if (flattenAt(h.e, h.r.p)) { commit(); flashOk([h.e.id], false); } else flash(); return; }
   if (t === 'erase') { const oh = opHit(X, Y); if (oh) { opDelete(oh.o); commit(); return; } if (h) { delEnt(h.e); commit(); } return; }
   if (t === 'explode') { if (h) { const r = explodeEnt(h.e); if (r) { replEnt(h.e, r); commit(); flashOk(r.map(x => x.id), true); } else flash(); } return; }
   if (t === 'join') {
@@ -265,6 +266,35 @@ function tapTool(X, Y) {
     const set = D.ents.filter(e => S.sel.has(e.id)).concat([h.e]); const r = joinEnts(set);
     if (r && r.used.includes(h.e)) { applyJoin(r); commit(); flashOk([r.ent.id], true); } else flash(); return;
   }
+}
+/* Düzleştir: girinti/çıkıntı (iki yanı aynı hizada) silinir; kademe (iki yanı paralel kayık) uzun duvarın hizasına çekilir */
+function isOpPt(p) { return opsList().some(o => vsame(o.a, p) || vsame(o.b, p)); }
+function runSegs(e, R) { const m = prims(e).length, out = []; let k = R.i0; for (let g = 0; g <= m; g++) { if (k % (e.c ? m : m + 1) === R.i1 % (e.c ? m : m + 1) && g) break; out.push(k % m); k++; if (!e.c && k > m) break; } return out; }
+function plClean(e, near) {
+  for (let i = e.p.length - 1; i > 0; i--) if (vsame(e.p[i], e.p[i - 1])) e.p.splice(i, 1);
+  if (e.c) while (e.p.length > 1 && vsame(e.p[0], e.p[e.p.length - 1])) e.p.pop();
+  near.forEach(q => { const k = e.p.length; for (let i = 0; i < k; i++) { if (!vsame(e.p[i], q) || isOpPt(q)) continue; if (!e.c && (i === 0 || i === k - 1)) break; const a = e.p[(i - 1 + k) % k], b = e.p[(i + 1) % k]; if (Math.abs(vcross(vunit(vsub(q, a)), vunit(vsub(b, q)))) < 1e-6 && vdot(vsub(q, a), vsub(b, q)) > 0 && k > (e.c ? 3 : 2)) e.p.splice(i, 1); break; } });
+}
+function flattenAt(e, q) {
+  const runs = plRuns(e), m = runs.length; if (m < 3) return false; const n = e.p.length, seg = nearEnt(e, q).P.i;
+  const r = runs.findIndex(R => runSegs(e, R).includes(seg)); if (r < 0) return false;
+  const get = i => e.c ? runs[((i % m) + m) % m] : (i >= 0 && i < m ? runs[i] : null);
+  const P0 = R => e.p[R.i0], P1 = R => e.p[R.i1 % n], dirOf = R => vunit(vsub(P1(R), P0(R))), lenOf = R => vdist(P0(R), P1(R));
+  for (const [a, b] of [[r, r], [r - 1, r + 1], [r, r + 2], [r - 2, r]]) {
+    const P = get(a - 1), N = get(b + 1); if (!P || !N || P === N || b - a + 3 > m) continue;
+    const dp = dirOf(P), dn = dirOf(N); if (Math.abs(vcross(dp, dn)) > 0.02 || vdot(dp, dn) <= 0) continue;
+    const v1 = P1(P), v4 = P0(N), off = Math.abs(vcross(dp, vsub(v4, v1)));
+    /* pencere içindeki köşeler (P sonu → N başı) */
+    const idx = []; let k = P.i1 % n; for (let g = 0; g <= n; g++) { idx.push(k); if (k === N.i0 % n) break; k = (k + 1) % n; }
+    if (idx.some(i => isOpPt(e.p[i]))) return false;
+    if (off < 1e-4) { const del = new Set(idx); e.p = e.p.filter((_, i) => !del.has(i)); plClean(e, []); return true; }
+    const keepP = lenOf(P) >= lenOf(N), A = cl(v1), B = cl(v4);
+    const del = new Set(idx.slice(1, -1)); e.p = e.p.filter((_, i) => !del.has(i));
+    const R2 = plRuns(e), short = R2.find(R => vsame(keepP ? e.p[R.i0] : e.p[R.i1 % e.p.length], keepP ? B : A) && Math.abs(vcross(vunit(vsub(e.p[R.i1 % e.p.length], e.p[R.i0])), dp)) < 0.02);
+    if (!short) return false;
+    applyEdge(e, { k: 'm', run: short }, keepP ? A : B); plClean(e, [A, B]); return true;
+  }
+  return false;
 }
 function joinChain(e0) {
   const pool = D.ents.filter(e => !e.imp && (e.t === 'line' || (e.t === 'pl' && !e.c))); if (!pool.includes(e0)) return null;

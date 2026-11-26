@@ -503,3 +503,10 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - Kapı/pencere panelinde kalınlık düğmesi: en yakın → sonraki … → tek çizgi → en yakın; eski ikizdeki kırık noktaları kalkar, yenisine eklenir.
 - Tutamaklar üst üste gelirse orta (kenar) tutamağı öncelikli.
 - Test: c6.py.
+
+### cad-1.7 — Düzleştir
+- Düzenle → Düzleştir (flat): pline'da girinti/çıkıntının herhangi bir parçasına dokun. İki yandaki duvar aynı hizadaysa aradaki köşeler silinir (düz geçer). Paralel ama kayıksa (kademe) uzun duvarın hizası esas alınır, kısa taraf applyEdge ile o hizaya çekilir (komşusu kendi doğrultusunda uzar), artık köşeler temizlenir.
+- Aynı doğrultudaki parçalar tek kenar sayılır (kapı kırık noktaları bozulmaz); kaldırılacak bölgede kapı noktası varsa işlem yapılmaz (kırmızı uyarı).
+- Pencere: 1 parçalık (kademe) ve 3 parçalık (girinti) desenler, dokunulan parçanın etrafında aranır. Sadece pline (ayrı çizgiler önce Join).
+- Test: c7.py.
+- Bekleyen öneri: komşu alanlarda offset'in diğer alana giren / üst üste binen / araya düşen kısmını otomatik kesme (sadece yeni offset kesilir).
