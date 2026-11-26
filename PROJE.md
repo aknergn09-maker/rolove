@@ -523,3 +523,17 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - Düzleştir: önce "iki yanı aynı hizada" (girinti) deseni, yoksa kademe aranır; kaldırılacak parçalar iki yandaki duvarlardan kısa olmalı (uzun duvara dokununca şekil bozulmaz); dokunulan yerin 26 px yakınındaki girinti de bulunur (ağzına/yan kenarına/dibine dokunmak yeter).
 - Offset otomatik kesme mevcut çizgilere de uygulanır (cutExisting): yeni offset'in bağlandığı yerde, kesişime bitişik + duvar bandında (kaynağa < d, offset tarafında) + ≤ 2d uzunlukta uçlar ve kaynağın üstüne binen parçalar silinir. Sadece açık çizgiler/pline'lar/yaylar ve içinde başka kapalı pline olan kapalı pline'lar (dış hat) kesilir; oda çizgileri kesilmez. Ayardaki aç/kapa düğmesine bağlı.
 - Test: c7 (genişletildi), c8 (genişletildi).
+
+### cad-2.0 — aşama 4: ölçü notları, nokta adı, lazer, DXF'te ölçüler
+- Kaynak: cad_src/cad_meas.js (build: GEO + OPS + MEAS + APP). D.meas = [{id, k, pts, v, v2?, src:'laser'|'typed'}], D.names = [{id, n, p}].
+- Sütunda Ölçü grubu (son kullanılan direkt): m_pp nokta–nokta, m_pl noktadan dik (nokta + çizgi), m_ll çizgiden çizgiye (iki çizgi; 1. çizginin ortasından 2.'ye dik), m_ab dik ayak/dik boy, tag nokta adı + adları göster/gizle düğmesi.
+- Çizgi seçimi: pline'ın tek kenarı (aynı doğrultudaki parçalar tek kenar), pline bozulmaz.
+- Dik ayak/dik boy: köşe O → ayak ucu F line çizer gibi (O'daki duvar doğrultusuna ortho + yakalamalar + sanal hizalama: O, F ve parmağın geçtiği son 2 köşeden 90° hiza çizgileri → kolon köşesinin dik izdüşümü yakalanır) → obje köşesi C. İki değer: ayak |OF|, boy |FC|; lazer önce ayağı sonra boyu doldurur.
+- Değer paneli (sağ alt): değer(ler) metre 3 hane, Bluetooth durumu (yeşil bağlı / sarı bağlanıyor / kırmızı koptu / gri yok), uzaktan ölç, ⌫, ✓. Değere dokununca küçük tuş takımı. Uç seçmeden gelen lazer değeri bekler, uçlar seçilince kutuya düşer. Ölçü çizimi değiştirmez; turuncu kesik çizgi + değer.
+- Seç ile ölçüye dokun → değer düzenle / sil. Sil aracı ölçüleri ve nokta adlarını da siler. Geri al ölçü sırasında son seçilen ucu siler.
+- Nokta adı: köşe/kesişim/orta/çizgi üstü noktaya dokun → altta metin kutusundaki ad verilir, sonra sormadan artar (101→102, A09→A10). Var olan ada dokun → kutudan değiştir / sil.
+- Kapı uçları, nokta adları ve ölçü uçları çizgiye bağlı: köşe taşıma, kenar kaydırma, Taşı ile birlikte gelir (attPts).
+- Lazer: v11'deki Bosch GLM kodu aynen (C0 55 10 xx float32@7, C0 11 canlılık, GLM_ON tekrarı, uzaktan ölç 2×).
+- DXF: NOKTA katmanında verilen adlar (diğerleri X1..), ölçü uçları ve dik ayak noktaları da noktalara dahil. OLCU katmanı: kesik çizgi yerine düz LINE + TEXT: "NN a b v", "ND p a-b v", "CC a-b c-d v", "DA O F C ayak boy"; lazerse sonuna " L". PC programı bu satırları okuyacak. Total telefona girmez; ad eşleşmesiyle PC'de birleşir (NCN: ad Y X Z ..., CSV: ad,X,Y,Z — 7 haneli X).
+- Sütun kısa ekranda (≤720 px) 44 px düğme.
+- Test: c9.py.

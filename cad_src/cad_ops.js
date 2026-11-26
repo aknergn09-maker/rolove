@@ -87,10 +87,13 @@ function opPanel() {
 /* ---------- DXF dışa aktarma (R12) ---------- */
 function dxfStr(t) { return String(t).replace(/[^\x20-\x7e]/g, ch => '\\U+' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')); }
 function pointNames() {
-  const pts = []; const add = p => { if (!pts.some(q => vsame(q, p))) pts.push(cl(p)); };
+  const pts = [], used = new Set(); nameList().forEach(n => { pts.push({ name: n.n, p: cl(n.p), user: true }); used.add(n.n); });
+  const add = p => { if (!pts.some(q => vsame(q.p, p))) pts.push({ p: cl(p) }); };
   D.ents.forEach(e => { if (e.imp) return; if (e.t === 'line') { add(e.a); add(e.b); } else if (e.t === 'pl') e.p.forEach(add); else if (e.t === 'arc') { const a = arcPts(e); add(a[0]); add(a[2]); } });
   opsList().forEach(o => { add(o.a); add(o.b); });
-  return pts.map((p, i) => ({ name: 'X' + (i + 1), p }));
+  measList().forEach(m => { m.pts.forEach(add); if (m.k === 'm_pl') add(footOn(m.pts[0], m.pts[1], m.pts[2])); });
+  let k = 1; pts.forEach(t => { if (t.name) return; while (used.has('X' + k)) k++; t.name = 'X' + k; used.add(t.name); });
+  return pts;
 }
 function makeDXF() {
   const E = [], f = v => (Math.round(v * 10000) / 10000).toString(), deg = r => nrm(r) * 180 / Math.PI;
@@ -105,8 +108,10 @@ function makeDXF() {
   D.ents.forEach(e => ent(e, e.imp ? 'IMPORT' : 'CIZIM'));
   opsList().forEach(o => { const g = opGeo(o), ly = o.t === 'door' ? 'KAPI' : 'PENCERE'; g.jambs.concat(g.lines).forEach(([a, b]) => line(ly, a, b));
     if (g.arc) { const e = vsub(g.arc.e, g.arc.c), j = vsub(g.arc.j, g.arc.c); const a1 = vang(e), a2 = vang(j); const ccw = vcross(e, j) > 0; E.push('0', 'ARC', '8', ly, '10', f(g.arc.c[0]), '20', f(g.arc.c[1]), '30', '0', '40', f(g.arc.r), '50', f(deg(ccw ? a1 : a2)), '51', f(deg(ccw ? a2 : a1))); } });
-  pointNames().forEach(t => { E.push('0', 'POINT', '8', 'NOKTA', '10', f(t.p[0]), '20', f(t.p[1]), '30', '0'); E.push('0', 'TEXT', '8', 'NOKTA', '10', f(t.p[0] + 0.05), '20', f(t.p[1] + 0.05), '30', '0', '40', '0.1', '1', dxfStr(t.name)); });
-  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA', 1], ['IMPORT', 8]];
+  const PN = pointNames(), nameOf = p => { const t = PN.find(x => vsame(x.p, p)); return t ? t.name : '?'; };
+  measDXFLines(nameOf).forEach(o => { o.lines.forEach(([a, b]) => line('OLCU', a, b)); E.push('0', 'TEXT', '8', 'OLCU', '10', f(o.at[0]), '20', f(o.at[1]), '30', '0', '40', '0.08', '1', dxfStr(o.txt + (o.src === 'laser' ? ' L' : ''))); });
+  PN.forEach(t => { E.push('0', 'POINT', '8', 'NOKTA', '10', f(t.p[0]), '20', f(t.p[1]), '30', '0'); E.push('0', 'TEXT', '8', 'NOKTA', '10', f(t.p[0] + 0.05), '20', f(t.p[1] + 0.05), '30', '0', '40', '0.1', '1', dxfStr(t.name)); });
+  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA', 1], ['OLCU', 30], ['IMPORT', 8]];
   const T = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$DWGCODEPAGE', '3', 'ANSI_1254', '0', 'ENDSEC', '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(LY.length)];
   LY.forEach(([n, c]) => T.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS')); T.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
   return T.concat(E, ['0', 'ENDSEC', '0', 'EOF']).join('\r\n') + '\r\n';
