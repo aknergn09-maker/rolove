@@ -510,3 +510,10 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - Pencere: 1 parçalık (kademe) ve 3 parçalık (girinti) desenler, dokunulan parçanın etrafında aranır. Sadece pline (ayrı çizgiler önce Join).
 - Test: c7.py.
 - Bekleyen öneri: komşu alanlarda offset'in diğer alana giren / üst üste binen / araya düşen kısmını otomatik kesme (sadece yeni offset kesilir).
+
+### cad-1.8 — offset otomatik kesme
+- offsetCut (cad_geo.js): yeni offset parçalara bölünür (diğer objelerle kesişimler + kendi köşeleri + üst üste binen paralel çizgilerin uçları). Parça ortası: (1) başka bir çizginin üstündeyse, (2) başka kapalı alanın (kapalı pline/daire) içindeyse, (3) başka kapalı alana offset mesafesinden yakınsa silinir. Kaynağı içine alan alan (ör. kolonun odası) kurallara girmez. Kalan ardışık parçalar pline olarak birleşir. Mevcut objelere dokunulmaz.
+- Yan yana iki oda (aralık = duvar kalınlığı) → iki dış offset uç uca tek dış hat (Join ile kapalı pline).
+- Ayarlar'da aç/kapa düğmesi (varsayılan açık, kaydedilir). Kesilen offset 1 sn yanıp söner.
+- Offset değer düğmesinin kutusu daraltıldı.
+- Test: c8.py.

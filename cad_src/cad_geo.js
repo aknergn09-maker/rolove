@@ -198,4 +198,38 @@ function faces(ents) {
     if (A > 1e-8) out.push(loop); }));
   return out;
 }
-if (typeof module !== 'undefined') module.exports = { prims, trimEnt, extendEnt, filletEnts, offsetEnt, arc3, joinEnts, explodeEnt, plRuns, faces, subEnt, nearEnt, entU, cutsOn, rayHit, arcSw, arcPts, segSeg, primInts };
+
+/* offset otomatik kesme: sadece yeni offset kesilir.
+   1) başka kapalı alanın içine giren, 2) mevcut çizginin üstüne binen, 3) başka alana offset mesafesinden yakın kalan parçalar silinir */
+function inPoly(q, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > q[1]) !== (b[1] > q[1]) && q[0] < (b[0] - a[0]) * (q[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+function offsetCut(ne, src, d, ents) {
+  const others = ents.filter(e => e !== src && e !== ne && !e.imp && e.t !== 'pt');
+  const sp = src.t === 'line' ? src.a : src.t === 'pl' ? src.p[0] : src.t === 'arc' ? arcPts(src)[0] : vadd(src.c, [src.r, 0]);
+  const inside = (m, e) => e.t === 'pl' ? inPoly(m, e.p) : vdist(m, e.c) < e.r - 1e-6;
+  const rooms = others.filter(e => ((e.t === 'pl' && e.c) || e.t === 'cir') && !inside(sp, e));
+  const U = entU(ne); const us = cutsOn(ne, others);
+  /* üst üste binen paralel parçaların uçlarından da böl */
+  const segs = []; others.forEach(e => prims(e).forEach(Q => { if (Q.k === 's') segs.push(Q); }));
+  prims(ne).forEach(P => { if (P.k !== 's') return; const d0 = vsub(P.b, P.a), L = vlen(d0); if (L < 1e-9) return; const u = vmul(d0, 1 / L);
+    segs.forEach(Q => { if (Math.abs(vcross(u, vunit(vsub(Q.b, Q.a)))) > 1e-7 || Math.abs(vcross(u, vsub(Q.a, P.a))) > 1e-4) return;
+      [Q.a, Q.b].forEach(x => { const t = vdot(vsub(x, P.a), u); if (t > 1e-7 && t < L - 1e-7) us.push(P.s0 + t); }); }); });
+  if (ne.t === 'pl') prims(ne).forEach(P => us.push(P.s0));
+  const per0 = periodic(ne) && ne.t === 'pl';
+  const cuts = uniqSort(us.filter(u => (per0 ? u >= 0 : u > 1e-7) && u < U - 1e-7));
+  const per = periodic(ne), bounds = per ? cuts : [0].concat(cuts, [U]);
+  if (per && !cuts.length) bounds.push(0, U);
+  const iv = []; const n = per ? bounds.length : bounds.length - 1;
+  for (let k = 0; k < n; k++) { let a = bounds[k], b = per ? bounds[(k + 1) % bounds.length] : bounds[k + 1]; if (per && b <= a) b += U; if (per && bounds.length === 2 && !cuts.length && k) break; iv.push([a, b]); }
+  const bad = ([a, b]) => {
+    const m = ptAt(ne, ((a + b) / 2) % U);
+    if (others.some(e => { const r = nearEnt(e, m); return r && r.d < 1e-4; })) return true;
+    if (rooms.some(e => inside(m, e))) return true;
+    if (rooms.some(e => { const r = nearEnt(e, m); return r && r.d < d - 1e-6; })) return true;
+    return false;
+  };
+  const keep = iv.map(x => !bad(x)); if (keep.every(Boolean)) return [ne]; if (!keep.some(Boolean)) return [];
+  const runs = []; let start = per ? keep.indexOf(false) + 1 : 0;
+  for (let g = 0, k = start; g < iv.length; g++, k++) { const i = k % iv.length; if (!keep[i]) continue; const last = runs[runs.length - 1]; if (last && last.end === (i - 1 + iv.length) % iv.length && (per || i > 0)) { last.b = iv[i][1]; last.end = i; } else runs.push({ a: iv[i][0], b: iv[i][1], end: i }); }
+  return runs.map(r => { const a = r.a % U; let b = r.b % U; if (b < 1e-9) b = U; if (ne.t === 'line') return subEnt(ne, a, b); if (ne.t === 'cir') return subEnt(ne, a, b > a ? b : b + 0); return subEnt(ne, a, b); });
+}
+if (typeof module !== 'undefined') module.exports = { offsetCut, inPoly, prims, trimEnt, extendEnt, filletEnts, offsetEnt, arc3, joinEnts, explodeEnt, plRuns, faces, subEnt, nearEnt, entU, cutsOn, rayHit, arcSw, arcPts, segSeg, primInts };

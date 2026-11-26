@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-1.7';
+const VER = 'cad-1.8';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -9,7 +9,7 @@ const S = {
   tool: 'sec', draw: 'line', edit: 'offset', fly: null, sel: new Set(),
   chain: null, cir: null, arc: null, pick: null, sum: 0, sumH: [], offD: 0.2, offStr: '',
   snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
-  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: ''
+  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1
 };
 const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'flat', 'move', 'copy', 'explode', 'join', 'erase'];
 const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
@@ -24,8 +24,8 @@ function replEnt(e, list) { const i = D.ents.indexOf(e); D.ents.splice(i, 1); S.
 let CACHE = { v: -1 };
 function invalidate() { CACHE = { v: -1 }; }
 function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.stringify(D)); if (hist.length > 300) hist.shift(); hi = hist.length - 1; save(); render(); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax })); } catch (e) { } }
-function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; } } catch (e) { } D.ops = D.ops || []; hist = [JSON.stringify(D)]; hi = 0; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut })); } catch (e) { } }
+function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; } } catch (e) { } D.ops = D.ops || []; hist = [JSON.stringify(D)]; hi = 0; }
 function undo() {
   if (S.chain && S.chain.pts.length === 1) { S.chain = null; ui(); render(); return; }
   if (S.cir) { S.cir = null; ui(); render(); return; } if (S.arc) { S.arc.pts.pop(); if (!S.arc.pts.length) S.arc = null; ui(); render(); return; }
@@ -255,7 +255,7 @@ function tapTool(X, Y) {
   if (t === 'trim') { if (!h) return; const r = trimEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, r); commit(); return; }
   if (t === 'extend') { if (!h) return; const r = extendEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, [r]); commit(); return; }
   if (t === 'fillet') { if (!h) { S.pick = null; render(); return; } if (!S.pick) { S.pick = { id: h.e.id, q: h.r.p }; render(); return; } const e1 = entById(S.pick.id); const r = e1 && filletEnts(e1, S.pick.q, h.e, h.r.p); S.pick = null; if (!r) { flash(); render(); return; } const i1 = D.ents.indexOf(e1), i2 = D.ents.indexOf(h.e); r[0].id = e1.id; r[1].id = h.e.id; D.ents[i1] = r[0]; D.ents[i2] = r[1]; commit(); return; }
-  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (r) { addEnt(r); commit(); } else render(); return; }
+  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (!r) { render(); return; } const pcs = S.autoCut ? offsetCut(r, e, S.offD, D.ents) : [r]; if (!pcs.length) { flash(); render(); return; } pcs.forEach(addEnt); commit(); if (pcs.length > 1 || pcs[0] !== r) flashOk(pcs.map(x => x.id), true); return; }
   if (t === 'flat') { if (!h || h.e.t !== 'pl') { flash(); return; } if (flattenAt(h.e, h.r.p)) { commit(); flashOk([h.e.id], false); } else flash(); return; }
   if (t === 'erase') { const oh = opHit(X, Y); if (oh) { opDelete(oh.o); commit(); return; } if (h) { delEnt(h.e); commit(); } return; }
   if (t === 'explode') { if (h) { const r = explodeEnt(h.e); if (r) { replEnt(h.e, r); commit(); flashOk(r.map(x => x.id), true); } else flash(); } return; }
@@ -330,7 +330,7 @@ function ui() {
   col.className = mini ? 'mini' : ''; qp.className = mini ? 'mini' : '';
   if (mini) col.innerHTML = btn('full', 'menu') + btn('undo', 'undo') + btn('redo', 'redo') + btn('fit', 'fit'); else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + '<i></i>' + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + `<div class="ver">${VER.replace('cad-', '')}</div>`;
   if (S.fly) {
-    let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'set') { const v = S.setStr !== '' ? S.setStr : String(Math.round(S.thMax * 100)); h = `<div class="lab">${svg('wallth')}</div><div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'].map(k => `<button class="num k" data-a="sk:${k}">${k}</button>`).join('') + btn('skback', 'clr') + btn('skok', 'ok', false, 'okb'); }
+    let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'set') { const v = S.setStr !== '' ? S.setStr : String(Math.round(S.thMax * 100)); h = `<div class="lab">${svg('wallth')}</div><div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'].map(k => `<button class="num k" data-a="sk:${k}">${k}</button>`).join('') + btn('skback', 'clr') + btn('skok', 'ok', false, 'okb') + btn('scut', 'offcut', S.autoCut, 'sn wide'); }
     if (S.fly === 'open') h = OPEN.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'file') h = btn('exp', 'exp') + btn('imp', 'imp') + btn('new', 'newdoc', false, S.arm > Date.now() ? 'dng' : ''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
     fly.innerHTML = h; fly.className = S.fly === 'set' ? 'g3' : ''; fly.style.display = S.fly === 'set' ? 'grid' : 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
   } else fly.style.display = 'none';
@@ -351,6 +351,7 @@ function onBtn(a) {
   if (a === 'undo') { undo(); ui(); return; } if (a === 'redo') { redo(); ui(); return; }
   if (a === 'full') { S.full = true; ui(); return; }
   if (a.startsWith('sk:')) { S.setStr = (S.setStr + a.slice(3)).slice(0, 3); ui(); return; }
+  if (a === 'scut') { S.autoCut = S.autoCut ? 0 : 1; save(); ui(); return; }
   if (a === 'skback') { S.setStr = S.setStr.slice(0, -1); ui(); return; }
   if (a === 'skok') { const v = parseInt(S.setStr, 10); if (v >= 5 && v <= 300) S.thMax = v / 100; S.setStr = ''; S.fly = null; save(); invalidate(); ui(); render(); return; }
   if (a === 'exp') { S.fly = null; ui(); exportDXF(); return; }
