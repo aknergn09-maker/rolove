@@ -53,7 +53,7 @@ async def main():
         ck('Çiz düğmesi: son araç (pline) direkt aktif, pencere açık', await ev("CAD.S.tool")=='pl' and await ev("CAD.S.fly")=='draw')
         await wtap(1,6)
         ck('  pencereye basmadan çizime geçince pencere kapandı, nokta konuldu', await ev("CAD.S.fly")==None and await ev("CAD.S.chain && CAD.S.chain.pts.length")==1)
-        await btn('fly:draw'); await btn('t:line')
+        await btn('full'); await btn('fly:draw'); await btn('t:line')
         ck('  pencereden başka araç seçilebiliyor', await ev("CAD.S.tool")=='line')
         await btn('fly:edit')
         ck('Düzenle düğmesi: son araç (trim) direkt aktif', await ev("CAD.S.tool")=='trim')

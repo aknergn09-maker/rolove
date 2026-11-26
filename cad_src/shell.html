@@ -22,6 +22,9 @@ html,body{height:100%;overflow:hidden;background:#121417;overscroll-behavior:non
 .sum{grid-column:1/-1;text-align:center;font:bold 20px Arial;color:#ffcf70;padding:0;line-height:26px}
 .num{width:48px;height:48px;border:0;border-radius:11px;background:#3a3020;color:#ffcf70;font:bold 17px Arial;touch-action:manipulation}
 .ver{margin-top:auto;text-align:center;font:10px Arial;color:#4a525c;padding-top:6px}
+#col.mini{bottom:auto;width:52px;padding:5px;gap:5px}#col.mini .b,#qp.mini .b,#qp.mini .num{width:40px;height:40px;flex:0 0 40px;border-radius:10px}#col.mini .b svg,#qp.mini .b svg{width:24px;height:24px}
+#qp.mini{right:0;grid-template-columns:40px;padding:5px;border-radius:14px 0 0 14px}#qp.mini .num{font-size:15px}
+#col,#qp{transition:opacity .15s}body.touching #col.mini,body.touching #qp.mini{opacity:.3}
 .num.k{background:#2a2f37;color:#e8e8e8}
 </style></head><body>
 <canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div>

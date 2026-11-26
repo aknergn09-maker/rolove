@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-1.3';
+const VER = 'cad-1.4';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -27,7 +27,8 @@ function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.s
 function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit })); } catch (e) { } }
 function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; } } catch (e) { } hist = [JSON.stringify(D)]; hi = 0; }
 function undo() {
-  if (S.chain && S.chain.pts.length === 1) { S.chain = null; render(); return; }
+  if (S.chain && S.chain.pts.length === 1) { S.chain = null; ui(); render(); return; }
+  if (S.cir) { S.cir = null; ui(); render(); return; } if (S.arc) { S.arc.pts.pop(); if (!S.arc.pts.length) S.arc = null; ui(); render(); return; }
   if (hi <= 0) return; hi--; D = JSON.parse(hist[hi]); invalidate();
   if (S.chain) { S.chain.pts.pop(); if (S.chain.k === 'pl' && S.chain.pts.length < 2) { S.chain.eid = null; } }
   S.sel = new Set([...S.sel].filter(id => entById(id))); save(); render();
@@ -175,7 +176,7 @@ function chainAdd(p, snapP) {
   if (!c.eid || !entById(c.eid)) { const e = addEnt({ t: 'pl', p: c.pts.map(cl), c: false }); c.eid = e.id; } else entById(c.eid).p = c.pts.map(cl);
   commit();
 }
-function endChain() { S.acq = []; S.chain = null; S.sum = 0; S.sumH = []; render(); }
+function endChain() { S.acq = []; S.chain = null; S.sum = 0; S.sumH = []; S.full = false; ui(); render(); }
 function chainDir() { const c = S.chain; if (!c) return null; if (c.pts.length >= 2) return vsub(c.pts[c.pts.length - 1], c.pts[c.pts.length - 2]); return c.dir0; }
 function quickArrow(dx, dy) { const c = S.chain; if (!c || !S.sum) return; const last = c.pts[c.pts.length - 1]; const p = vadd(last, vmul([dx, dy], S.sum / 100)); S.sum = 0; S.sumH = []; chainAdd(p); ui(); }
 
@@ -183,7 +184,8 @@ function quickArrow(dx, dy) { const c = S.chain; if (!c || !S.sum) return; const
 const ptrs = new Map(); let G = null;
 cv.addEventListener('pointerdown', ev => {
   ev.preventDefault(); cv.setPointerCapture(ev.pointerId); ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
-  if (S.fly) { S.fly = null; ui(); }
+  if (S.fly || S.full) { S.fly = null; S.full = false; ui(); }
+  document.body.classList.add('touching');
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; G = { k: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), c0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], v0: { ...view } }; S.cur = null; S.drag = null; render(); return; }
   if (ptrs.size > 2) return;
   const X = ev.clientX, Y = ev.clientY; G = { k: 'one', x0: X, y0: Y, moved: false };
@@ -221,7 +223,7 @@ function drawSnapOpts() {
   return o;
 }
 function pend(ev) {
-  ptrs.delete(ev.pointerId); if (!G) return; if (G.k === 'pinch') { if (ptrs.size === 0) { G = null; save(); } return; }
+  ptrs.delete(ev.pointerId); if (!ptrs.size) document.body.classList.remove('touching'); if (!G) return; if (G.k === 'pinch') { if (ptrs.size === 0) { G = null; save(); } return; }
   const X = ev.clientX, Y = ev.clientY, g = G; G = null; S.cur = null; S.preview = null;
   if (g.k === 'pan') { save(); render(); return; }
   if (g.k === 'none') return;
@@ -231,12 +233,12 @@ function pend(ev) {
   if (g.k === 'place') { const sn = snapAt(X, Y, drawSnapOpts()); S.snap = null; placePoint(sn); return; }
   if (g.k === 'tap') { tapTool(X, Y); }
 }
-cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', ev => { ptrs.delete(ev.pointerId); G = null; S.cur = null; render(); });
+cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', ev => { ptrs.delete(ev.pointerId); if (!ptrs.size) document.body.classList.remove('touching'); G = null; S.cur = null; render(); });
 function placePoint(sn) {
   const t = S.tool, p = sn.p;
   if (t === 'line' || t === 'pl') { chainAdd(p, sn.P); ui(); return; }
-  if (t === 'cir') { if (!S.cir) { S.cir = { c: cl(p) }; render(); return; } const r = vdist(p, S.cir.c); if (r > 1e-4) { addEnt({ t: 'cir', c: S.cir.c, r }); S.cir = null; commit(); } return; }
-  if (t === 'arc') { if (!S.arc) { S.arc = { pts: [cl(p)] }; render(); return; } if (vsame(p, S.arc.pts[S.arc.pts.length - 1])) return; S.arc.pts.push(cl(p)); if (S.arc.pts.length === 3) { const a = arc3(...S.arc.pts); S.arc = null; if (a) { addEnt(a); commit(); } else render(); } else render(); }
+  if (t === 'cir') { if (!S.cir) { S.cir = { c: cl(p) }; ui(); render(); return; } const r = vdist(p, S.cir.c); if (r > 1e-4) { addEnt({ t: 'cir', c: S.cir.c, r }); S.cir = null; commit(); ui(); } return; }
+  if (t === 'arc') { if (!S.arc) { S.arc = { pts: [cl(p)] }; ui(); render(); return; } if (vsame(p, S.arc.pts[S.arc.pts.length - 1])) return; S.arc.pts.push(cl(p)); if (S.arc.pts.length === 3) { const a = arc3(...S.arc.pts); S.arc = null; if (a) { addEnt(a); commit(); } else render(); ui(); } else render(); }
 }
 function chainEnds(e) { if (e.t === 'line') return [e.a, e.b]; if (e.t === 'pl') return e.c ? e.p : [e.p[0], e.p[e.p.length - 1]]; if (e.t === 'arc') { const a = arcPts(e); return [a[0], a[2]]; } return []; }
 let flashT; function flashOk(ids, dots) { S.flash = { ids: new Set(ids), dots }; clearTimeout(flashT); flashT = setTimeout(() => { S.flash = null; render(); }, 1000); render(); }
@@ -270,7 +272,7 @@ function applyJoin(r) { const i = Math.min(...r.used.map(e => D.ents.indexOf(e))
 
 /* ---------- araç seçimi ---------- */
 function setTool(t, quiet) {
-  S.acq = []; S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
+  S.full = false; S.acq = []; S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
   if (DRAW.includes(t)) S.draw = t; if (EDIT.includes(t)) S.edit = t;
   if (!quiet && ['erase', 'explode', 'join'].includes(t) && S.sel.size) {
     const sel = D.ents.filter(e => S.sel.has(e.id)); let fl = [];
@@ -285,10 +287,12 @@ function setTool(t, quiet) {
 
 /* ---------- arayüz ---------- */
 const col = document.getElementById('col'), fly = document.getElementById('fly'), qp = document.getElementById('qp'), np = document.getElementById('np');
+function drawing() { return DRAW.includes(S.tool) && !!(S.chain || S.cir || S.arc); }
 function btn(a, icon, on, extra) { return `<button class="b ${on ? 'on' : ''} ${extra || ''}" data-a="${a}">${svg(icon)}</button>`; }
 function ui() {
-  const t = S.tool;
-  col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + '<i></i>' + btn('fit', 'fit') + `<div class="ver">${VER.replace('cad-', '')}</div>`;
+  const t = S.tool, mini = drawing() && !S.full;
+  col.className = mini ? 'mini' : ''; qp.className = mini ? 'mini' : '';
+  if (mini) col.innerHTML = btn('full', 'menu') + btn('undo', 'undo') + btn('redo', 'redo') + btn('fit', 'fit'); else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + '<i></i>' + btn('fit', 'fit') + `<div class="ver">${VER.replace('cad-', '')}</div>`;
   if (S.fly) {
     let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
     fly.innerHTML = h; fly.style.display = 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
@@ -307,6 +311,7 @@ function ui() {
 }
 function onBtn(a) {
   if (a === 'undo') { undo(); ui(); return; } if (a === 'redo') { redo(); ui(); return; }
+  if (a === 'full') { S.full = true; ui(); return; }
   if (a === 'sec') { setTool('sec'); return; } if (a === 'fit') { fit(); return; }
   if (a.startsWith('fly:')) { const f = a.slice(4); if (S.fly === f) { S.fly = null; ui(); return; }
     if (f === 'draw' && S.tool !== S.draw) setTool(S.draw, true); if (f === 'edit' && S.tool !== S.edit) setTool(S.edit, true);
