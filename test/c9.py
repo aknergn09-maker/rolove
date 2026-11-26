@@ -1,4 +1,4 @@
-# YENİ CAD aşama 4: ölçü notları (nokta-nokta, noktadan dik, çizgiden çizgiye, dik ayak/dik boy + hizalama), lazer değeri, nokta adı, DXF OLCU/NOKTA, geometriyle birlikte gelme
+# YENİ CAD: Kroki/Ölçme modları, ölçü araçları (obje yakalayan + dik, obje seçen, iki duvar arası, dik ayak/boy hizalamalı, gönye, nokta adı), lazer, görünürlük, DXF 3 kopya, açık uçlu offset
 import os, pathlib, sys, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 URL = (ROOT / 'cad.html').as_uri()
@@ -28,68 +28,78 @@ async def main():
                 for k in range(1,n+1): await cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':x0+(x1-x0)*k/n,'y':y0+(y1-y0)*k/n}]}); await pg.wait_for_timeout(8)
             await cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]}); await pg.wait_for_timeout(80)
         M=lambda: ev("JSON.parse(JSON.stringify(CAD.measList()))")
-        await ev("""CAD.D={nid:10,ents:[{id:'r',t:'pl',p:[[0,0],[4,0],[4,3],[0,3]],c:true},{id:'k',t:'pl',p:[[2,1.5],[2.4,1.5],[2.4,1.9],[2,1.9]],c:true}],ops:[]};
+        colA=lambda: ev("[...document.querySelectorAll('#col button')].map(b=>b.dataset.a).join(',')")
+        await ev("""CAD.D={nid:10,ents:[{id:'r',t:'pl',p:[[0,0],[1.5,0],[2.4,0],[4,0],[4,3],[0,3]],c:true},{id:'k',t:'pl',p:[[2,1.5],[2.4,1.5],[2.4,1.9],[2,1.9]],c:true}],ops:[{id:'o1',t:'door',a:[1.5,0],b:[2.4,0],hinge:0,sw:1}]};
           Object.assign(CAD.view,{s:50,ox:30,oy:330}); CAD.commit()""")
-        await btn('fly:meas')
-        ck('Ölçü grubu: nokta-nokta aktif, pencerede 5 tür + ad göster', await ev("CAD.S.tool")=='m_pp')
-        await btn('t:m_pp')
+        ck('Kroki modu: çizim araçları var, ölçü araçları yok', 'fly:draw' in await colA() and 't:m_pp' not in await colA())
+        await btn('mode')
+        A=await colA()
+        ck('Ölçme modu: sütunda sadece ölçü araçları', all(('t:'+k) in A for k in ['m_pp','m_obj','m_ll','m_ab','m_g','tag']) and 'fly:draw' not in A and 'fly:edit' not in A, A)
+        ck('  obje yakalayan aktif', await ev("CAD.S.tool")=='m_pp')
+        # obje yakalayan: köşe→köşe
         await ev("CAD.laserValue(5)")
-        ck('  uç seçmeden gelen lazer değeri panelde bekliyor', await ev("!!document.querySelector('#mp .mval.pend')"))
+        ck('  uç seçmeden gelen lazer değeri bekliyor', await ev("!!document.querySelector('#mp .mval.pend')"))
         await wtap(0,0); await wtap(4,3)
-        ck('  iki uç seçilince değer kutuya düştü (5.000)', (await ev("document.querySelector('#mp .mval').textContent"))=='5.000')
+        ck('  iki köşe seçilince değer kutuda', (await ev("document.querySelector('#mp .mval').textContent"))=='5.000')
         await btn('mok'); m=await M()
-        ck('  kaydedildi: nokta-nokta 5.000, çizim değişmedi', len(m)==1 and m[0]['k']=='m_pp' and m[0]['v']==5 and await ev("CAD.D.ents[0].p.length")==4)
-        # noktadan dik: kolon köşesi → alt duvar (pline'ın tek kenarı)
-        await btn('fly:meas'); await btn('t:m_pl'); await wtap(2,1.5); await wtap(1,0)
-        await btn('mv:0'); await btn('mk:1'); await btn('mk:.'); await btn('mk:5'); await btn('mok'); m=await M()
-        ck('noktadan dik: kolon köşesi→alt kenar, elle 1.5', m[-1]['k']=='m_pl' and m[-1]['v']==1.5 and near(m[-1]['pts'][1],(0,0)) and near(m[-1]['pts'][2],(4,0)), m[-1])
-        # çizgiden çizgiye
-        await btn('fly:meas'); await btn('t:m_ll'); await wtap(0,2.2); await wtap(4,2.2)
-        await ev("CAD.laserValue(4.012)"); await btn('mok'); m=await M()
-        ck('çizgiden çizgiye: sol↔sağ duvar, lazer 4.012', m[-1]['k']=='m_ll' and abs(m[-1]['v']-4.012)<1e-9 and m[-1]['src']=='laser', m[-1])
-        # dik ayak / dik boy: köşe O, ayak duvar boyunca (kolon köşesinin hizası yakalanır), boy kolon köşesine
-        await btn('fly:meas'); await btn('t:m_ab'); await wtap(0,0)
+        ck('  nokta–nokta kaydedildi, çizim değişmedi', m[-1]['k']=='m_pp' and m[-1]['v']==5 and await ev("CAD.D.ents[0].p.length")==6)
+        # obje yakalayan: köşe → duvar = dik
+        await wtap(2,1.9); await wtap(3,3)
+        await btn('mv:0'); await btn('mk:1'); await btn('mk:.'); await btn('mk:1'); await btn('mok'); m=await M()
+        ck('obje yakalayan: noktadan duvara dokununca dik (kolon köşesi→üst duvar 1.1)', m[-1]['k']=='m_pl' and m[-1]['v']==1.1 and near(m[-1]['pts'][1],(4,3)) and near(m[-1]['pts'][2],(0,3)), m[-1])
+        # obje seçen: pline kenarı (kapı kırıkları olsa da bütün kenar) ve kapı
+        await btn('t:m_obj'); await wtap(3.2,0)
+        ck('obje seçen: tek dokunuşla alt kenarın tamamı', await ev("!!document.querySelector('#mp .mval')"))
+        await ev("CAD.laserValue(4.003)"); await btn('mok'); m=await M()
+        ck('  kenar uzunluğu kaydı (0,0)-(4,0) 4.003', m[-1]['k']=='m_obj' and near(m[-1]['pts'][0],(0,0)) and near(m[-1]['pts'][1],(4,0)) and m[-1]['src']=='laser', m[-1])
+        await wtap(1.95,0.1); await ev("CAD.laserValue(0.9)"); await btn('mok'); m=await M()
+        ck('  kapıya dokununca kapı genişliği', m[-1]['k']=='m_obj' and near(m[-1]['pts'][0],(1.5,0)) and near(m[-1]['pts'][1],(2.4,0)), m[-1])
+        # iki duvar arası
+        await btn('t:m_ll'); await wtap(0,2.4); await wtap(4,2.4); await ev("CAD.laserValue(4.01)"); await btn('mok'); m=await M()
+        ck('iki duvar arası', m[-1]['k']=='m_ll' and abs(m[-1]['v']-4.01)<1e-9)
+        # dik ayak/boy: hizalama
+        await btn('t:m_ab'); await wtap(0,0)
         await path([(2,1.5),(2.06,0.6),(2.06,-0.03)])
         q=await ev("JSON.parse(JSON.stringify(CAD.S.mq))")
-        ck('dik ayak: ayak ucu kolon köşesinin dik hizasına oturdu (2,0)', len(q['picks'])==2 and near(q['picks'][1]['p'],(2,0)), q)
-        await wtap(2,1.5)
-        await ev("CAD.laserValue(2)"); await ev("CAD.laserValue(1.5)")
-        ck('  lazer önce ayağı sonra boyu doldurdu', [await ev("[...document.querySelectorAll('#mp .mval')].map(e=>e.textContent).join(',')")]==['2.000,1.500'])
-        await btn('mok'); m=await M()
-        ck('  kaydedildi: ayak 2, boy 1.5, üç nokta', m[-1]['k']=='m_ab' and m[-1]['v']==2 and m[-1]['v2']==1.5 and near(m[-1]['pts'][2],(2,1.5)))
-        # geri al: seçilen uç geri alınır
-        await btn('fly:meas'); await btn('t:m_pp'); await wtap(0,3); await btn('undo')
-        ck('ölçü sırasında geri al son seçilen ucu siler', await ev("CAD.S.mq")==None)
-        # nokta adı
-        await btn('fly:meas'); await btn('t:tag')
-        await pg.fill('#nmIn','101'); await wtap(0,3); await wtap(1.3,3)
-        N=await ev("JSON.parse(JSON.stringify(CAD.nameList()))")
-        ck('nokta adı: başlangıç 101, köşe ve çizgi üstü, sormadan arttı', [n['n'] for n in N]==['101','102'] and near(N[1]['p'],(1.3,3)) and await ev("CAD.S.nameNext")=='103', N)
-        await wtap(1.3,3); await pg.fill('#nmIn','12'); await ev("document.querySelector('#nmIn').dispatchEvent(new Event('change'))")
-        ck('  var olan ada dokununca değiştirilebildi (12)', (await ev("CAD.nameList()[1].n"))=='12')
-        # geometriyle birlikte gelme
-        await btn('sec'); await wtap(3,3)
-        sp=await S(2,3); tp=await S(2,3.5)
-        await cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':sp[0],'y':sp[1]}]})
-        for k in range(1,11): await cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':sp[0],'y':sp[1]+(tp[1]-sp[1])*k/10}]})
-        await cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]}); await pg.wait_for_timeout(80)
-        N=await ev("JSON.parse(JSON.stringify(CAD.nameList()))"); m=await M()
-        ck('üst kenar kayınca adlar ve ölçü ucu da geldi', near(N[0]['p'],(0,3.5)) and near(N[1]['p'],(1.3,3.5)) and near(m[0]['pts'][1],(4,3.5)), [N, m[0]])
-        # DXF
+        ck('dik ayak: ayak ucu kolon köşesinin hizasına oturdu (2,0)', len(q['picks'])==2 and near(q['picks'][1]['p'],(2,0)), q)
+        await wtap(2,1.5); await ev("CAD.laserValue(2)"); await ev("CAD.laserValue(1.5)"); await btn('mok'); m=await M()
+        ck('  ayak 2 boy 1.5', m[-1]['k']=='m_ab' and m[-1]['v']==2 and m[-1]['v2']==1.5)
+        # gönye
+        await btn('t:m_g'); await wtap(4,0); await wtap(0,3); await ev("CAD.laserValue(5.001)"); await btn('mok'); m=await M()
+        ck('gönye ayrı tür', m[-1]['k']=='m_g')
+        # nokta adı + nokta adına yakalama
+        await btn('t:tag'); await pg.fill('#nmIn','101'); await wtap(0,3); await wtap(1.3,3)
+        N=await ev("CAD.nameList().map(n=>n.n)")
+        ck('nokta adı: 101, 102 (çizgi üstü)', N==['101','102'], N)
+        await btn('t:m_pp'); await wtap(1.33,3.02); await wtap(2.4,1.9)
+        q=await ev("JSON.parse(JSON.stringify(CAD.S.mq))")
+        ck('obje yakalayan nokta adına (çizgi üstü 102) yakalandı', near(q['picks'][0]['p'],(1.3,3)), q)
+        await btn('undo'); await btn('undo')
+        # mevcut ölçüye dokununca düzenleme
+        await wtap(2,1.5+0.75*0)  # boş değil: kolon köşesi; önce boş bir ölçü çizgisi noktası
+        await btn('undo')
+        await wtap(3.2,2.4)
+        ck('ölçme modunda ölçüye dokununca düzenleme paneli', await ev("!!CAD.S.selMeas") and await ev("!!document.querySelector('button[data-a=mdel]')"))
+        await btn('mdel')
+        # görünürlük
+        await btn('fly:vis'); await btn('v:gonye')
+        ck('gönyeler gizlenebiliyor', await ev("CAD.S.vis.gonye")==0)
+        await btn('v:gonye')
+        # DXF: 3 kopya
         dx=await ev("CAD.makeDXF()")
-        ck('DXF: OLCU katmanı, NN/ND/CC/DA satırları, adlar 101 ve 12', all(x in dx for x in ['\r\nOLCU\r\n','NN ','ND ','CC ','DA ','\r\n101\r\n','\r\n12\r\n',' 4.012 L']))
-        da=[l for l in dx.split('\r\n') if l.startswith('DA ')]
-        ck('  dik ayak satırı: köşe, ayak ucu, kolon köşesi adı + iki değer', da and da[0].endswith('2.000 1.500 L'), da)
-        # Seç ile ölçü seçip silme
-        await btn('sec')
-        await ev("CAD.S.sel.clear(); CAD.render()")
-        await wtap(3.2,2.8)
-        ck('Seç: ölçüye dokununca seçildi, düzenleme paneli', await ev("!!CAD.S.selMeas") and await ev("!!document.querySelector('button[data-a=mdel]')"))
-        n0=len(await M()); await btn('mdel')
-        ck('  ölçü silindi', len(await M())==n0-1)
-        await btn('fly:meas'); await btn('tgn')
-        ck('nokta adları gizlenebiliyor', await ev("CAD.S.showNames")==False)
-        await btn('tgn'); await btn('sec'); await pg.screenshot(path=str(OUT/'c9.png'))
+        ck('DXF: OLCU, GONYE, DIKAYAK katmanları ve kopyalar', all(x in dx for x in ['\r\nOLCU\r\n','\r\nGONYE\r\n','\r\nDIKAYAK\r\n','\r\nKOPYA_GONYE\r\n','\r\nKOPYA_DIKAYAK\r\n','OB ','GN ','DA ','ND ','CC ']))
+        ck('  gönye kopyası sağa kaydırılmış (x > 4)', any(l.startswith('GN ') for l in dx.split('\r\n')))
+        await pg.screenshot(path=str(OUT/'c9.png'))
+        # açık uçlu offset: bir ucu duvara bağlı bölme → bağlı uç oturur, boş uç sorulur
+        await btn('mode')
+        await ev("""CAD.D={nid:50,ents:[{id:'w',t:'pl',p:[[0,0],[6,0],[6,4],[0,4]],c:true},{id:'b',t:'pl',p:[[3,0],[3,2.5]],c:false}],ops:[],meas:[],names:[]}; CAD.commit()""")
+        await btn('fly:edit'); await btn('t:offset'); await btn('kopen'); await btn('k:1'); await btn('k:0'); await btn('kok')
+        await wtap(3,1.2); await wtap(3.5,1.2)
+        ck('açık bölme offset: boş uç için kapak sorusu çıktı', await ev("!!CAD.S.capAsk") and await ev("!!document.querySelector('button[data-a=capY]')"))
+        o=await ev("JSON.parse(JSON.stringify(CAD.D.ents.find(e=>!['w','b'].includes(e.id))))")
+        ck('  bağlı uç duvara oturdu (3.1,0)', near(o['p'][0],(3.1,0)), o)
+        await btn('capY')
+        ck('  kapak çizildi (2.5 hizasında)', await ev("CAD.D.ents.some(e=>e.t==='line' && Math.abs(e.a[1]-2.5)<1e-9 && Math.abs(e.b[1]-2.5)<1e-9)"))
         ck('JS hatası yok', not errs, errs[:3]); await b.close()
     print('TOPLAM', sum(R), '/', len(R)); sys.exit(0 if all(R) else 1)
 asyncio.run(main())

@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.0';
+const VER = 'cad-2.1';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -9,11 +9,11 @@ const S = {
   tool: 'sec', draw: 'line', edit: 'offset', fly: null, sel: new Set(),
   chain: null, cir: null, arc: null, pick: null, sum: 0, sumH: [], offD: 0.2, offStr: '',
   snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
-  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1, mtool: 'm_pp', mq: null, mv: null, selMeas: null, selName: null, nameNext: '1', showNames: true, fm: null
+  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1, mtool: 'm_pp', mq: null, mv: null, selMeas: null, selName: null, nameNext: '1', showNames: true, fm: null, mode: 'k', vis: { olcu: 1, gonye: 1, dik: 1 }, capAsk: null
 };
 const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'flat', 'move', 'copy', 'explode', 'join', 'erase'];
 const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
-const ICON = { m_pp: 'm_pp', m_pl: 'm_pl', m_ll: 'm_ll', m_ab: 'm_ab', tag: 'm_tag', door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
+const ICON = { m_obj: 'm_obj', m_g: 'm_g', m_pp: 'm_pp', m_pl: 'm_pl', m_ll: 'm_ll', m_ab: 'm_ab', tag: 'm_tag', door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
 const svg = k => `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[k] || ''}</svg>`;
 
 /* ---------- belge ---------- */
@@ -24,8 +24,8 @@ function replEnt(e, list) { const i = D.ents.indexOf(e); D.ents.splice(i, 1); S.
 let CACHE = { v: -1 };
 function invalidate() { CACHE = { v: -1 }; }
 function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.stringify(D)); if (hist.length > 300) hist.shift(); hi = hist.length - 1; save(); render(); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut, mtool: S.mtool, nameNext: S.nameNext, showNames: S.showNames })); } catch (e) { } }
-function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; hist = [JSON.stringify(D)]; hi = 0; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut, mtool: S.mtool, nameNext: S.nameNext, showNames: S.showNames, mode: S.mode, vis: S.vis })); } catch (e) { } }
+function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; hist = [JSON.stringify(D)]; hi = 0; }
 function undo() {
   if (S.chain && S.chain.pts.length === 1) { S.chain = null; ui(); render(); return; }
   if (S.cir) { S.cir = null; ui(); render(); return; } if (S.arc) { S.arc.pts.pop(); if (!S.arc.pts.length) S.arc = null; ui(); render(); return; }
@@ -63,7 +63,7 @@ function keyPts(ex) {
     else if (e.t === 'arc') { const a = arcPts(e); out.push({ p: a[0] }, { p: a[2] }, { p: e.c }); }
     else if (e.t === 'pt') out.push({ p: e.p });
     else out.push({ p: e.c }); });
-  if (!ex) opsList().forEach(o => out.push({ p: o.a }, { p: o.b }));
+  if (!ex) { opsList().forEach(o => out.push({ p: o.a }, { p: o.b })); nameList().forEach(n => out.push({ p: n.p })); }
   return out;
 }
 function snapAt(X, Y, o) {
@@ -71,9 +71,9 @@ function snapAt(X, Y, o) {
   const ents = D.ents.filter(e => !(ex && ex.has(e.id)));
   const consider = (p, k, P, g) => { const d = vdist(p, q); if (d <= R && (!best || d < best.d - 1e-12)) best = { p: cl(p), k, P, d, g }; };
   if (sn.end) { keyPts(ex).forEach(k => consider(k.p, 'end', k.P)); (o.extra || []).forEach(p => consider(p, 'end')); if (!ex) allInts().forEach(p => consider(p, 'int')); else intsAmong(ents).forEach(p => consider(p, 'int')); }
-  if (best) return best;
-  if (sn.mid) { ents.forEach(e => { if (e.t === 'arc') consider(arcPts(e)[1], 'mid'); else prims(e).forEach(P => { if (P.k === 's') consider(vmul(vadd(P.a, P.b), 0.5), 'mid', P); }); }); }
-  if (best) return best;
+  const orthoCtx = !!(o.from && (sn.orth || sn.xy)); let pre = null; if (best) { if (!orthoCtx) return best; pre = best; }
+  if (!pre && sn.mid) { ents.forEach(e => { if (e.t === 'arc') consider(arcPts(e)[1], 'mid'); else prims(e).forEach(P => { if (P.k === 's') consider(vmul(vadd(P.a, P.b), 0.5), 'mid', P); }); }); }
+  if (best && !pre) { if (!orthoCtx) return best; pre = best; }
   const segs = []; ents.forEach(e => prims(e).forEach(P => { if (P.k === 's' && vdist(P.a, P.b) > 1e-6) segs.push(P); }));
   let dirs = [];
   if (o.from) { const base = o.dir ? vunit(o.dir) : [1, 0]; if (sn.orth) { const b = o.dir ? base : [1, 0]; dirs.push(b, vperp(b), vmul(b, -1), vmul(vperp(b), -1)); } if (sn.xy) dirs.push([1, 0], [0, 1], [-1, 0], [0, -1]); }
@@ -83,7 +83,8 @@ function snapAt(X, Y, o) {
     let hit = null; const tryP = (p, k, g) => { const d = vdist(p, proj); if (d <= R && vdot(vsub(p, o.from), bd) > 1e-9 && (!hit || d < hit.d)) hit = { p: cl(p), k, d, g }; };
     if (sn.near) ents.forEach(e => prims(e).forEach(P => { if (P.k === 's') segSeg(o.from, far, P.a, P.b, true).forEach(x => { if (x.u >= -1e-9 && x.u <= 1 + 1e-9) tryP(x.p, 'int'); }); else lineCirc2(o.from, far, P).forEach(p => tryP(p, 'int')); }));
     if (sn.trk) trkLines(segs, o).forEach(L => { const x = segSeg(o.from, far, L.a, vadd(L.a, L.d), true)[0]; if (!x) return; const go = trkOrigin(L, x.p); if (go && vdist(x.p, proj) <= 10 / view.s) tryP(x.p, 'trk', [go, x.p]); });
-    if (hit) return { ...hit, g: [[o.from, hit.p]].concat(hit.g ? [hit.g] : []), ortho: true };
+    if (hit) { if (pre && vdist(pre.p, q) <= 2 * vdist(hit.p, q)) return pre; return { ...hit, g: [[o.from, hit.p]].concat(hit.g ? [hit.g] : []), ortho: true }; }
+    if (pre) return pre;
     return { p: proj, k: 'orth', g: [[o.from, proj]], ortho: true };
   }
   if (sn.near) ents.forEach(e => prims(e).forEach(P => { const r = nearPrim(P, q); consider(r.p, 'near', P); }));
@@ -190,6 +191,7 @@ const ptrs = new Map(); let G = null;
 cv.addEventListener('pointerdown', ev => {
   ev.preventDefault(); cv.setPointerCapture(ev.pointerId); ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
   if (S.fly || S.full) { S.fly = null; S.full = false; ui(); }
+  if (S.capAsk) { S.capAsk = null; ui(); }
   document.body.classList.add('touching');
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; G = { k: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), c0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], v0: { ...view } }; S.cur = null; S.drag = null; render(); return; }
   if (ptrs.size > 2) return;
@@ -256,7 +258,7 @@ function tapTool(X, Y) {
   if (t === 'trim') { if (!h) return; const r = trimEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, r); commit(); return; }
   if (t === 'extend') { if (!h) return; const r = extendEnt(h.e, h.r.p, D.ents); if (!r) { flash(); return; } replEnt(h.e, [r]); commit(); return; }
   if (t === 'fillet') { if (!h) { S.pick = null; render(); return; } if (!S.pick) { S.pick = { id: h.e.id, q: h.r.p }; render(); return; } const e1 = entById(S.pick.id); const r = e1 && filletEnts(e1, S.pick.q, h.e, h.r.p); S.pick = null; if (!r) { flash(); render(); return; } const i1 = D.ents.indexOf(e1), i2 = D.ents.indexOf(h.e); r[0].id = e1.id; r[1].id = h.e.id; D.ents[i1] = r[0]; D.ents[i2] = r[1]; commit(); return; }
-  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (!r) { render(); return; } const pcs = S.autoCut ? offsetCut(r, e, S.offD, D.ents) : [r]; if (!pcs.length) { flash(); render(); return; } const ex = S.autoCut ? cutExisting(pcs, e, S.offD, D.ents) : []; const fl = []; ex.forEach(({ f, repl }) => { if (repl.length) { replEnt(f, repl); repl.forEach(x => fl.push(x.id)); } else delEnt(f); }); pcs.forEach(addEnt); commit(); if (pcs.length > 1 || pcs[0] !== r || ex.length) flashOk(pcs.map(x => x.id).concat(fl), true); return; }
+  if (t === 'offset') { if (!S.pick) { if (h) { S.pick = { id: h.e.id }; render(); } return; } const e = entById(S.pick.id); S.pick = null; const r = e && offsetEnt(e, S.offD, q); if (!r) { render(); return; } const pcs = S.autoCut ? offsetCut(r, e, S.offD, D.ents) : [r]; if (!pcs.length) { flash(); render(); return; } const ex = S.autoCut ? cutExisting(pcs, e, S.offD, D.ents) : []; const fl = []; ex.forEach(({ f, repl }) => { if (repl.length) { replEnt(f, repl); repl.forEach(x => fl.push(x.id)); } else delEnt(f); }); pcs.forEach(addEnt); const asked = S.autoCut ? openEnds(e, r, pcs) : false; commit(); if (!asked && (pcs.length > 1 || pcs[0] !== r || ex.length)) flashOk(pcs.map(x => x.id).concat(fl), true); ui(); return; }
   if (t === 'flat') { if (!h || h.e.t !== 'pl') { flash(); return; } if (flattenAt(h.e, h.r.p)) { commit(); flashOk([h.e.id], false); } else flash(); return; }
   if (t === 'erase') { const oh = opHit(X, Y); if (oh) { opDelete(oh.o); commit(); return; } const mh = measHit(X, Y); if (mh) { D.meas = measList().filter(m => m !== mh.m); commit(); return; } const nh = nameHit(X, Y); if (nh) { D.names = nameList().filter(n => n !== nh.n); commit(); return; } if (h) { delEnt(h.e); commit(); } return; }
   if (t === 'explode') { if (h) { const r = explodeEnt(h.e); if (r) { replEnt(h.e, r); commit(); flashOk(r.map(x => x.id), true); } else flash(); } return; }
@@ -301,6 +303,21 @@ function flattenAt(e, q) {
   }
   return false;
 }
+/* açık çizgi offset'i: kaynağın ucu başka çizgiye bağlıysa offset ucu o çizgiye oturur; boş uçlar için kapak sorulur */
+function openEnds(src, r, pcs) {
+  if (!(src.t === 'line' || (src.t === 'pl' && !src.c))) return false;
+  const se = chainEnds(src), oe = r.t === 'line' ? [r.a, r.b] : [r.p[0], r.p[r.p.length - 1]], ask = [];
+  const endOf = (pc, w) => pc.t === 'line' ? (w ? 'b' : 'a') : (w ? pc.p.length - 1 : 0);
+  const getP = (pc, k) => pc.t === 'line' ? pc[k] : pc.p[k], setP = (pc, k, v) => { if (pc.t === 'line') pc[k] = v; else pc.p[k] = v; };
+  [0, 1].forEach(i => {
+    const sp = se[i], op = oe[i]; let hit = null; pcs.forEach(pc => [0, 1].forEach(w => { const k = endOf(pc, w); if (vsame(getP(pc, k), op)) hit = { pc, k, w }; })); if (!hit) return;
+    const host = D.ents.find(f => f !== src && !pcs.includes(f) && !f.imp && (() => { const q = nearEnt(f, sp); return q && q.d < CO; })());
+    if (host) { const P = nearEnt(host, sp).P; if (P.k !== 's') return; const pc = hit.pc, k = hit.k; const nb = pc.t === 'line' ? getP(pc, k === 'a' ? 'b' : 'a') : pc.p[k === 0 ? 1 : pc.p.length - 2]; const x = segSeg(nb, op, P.a, P.b, true)[0]; if (x) setP(pc, k, cl(x.p)); }
+    else ask.push([cl(sp), cl(getP(hit.pc, hit.k))]);
+  });
+  if (ask.length) { S.capAsk = { pairs: ask }; return true; } return false;
+}
+function capAnswer(yes) { const c = S.capAsk; S.capAsk = null; if (c && yes) { c.pairs.forEach(([a, b]) => addEnt({ t: 'line', a, b })); commit(); } ui(); render(); }
 function joinChain(e0) {
   const pool = D.ents.filter(e => !e.imp && (e.t === 'line' || (e.t === 'pl' && !e.c))); if (!pool.includes(e0)) return null;
   const ends = e => { const p = chainPts(e); return [p[0], p[p.length - 1]]; };
@@ -313,7 +330,7 @@ function applyJoin(r) { const i = Math.min(...r.used.map(e => D.ents.indexOf(e))
 
 /* ---------- araç seçimi ---------- */
 function setTool(t, quiet) {
-  S.full = false; S.acq = []; S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
+  S.full = false; S.capAsk = null; S.acq = []; S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
   if (DRAW.includes(t)) S.draw = t; if (EDIT.includes(t)) S.edit = t; if (OPEN.includes(t)) S.open = t; if (MEAS.includes(t)) S.mtool = t; S.opA = null; S.mq = null; S.mv = null; S.selMeas = null; S.selName = null; if (t !== 'sec') S.selOp = null;
   if (!quiet && ['erase', 'explode', 'join'].includes(t) && S.sel.size) {
     const sel = D.ents.filter(e => S.sel.has(e.id)); let fl = [];
@@ -333,10 +350,13 @@ function btn(a, icon, on, extra) { return `<button class="b ${on ? 'on' : ''} ${
 function ui() {
   const t = S.tool, mini = drawing() && !S.full;
   col.className = mini ? 'mini' : ''; qp.className = mini ? 'mini' : '';
-  if (mini) col.innerHTML = btn('full', 'menu') + btn('undo', 'undo') + btn('redo', 'redo') + btn('fit', 'fit'); else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + btn('fly:meas', ICON[S.mtool], MEAS.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + '<i></i>' + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + `<div class="ver">${VER.replace('cad-', '')}</div>`;
+  const modeB = btn('mode', S.mode === 'o' ? 'mode_o' : 'mode_k', false, S.mode === 'o' ? 'mo' : 'mk'), verD = `<div class="ver">${VER.replace('cad-', '')}</div>`;
+  if (mini) col.innerHTML = btn('full', 'menu') + btn('undo', 'undo') + btn('redo', 'redo') + btn('fit', 'fit');
+  else if (S.mode === 'o') col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + MEAS.map(k => btn('t:' + k, ICON[k], t === k)).join('') + '<i></i>' + btn('fly:vis', 'eye', false, S.fly === 'vis' ? 'open' : '') + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + verD;
+  else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + verD;
   if (S.fly) {
     let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'set') { const v = S.setStr !== '' ? S.setStr : String(Math.round(S.thMax * 100)); h = `<div class="lab">${svg('wallth')}</div><div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'].map(k => `<button class="num k" data-a="sk:${k}">${k}</button>`).join('') + btn('skback', 'clr') + btn('skok', 'ok', false, 'okb') + btn('scut', 'offcut', S.autoCut, 'sn wide'); }
-    if (S.fly === 'meas') h = MEAS.map(k => btn('t:' + k, ICON[k], t === k)).join('') + btn('tgn', 'pts', S.showNames, 'sn');
+    if (S.fly === 'vis') h = btn('tgn', 'pts', S.showNames, 'sn') + btn('v:olcu', 'v_olcu', S.vis.olcu, 'sn') + btn('v:gonye', 'v_gonye', S.vis.gonye, 'sn') + btn('v:dik', 'v_dik', S.vis.dik, 'sn');
     if (S.fly === 'open') h = OPEN.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'file') h = btn('exp', 'exp') + btn('imp', 'imp') + btn('new', 'newdoc', false, S.arm > Date.now() ? 'dng' : ''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
     fly.innerHTML = h; fly.className = S.fly === 'set' ? 'g3' : ''; fly.style.display = S.fly === 'set' ? 'grid' : 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
   } else fly.style.display = 'none';
@@ -348,7 +368,7 @@ function ui() {
   } else qp.style.display = 'none';
   const mp = document.getElementById('mp'), mh = measPanel(); mp.innerHTML = mh; mp.style.display = mh ? 'grid' : 'none';
   const nmp = document.getElementById('nmp'), nh = namePanel(), sig = S.tool + '|' + S.selName + '|' + !!S.fly; if (nmp.dataset.sig !== sig || !nh) { nmp.innerHTML = nh; nmp.dataset.sig = sig; const inp = document.getElementById('nmIn'); if (inp) { inp.addEventListener('input', () => { const n = S.selName && nameList().find(x => x.id === S.selName); if (n) { n.n = inp.value.trim() || n.n; render(); } else { S.nameNext = inp.value.trim(); save(); } }); inp.addEventListener('change', () => { if (S.selName) commit(); }); } } nmp.style.display = nh ? 'flex' : 'none';
-  const opp = document.getElementById('opp'), oh = opPanel(); opp.innerHTML = oh; opp.style.display = oh ? 'grid' : 'none';
+  const opp = document.getElementById('opp'), oh = S.capAsk && !S.fly ? btn('capY', 'cap', false, 'okb') + btn('capN', 'nocap') : opPanel(); opp.innerHTML = oh; opp.style.display = oh ? 'grid' : 'none';
   if (!S.fly && t === 'offset') { const v = S.offStr !== '' ? S.offStr : String(Math.round(S.offD * 1000) / 10);
     if (!S.npOpen) { np.innerHTML = `<button class="num chip" data-a="kopen">${v}</button>`; np.className = 'mini'; }
     else { np.className = ''; np.innerHTML = `<div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(k => `<button class="num k" data-a="k:${k}">${k}</button>`).join('') + btn('kback', 'clr') + `<button class="b okb kok" data-a="kok">${svg('ok')}</button>`; }
@@ -357,6 +377,9 @@ function ui() {
 }
 function onBtn(a) {
   if (a === 'undo') { undo(); ui(); return; } if (a === 'redo') { redo(); ui(); return; }
+  if (a === 'mode') { S.mode = S.mode === 'o' ? 'k' : 'o'; S.fly = null; setTool(S.mode === 'o' ? S.mtool : 'sec'); return; }
+  if (a.startsWith('v:')) { const k = a.slice(2); S.vis[k] = S.vis[k] ? 0 : 1; save(); ui(); render(); return; }
+  if (a === 'capY' || a === 'capN') { capAnswer(a === 'capY'); return; }
   if (measBtn(a)) return;
   if (a === 'tgn') { S.showNames = !S.showNames; save(); ui(); render(); return; } /* pencere açık kalır */
   if (a === 'ndel') { D.names = nameList().filter(n => n.id !== S.selName); S.selName = null; commit(); ui(); return; }
@@ -405,6 +428,7 @@ function render() {
   D.ents.forEach(e => { const sel = S.sel.has(e.id), pk = S.pick && S.pick.id === e.id; cx.strokeStyle = pk ? '#f5a623' : sel ? '#6fb0ff' : e.imp ? '#6b7480' : '#e8e8e8'; if (e.t === 'pt') { const s = w2s(...e.p); cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(s[0] - 4, s[1] - 4); cx.lineTo(s[0] + 4, s[1] + 4); cx.moveTo(s[0] + 4, s[1] - 4); cx.lineTo(s[0] - 4, s[1] + 4); cx.stroke(); return; } cx.lineWidth = sel || pk ? 2.6 : 1.6; cx.setLineDash(sel ? [8, 5] : []); pathEnt(e); cx.stroke(); });
   cx.setLineDash([]);
   drawOps(); drawMeas(); drawNames();
+  if (S.capAsk) S.capAsk.pairs.forEach(([a, b]) => { const p = w2s(...b), q = w2s(...a); cx.strokeStyle = '#ffcf70'; cx.lineWidth = 2; cx.setLineDash([4, 3]); cx.beginPath(); cx.moveTo(...q); cx.lineTo(...p); cx.stroke(); cx.setLineDash([]); cx.beginPath(); cx.arc(p[0], p[1], 9, 0, TAU); cx.stroke(); });
   if (S.flash) { const cols = ['#4cd964', '#ffcf70']; let k = 0; S.flash.ids.forEach(id => { const e = entById(id); if (!e) return; cx.strokeStyle = cols[(k++) % 2]; cx.lineWidth = 4; pathEnt(e); cx.stroke(); if (S.flash.dots) chainEnds(e).forEach(p => { const s = w2s(...p); cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(s[0], s[1], 4.5, 0, TAU); cx.fill(); }); }); }
   if (S.preview) { cx.strokeStyle = '#4cd964'; cx.lineWidth = 1.6; S.preview.forEach(e => { pathEnt(e); cx.stroke(); }); }
   /* tutamaklar */

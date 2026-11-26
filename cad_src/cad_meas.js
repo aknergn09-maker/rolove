@@ -1,5 +1,7 @@
 /* ROLEVE CAD — ölçü notları, nokta adları, lazer (çizimi hiç değiştirmez) */
-const MEAS = ['m_pp', 'm_pl', 'm_ll', 'm_ab', 'tag'];
+const MEAS = ['m_pp', 'm_obj', 'm_ll', 'm_ab', 'm_g', 'tag'];
+const MCAT = k => k === 'm_g' ? 'gonye' : k === 'm_ab' ? 'dik' : 'olcu';
+const MCOLS = { olcu: '#f5a623', gonye: '#5aa9ff', dik: '#c08bff' };
 const MCOL = '#f5a623';
 function measList() { return D.meas || (D.meas = []); }
 function nameList() { return D.names || (D.names = []); }
@@ -26,21 +28,26 @@ function segAt(X, Y) {
 function footOn(p, a, b) { const d = vsub(b, a), t = vdot(vsub(p, a), d) / (vdot(d, d) || 1); return vadd(a, vmul(d, t)); }
 function measGeo(m) {
   const P = m.pts, f3 = v => v == null ? '' : v.toFixed(3);
-  if (m.k === 'm_pp') return { lines: [[P[0], P[1]]], labels: [[vmul(vadd(P[0], P[1]), 0.5), f3(m.v)]] };
+  if (m.k === 'm_pp' || m.k === 'm_g') return { lines: [[P[0], P[1]]], labels: [[vmul(vadd(P[0], P[1]), 0.5), f3(m.v)]] };
+  if (m.k === 'm_obj') { const n = vmul(vunit(vperp(vsub(P[1], P[0]))), 14 / view.s), a = vadd(P[0], n), b = vadd(P[1], n); return { lines: [[a, b]], labels: [[vmul(vadd(a, b), 0.5), f3(m.v)]], raw: [[P[0], P[1]]] }; }
   if (m.k === 'm_pl') { const f = footOn(P[0], P[1], P[2]); return { lines: [[P[0], f]], labels: [[vmul(vadd(P[0], f), 0.5), f3(m.v)]], seg: [[P[1], P[2]]] }; }
   if (m.k === 'm_ll') { const s = vmul(vadd(P[0], P[1]), 0.5), f = footOn(s, P[2], P[3]); return { lines: [[s, f]], labels: [[vmul(vadd(s, f), 0.5), f3(m.v)]], seg: [[P[0], P[1]], [P[2], P[3]]] }; }
   if (m.k === 'm_ab') return { lines: [[P[0], P[1]], [P[1], P[2]]], labels: [[vmul(vadd(P[0], P[1]), 0.5), f3(m.v)], [vmul(vadd(P[1], P[2]), 0.5), f3(m.v2)]] };
   return { lines: [], labels: [] };
 }
-function measNeed(k) { return { m_pp: ['p', 'p'], m_pl: ['p', 's'], m_ll: ['s', 's'], m_ab: ['p', 'p', 'p'] }[k] || []; }
+function measNeed(k) { return { m_pp: ['p', 'ps'], m_pl: ['p', 's'], m_g: ['p', 'p'], m_obj: ['o'], m_ll: ['s', 's'], m_ab: ['p', 'p', 'p'] }[k] || []; }
 function measDone() { const q = S.mq; return q && q.picks.length === measNeed(q.k).length; }
 function measPts(q) { const out = []; q.picks.forEach(x => { if (x.p) out.push(x.p); else out.push(x.a, x.b); }); return out; }
 function measPlace(sn, X, Y) {
   const t = S.tool;
   if (t === 'tag') { tagPlace(sn, X, Y); return; }
-  if (!S.mq || S.mq.k !== t || measDone()) S.mq = { k: t, picks: [], dir0: null };
-  const need = measNeed(t)[S.mq.picks.length];
-  if (need === 'p') { S.mq.picks.push({ p: cl(sn.p) }); if (S.mq.picks.length === 1 && sn.P && sn.P.k === 's') S.mq.dir0 = vsub(sn.P.b, sn.P.a); }
+  if ((!S.mq || !S.mq.picks.length || measDone()) && !['end', 'int', 'mid'].includes(sn.k)) { const mh = measHit(X, Y); if (mh) { S.mq = null; S.selMeas = S.selMeas === mh.m.id ? null : mh.m.id; S.mv = null; ui(); render(); return; } }
+  S.selMeas = null; if (S.mv && S.mv.id) S.mv = null;
+  if (!S.mq || (S.mq.k !== t && !(t === 'm_pp' && S.mq.k === 'm_pl')) || measDone()) S.mq = { k: t, picks: [], dir0: null };
+  const need = measNeed(S.mq.k)[S.mq.picks.length];
+  if (need === 'o') { const oh = opHit(X, Y); const s = oh ? { a: cl(oh.o.a), b: cl(oh.o.b) } : segAt(X, Y); if (!s) { flash(); return; } S.mq.picks.push(s); }
+  else if (need === 'ps') { if (['end', 'int', 'mid', 'trk'].includes(sn.k)) S.mq.picks.push({ p: cl(sn.p) }); else { const s = segAt(X, Y); if (!s) { flash(); return; } S.mq.k = 'm_pl'; S.mq.picks.push(s); } }
+  else if (need === 'p') { S.mq.picks.push({ p: cl(sn.p) }); if (S.mq.picks.length === 1 && sn.P && sn.P.k === 's') S.mq.dir0 = vsub(sn.P.b, sn.P.a); }
   else { const s = segAt(X, Y); if (!s) { flash(); return; } S.mq.picks.push(s); }
   if (measDone()) { S.mv = { v: [LZ.pend != null ? LZ.pend.toFixed(3) : '', ''], act: 0, np: false }; LZ.pend = null; }
   ui(); render();
@@ -62,24 +69,25 @@ function measSave() {
 }
 function measById(id) { return measList().find(m => m.id === id); }
 let fmT; function flashMeas(id) { S.fm = id; clearTimeout(fmT); fmT = setTimeout(() => { S.fm = null; render(); }, 900); }
-function measHit(X, Y) { const q = s2w(X, Y), R = 14 / view.s; let best = null; measList().forEach(m => measGeo(m).lines.forEach(([a, b]) => { const d = nearPrim({ k: 's', a, b }, q).d; if (d <= R && (!best || d < best.d)) best = { m, d }; })); return best; }
+function measVis(m) { return S.vis[MCAT(m.k)] !== 0; }
+function measHit(X, Y) { const q = s2w(X, Y), R = 14 / view.s; let best = null; measList().filter(measVis).forEach(m => measGeo(m).lines.forEach(([a, b]) => { const d = nearPrim({ k: 's', a, b }, q).d; if (d <= R && (!best || d < best.d)) best = { m, d }; })); return best; }
 function drawMeas() {
   cx.font = 'bold 13px Arial'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  measList().forEach(m => {
-    const g = measGeo(m), sel = S.selMeas === m.id || S.fm === m.id; cx.strokeStyle = sel ? '#ffd27a' : MCOL; cx.lineWidth = sel ? 2.4 : 1.3; cx.setLineDash([6, 4]);
+  measList().filter(measVis).forEach(m => {
+    const MC = MCOLS[MCAT(m.k)], g = measGeo(m), sel = S.selMeas === m.id || S.fm === m.id; cx.strokeStyle = sel ? '#ffd27a' : MC; cx.lineWidth = sel ? 2.4 : 1.3; cx.setLineDash([6, 4]);
     cx.beginPath(); g.lines.forEach(([a, b]) => { cx.moveTo(...w2s(...a)); cx.lineTo(...w2s(...b)); }); cx.stroke(); cx.setLineDash([]);
-    g.labels.forEach(([p, t]) => { const s = w2s(...p); const w = cx.measureText(t).width + 6; cx.fillStyle = 'rgba(18,20,23,.85)'; cx.fillRect(s[0] - w / 2, s[1] - 9, w, 18); cx.fillStyle = sel ? '#ffd27a' : MCOL; cx.fillText(t, s[0], s[1]); });
+    g.labels.forEach(([p, t]) => { const s = w2s(...p); const w = cx.measureText(t).width + 6; cx.fillStyle = 'rgba(18,20,23,.85)'; cx.fillRect(s[0] - w / 2, s[1] - 9, w, 18); cx.fillStyle = sel ? '#ffd27a' : MC; cx.fillText(t, s[0], s[1]); });
   });
   const q = S.mq; if (q && MEAS.includes(S.tool)) {
     cx.strokeStyle = '#4cd964'; cx.lineWidth = 2;
     q.picks.forEach(x => { if (x.p) { const s = w2s(...x.p); cx.beginPath(); cx.arc(s[0], s[1], 7, 0, TAU); cx.stroke(); } else { cx.lineWidth = 4; cx.beginPath(); cx.moveTo(...w2s(...x.a)); cx.lineTo(...w2s(...x.b)); cx.stroke(); cx.lineWidth = 2; } });
-    if (measDone()) { const g = measGeo({ k: q.k, pts: measPts(q) }); cx.strokeStyle = MCOL; cx.lineWidth = 1.6; cx.setLineDash([6, 4]); cx.beginPath(); g.lines.forEach(([a, b]) => { cx.moveTo(...w2s(...a)); cx.lineTo(...w2s(...b)); }); cx.stroke(); cx.setLineDash([]); }
+    if (measDone()) { const g = measGeo({ k: q.k, pts: measPts(q) }); cx.strokeStyle = MCOLS[MCAT(q.k)]; cx.lineWidth = 1.6; cx.setLineDash([6, 4]); cx.beginPath(); g.lines.forEach(([a, b]) => { cx.moveTo(...w2s(...a)); cx.lineTo(...w2s(...b)); }); cx.stroke(); cx.setLineDash([]); }
     else if (q.k === 'm_ab' && S.snap && S.cur && q.picks.length) { const last = q.picks[q.picks.length - 1].p; cx.strokeStyle = MCOL; cx.setLineDash([6, 4]); cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(...w2s(...last)); cx.lineTo(...w2s(...S.snap.p)); cx.stroke(); cx.setLineDash([]); }
   }
   cx.textAlign = 'start'; cx.textBaseline = 'alphabetic';
 }
 function measPanel() {
-  const sm = S.tool === 'sec' && S.selMeas && measById(S.selMeas);
+  const sm = S.selMeas && measById(S.selMeas);
   if (S.fly || !(sm || (MEAS.includes(S.tool) && S.tool !== 'tag'))) return '';
   if (sm && (!S.mv || S.mv.id !== sm.id)) S.mv = { id: sm.id, v: [sm.v == null ? '' : sm.v.toFixed(3), sm.v2 == null ? '' : sm.v2.toFixed(3)], act: 0, np: false };
   const done = sm || measDone(), two = sm ? sm.k === 'm_ab' : S.tool === 'm_ab';
@@ -126,7 +134,7 @@ async function glmWrite(bytes) { const chr = LZ.chr; if (!chr) return false; con
 function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0.01 && v < 300 ? v : null; }
 function laserValue(m) {
   LZ.last = m; const s = m.toFixed(3);
-  if (S.tool === 'sec' && S.selMeas && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
+  if (S.selMeas && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
   else if (MEAS.includes(S.tool) && S.tool !== 'tag' && measDone() && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
   else LZ.pend = m;
   ui(); render();
@@ -154,12 +162,14 @@ async function laserAttach(dev) {
 async function laserTrigger() { if (!LZ.chr) { laserConnect(); return; } const a = await glmWrite(GLM_TRIG); await new Promise(r => setTimeout(r, 700)); const b = await glmWrite(GLM_TRIG); if (!(a && b)) flash(); }
 /* ---------- DXF: ölçüler (OLCU katmanı) ---------- */
 function measDXFLines(nameOf) {
-  const out = [], tag = { m_pp: 'NN', m_pl: 'ND', m_ll: 'CC', m_ab: 'DA' };
+  const out = [];
   measList().forEach(m => {
-    const g = measGeo(m), P = m.pts, f3 = v => v == null ? '?' : v.toFixed(3);
-    let txt; if (m.k === 'm_pp') txt = `NN ${nameOf(P[0])} ${nameOf(P[1])} ${f3(m.v)}`; else if (m.k === 'm_pl') txt = `ND ${nameOf(P[0])} ${nameOf(P[1])}-${nameOf(P[2])} ${f3(m.v)}`;
-    else if (m.k === 'm_ll') txt = `CC ${nameOf(P[0])}-${nameOf(P[1])} ${nameOf(P[2])}-${nameOf(P[3])} ${f3(m.v)}`; else txt = `DA ${nameOf(P[0])} ${nameOf(P[1])} ${nameOf(P[2])} ${f3(m.v)} ${f3(m.v2)}`;
-    void tag; out.push({ lines: g.lines, txt, at: g.labels[0][0], src: m.src });
+    const g = measGeo(m), P = m.pts, f3 = v => v == null ? '?' : v.toFixed(3), N = nameOf;
+    let txt;
+    if (m.k === 'm_pp') txt = `NN ${N(P[0])} ${N(P[1])} ${f3(m.v)}`; else if (m.k === 'm_g') txt = `GN ${N(P[0])} ${N(P[1])} ${f3(m.v)}`;
+    else if (m.k === 'm_obj') txt = `OB ${N(P[0])} ${N(P[1])} ${f3(m.v)}`; else if (m.k === 'm_pl') txt = `ND ${N(P[0])} ${N(P[1])}-${N(P[2])} ${f3(m.v)}`;
+    else if (m.k === 'm_ll') txt = `CC ${N(P[0])}-${N(P[1])} ${N(P[2])}-${N(P[3])} ${f3(m.v)}`; else txt = `DA ${N(P[0])} ${N(P[1])} ${N(P[2])} ${f3(m.v)} ${f3(m.v2)}`;
+    out.push({ cat: MCAT(m.k), lines: g.raw || g.lines, txt, at: g.labels[0][0], src: m.src, pts: m.k === 'm_ll' ? [] : P.filter((_, i) => !(m.k === 'm_pl' && i > 0)) });
   });
   return out;
 }

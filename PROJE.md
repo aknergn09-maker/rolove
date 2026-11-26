@@ -537,3 +537,14 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - DXF: NOKTA katmanında verilen adlar (diğerleri X1..), ölçü uçları ve dik ayak noktaları da noktalara dahil. OLCU katmanı: kesik çizgi yerine düz LINE + TEXT: "NN a b v", "ND p a-b v", "CC a-b c-d v", "DA O F C ayak boy"; lazerse sonuna " L". PC programı bu satırları okuyacak. Total telefona girmez; ad eşleşmesiyle PC'de birleşir (NCN: ad Y X Z ..., CSV: ad,X,Y,Z — 7 haneli X).
 - Sütun kısa ekranda (≤720 px) 44 px düğme.
 - Test: c9.py.
+
+### cad-2.1 — Kroki / Ölçme modları
+- Sütunun 3. düğmesi mod (kalem = Kroki, cetvel = Ölçme). Kroki: Seç, Çiz, Düzenle, Kapı/Pencere | Yakalama, Sığdır, Dosya, Ayarlar. Ölçme: araçlar doğrudan sütunda (pencere yok): obje yakalayan m_pp, obje seçen m_obj, iki duvar arası m_ll, dik ayak/boy m_ab, gönye m_g, nokta adı tag | görünürlük (göz: adlar, ölçü, gönye, dik ayak), Yakalama, Sığdır, Dosya. Ölçme moduna geçince son ölçü aracı, Kroki'ye geçince Seç.
+- Obje yakalayan: 1. uç nokta; 2. uç nokta (köşe/kesişim/orta/hiza/nokta adı) ise nokta–nokta, duvara dokunulursa noktadan dik (m_pl). Nokta adları yakalama noktası.
+- Obje seçen: tek dokunuş — çizgi, pline kenarı (aynı doğrultudaki parçalar tek kenar), kapı/pencere (genişlik). Ekranda kenardan 14 px içeri kaydırılmış kesik çizgi.
+- Ölçme araçlarıyla mevcut ölçüye dokununca (köşe/orta değilse) düzenleme/silme paneli.
+- Renkler: ölçü turuncu, gönye mavi, dik ayak mor; türler gizlenebilir (S.vis, kaydedilir).
+- Yakalama önceliği: ortho bağlamında hiza/ortho kesişimi, köşeden yarı mesafeden yakınsa hizalama kazanır (dik ayak ucu yakındaki kapı kırık noktasına kaçmasın).
+- DXF 3 kopya: 1) gerçek koordinat: CIZIM, KAPI, PENCERE, NOKTA, OLCU (NN, ND, OB, CC); 2) sağa 1.5×genişlik: KOPYA_GONYE çizim + GONYE (GN) + uç adları + başlık; 3) KOPYA_DIKAYAK + DIKAYAK (DA). Kopya sadece o türden ölçü varsa yazılır. PC programı adlarla çalışır (NOKTA katmanı sadece kopya 1).
+- Açık çizgi/pline offset (otomatik kesme açıkken): kaynağın ucu başka çizgiye bağlıysa offset ucu o çizgiye oturur; boş uç(lar) yanıp söner, sağ altta kapak / ✕ sorusu (kapak = kaynak ucu ile offset ucu arası çizgi). Tuvale dokununca ya da araç değişince soru kapanır.
+- Test: c9.py yeniden yazıldı.

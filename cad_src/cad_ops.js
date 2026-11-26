@@ -97,24 +97,40 @@ function pointNames() {
 }
 function makeDXF() {
   const E = [], f = v => (Math.round(v * 10000) / 10000).toString(), deg = r => nrm(r) * 180 / Math.PI;
-  const line = (ly, a, b) => E.push('0', 'LINE', '8', ly, '10', f(a[0]), '20', f(a[1]), '30', '0', '11', f(b[0]), '21', f(b[1]), '31', '0');
+  let OX = 0; const T = p => [p[0] + OX, p[1]];
+  const line = (ly, a, b) => { a = T(a); b = T(b); E.push('0', 'LINE', '8', ly, '10', f(a[0]), '20', f(a[1]), '30', '0', '11', f(b[0]), '21', f(b[1]), '31', '0'); };
+  const text = (ly, p, h, t) => { p = T(p); E.push('0', 'TEXT', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0', '40', f(h), '1', dxfStr(t)); };
+  const point = (ly, p) => { p = T(p); E.push('0', 'POINT', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0'); };
   const ent = (e, ly) => {
     if (e.t === 'line') line(ly, e.a, e.b);
-    else if (e.t === 'pl') { E.push('0', 'POLYLINE', '8', ly, '66', '1', '10', '0', '20', '0', '30', '0', '70', e.c ? '1' : '0'); e.p.forEach(p => E.push('0', 'VERTEX', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0')); E.push('0', 'SEQEND', '8', ly); }
-    else if (e.t === 'cir') E.push('0', 'CIRCLE', '8', ly, '10', f(e.c[0]), '20', f(e.c[1]), '30', '0', '40', f(e.r));
-    else if (e.t === 'arc') E.push('0', 'ARC', '8', ly, '10', f(e.c[0]), '20', f(e.c[1]), '30', '0', '40', f(e.r), '50', f(deg(e.a0)), '51', f(deg(e.a1)));
-    else if (e.t === 'pt') E.push('0', 'POINT', '8', ly, '10', f(e.p[0]), '20', f(e.p[1]), '30', '0');
+    else if (e.t === 'pl') { E.push('0', 'POLYLINE', '8', ly, '66', '1', '10', '0', '20', '0', '30', '0', '70', e.c ? '1' : '0'); e.p.forEach(q => { const p = T(q); E.push('0', 'VERTEX', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0'); }); E.push('0', 'SEQEND', '8', ly); }
+    else if (e.t === 'cir') { const c = T(e.c); E.push('0', 'CIRCLE', '8', ly, '10', f(c[0]), '20', f(c[1]), '30', '0', '40', f(e.r)); }
+    else if (e.t === 'arc') { const c = T(e.c); E.push('0', 'ARC', '8', ly, '10', f(c[0]), '20', f(c[1]), '30', '0', '40', f(e.r), '50', f(deg(e.a0)), '51', f(deg(e.a1))); }
+    else if (e.t === 'pt') point(ly, e.p);
   };
-  D.ents.forEach(e => ent(e, e.imp ? 'IMPORT' : 'CIZIM'));
-  opsList().forEach(o => { const g = opGeo(o), ly = o.t === 'door' ? 'KAPI' : 'PENCERE'; g.jambs.concat(g.lines).forEach(([a, b]) => line(ly, a, b));
-    if (g.arc) { const e = vsub(g.arc.e, g.arc.c), j = vsub(g.arc.j, g.arc.c); const a1 = vang(e), a2 = vang(j); const ccw = vcross(e, j) > 0; E.push('0', 'ARC', '8', ly, '10', f(g.arc.c[0]), '20', f(g.arc.c[1]), '30', '0', '40', f(g.arc.r), '50', f(deg(ccw ? a1 : a2)), '51', f(deg(ccw ? a2 : a1))); } });
-  const PN = pointNames(), nameOf = p => { const t = PN.find(x => vsame(x.p, p)); return t ? t.name : '?'; };
-  measDXFLines(nameOf).forEach(o => { o.lines.forEach(([a, b]) => line('OLCU', a, b)); E.push('0', 'TEXT', '8', 'OLCU', '10', f(o.at[0]), '20', f(o.at[1]), '30', '0', '40', '0.08', '1', dxfStr(o.txt + (o.src === 'laser' ? ' L' : ''))); });
-  PN.forEach(t => { E.push('0', 'POINT', '8', 'NOKTA', '10', f(t.p[0]), '20', f(t.p[1]), '30', '0'); E.push('0', 'TEXT', '8', 'NOKTA', '10', f(t.p[0] + 0.05), '20', f(t.p[1] + 0.05), '30', '0', '40', '0.1', '1', dxfStr(t.name)); });
-  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA', 1], ['OLCU', 30], ['IMPORT', 8]];
-  const T = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$DWGCODEPAGE', '3', 'ANSI_1254', '0', 'ENDSEC', '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(LY.length)];
-  LY.forEach(([n, c]) => T.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS')); T.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
-  return T.concat(E, ['0', 'ENDSEC', '0', 'EOF']).join('\r\n') + '\r\n';
+  const opsOut = (lyK, lyP) => opsList().forEach(o => { const g = opGeo(o), ly = o.t === 'door' ? lyK : lyP; g.jambs.concat(g.lines).forEach(([a, b]) => line(ly, a, b));
+    if (g.arc) { const e = vsub(g.arc.e, g.arc.c), j = vsub(g.arc.j, g.arc.c); const a1 = vang(e), a2 = vang(j); const ccw = vcross(e, j) > 0; const c = T(g.arc.c); E.push('0', 'ARC', '8', ly, '10', f(c[0]), '20', f(c[1]), '30', '0', '40', f(g.arc.r), '50', f(deg(ccw ? a1 : a2)), '51', f(deg(ccw ? a2 : a1))); } });
+  const PN = pointNames(), nameOf = p => { const t = PN.find(x => vsame(x.p, p)); return t ? t.name : '?'; }, ML = measDXFLines(nameOf);
+  /* kopya 1 (gerçek koordinat): çizim, kapı/pencere, nokta adları, ölçüler */
+  D.ents.forEach(e => ent(e, e.imp ? 'IMPORT' : 'CIZIM')); opsOut('KAPI', 'PENCERE');
+  PN.forEach(t => { point('NOKTA', t.p); text('NOKTA', [t.p[0] + 0.05, t.p[1] + 0.05], 0.1, t.name); });
+  const measOut = (cat, ly) => ML.filter(o => o.cat === cat).forEach(o => { o.lines.forEach(([a, b]) => line(ly, a, b)); text(ly, o.at, 0.08, o.txt + (o.src === 'laser' ? ' L' : '')); });
+  measOut('olcu', 'OLCU');
+  /* kopya 2 ve 3: aynı çizim sağa kaydırılmış — gönye, dik ayak/dik boy */
+  const own = D.ents.filter(e => !e.imp), xs = [], ys = [];
+  own.forEach(e => { if (e.t === 'line') { xs.push(e.a[0], e.b[0]); ys.push(e.a[1], e.b[1]); } else if (e.t === 'pl') e.p.forEach(p => { xs.push(p[0]); ys.push(p[1]); }); else if (e.c) { xs.push(e.c[0] - e.r, e.c[0] + e.r); ys.push(e.c[1] + e.r); } });
+  const x0 = xs.length ? Math.min(...xs) : 0, W = xs.length ? Math.max(...xs) - x0 : 10, yT = ys.length ? Math.max(...ys) : 0, step = Math.max(W, 1) * 1.5;
+  [['gonye', 'GONYE', 'KOPYA_GONYE', 'GONYE'], ['dik', 'DIKAYAK', 'KOPYA_DIKAYAK', 'DIK AYAK / DIK BOY']].forEach(([cat, ly, lyC, title], k) => {
+    if (!ML.some(o => o.cat === cat)) return; OX = step * (k + 1);
+    own.forEach(e => ent(e, lyC)); opsOut(lyC, lyC); measOut(cat, ly);
+    const used = []; ML.filter(o => o.cat === cat).forEach(o => o.pts.forEach(p => { if (used.some(q => vsame(q, p))) return; used.push(p); text(ly, [p[0] + 0.05, p[1] + 0.05], 0.1, nameOf(p)); }));
+    text(ly, [x0, yT + 0.4], 0.25, title);
+  });
+  OX = 0;
+  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA', 1], ['OLCU', 30], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
+  const H = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$DWGCODEPAGE', '3', 'ANSI_1254', '0', 'ENDSEC', '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(LY.length)];
+  LY.forEach(([n, c]) => H.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS')); H.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
+  return H.concat(E, ['0', 'ENDSEC', '0', 'EOF']).join('\r\n') + '\r\n';
 }
 async function shareOrDownload(text, name, type) {
   const blob = new Blob([text], { type }); const fl = new File([blob], name, { type });
