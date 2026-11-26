@@ -51,7 +51,8 @@ async def main():
         E=await ents(); L=[e for e in E if e['t']=='line']
         ck('  çizgiler (-2,4)-(-2,5.5)-(-1.5,5.5)', len(L)==2 and near(L[0]['a'],(-2,4)) and near(L[0]['b'],(-2,5.5)) and near(L[1]['b'],(-1.5,5.5)), L)
         # 3) Offset 15 cm içeri
-        await tool('edit','offset'); await btn('k:1'); await btn('k:5')
+        await tool('edit','offset'); await btn('kopen'); await btn('k:1'); await btn('k:5'); await btn('kok')
+        ck('offset tuş takımı kapandı, küçük değer düğmesi 15', (await ev("document.querySelector('#np').innerText.trim()"))=='15')
         await wtap(2,0); await wtap(2,1)
         E=await ents(); O=E[-1]
         ck('offset 15 cm içeri kapalı pline', O['t']=='pl' and O['c'] and near(O['p'][0],(0.15,0.15)) and near(O['p'][2],(3.85,2.85)), O)

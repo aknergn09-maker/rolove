@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-1.2';
+const VER = 'cad-1.3';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -9,7 +9,7 @@ const S = {
   tool: 'sec', draw: 'line', edit: 'offset', fly: null, sel: new Set(),
   chain: null, cir: null, arc: null, pick: null, sum: 0, sumH: [], offD: 0.2, offStr: '',
   snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
-  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null
+  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false
 };
 const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'move', 'copy', 'explode', 'join', 'erase'];
 const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
@@ -299,7 +299,10 @@ function ui() {
     qp.innerHTML = `<div class="sum">${S.sum || 0}</div><button class="num" data-a="q:10">10</button><button class="num" data-a="q:50">50</button><button class="num" data-a="q:100">100</button>${btn('qback', 'clr')}` + ar.map(k => btn('qa:' + k, k, false, S.sum ? '' : 'dis')).join('') + (c ? btn('qok', 'ok', false, 'okb') : '');
     qp.style.display = 'grid';
   } else qp.style.display = 'none';
-  if (!S.fly && t === 'offset') { const v = S.offStr !== '' ? S.offStr : String(Math.round(S.offD * 1000) / 10); np.innerHTML = `<div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(k => `<button class="num k" data-a="k:${k}">${k}</button>`).join('') + btn('kback', 'clr'); np.style.display = 'grid'; }
+  if (!S.fly && t === 'offset') { const v = S.offStr !== '' ? S.offStr : String(Math.round(S.offD * 1000) / 10);
+    if (!S.npOpen) { np.innerHTML = `<button class="num chip" data-a="kopen">${v}</button>`; np.className = 'mini'; }
+    else { np.className = ''; np.innerHTML = `<div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(k => `<button class="num k" data-a="k:${k}">${k}</button>`).join('') + btn('kback', 'clr') + `<button class="b okb kok" data-a="kok">${svg('ok')}</button>`; }
+    np.style.display = 'grid'; }
   else np.style.display = 'none';
 }
 function onBtn(a) {
@@ -315,6 +318,8 @@ function onBtn(a) {
   if (a.startsWith('qa:')) { const k = a.slice(3); quickArrow(...{ up: [0, 1], down: [0, -1], left: [-1, 0], right: [1, 0] }[k]); return; }
   if (a === 'qok') { endChain(); ui(); return; }
   if (a.startsWith('k:')) { let s = S.offStr; const k = a.slice(2); if (k === '.' && s.includes('.')) return; s += k; S.offStr = s; const v = parseFloat(s); if (v > 0) S.offD = v / 100; save(); ui(); return; }
+  if (a === 'kopen') { S.npOpen = true; S.offStr = ''; ui(); return; }
+  if (a === 'kok') { S.npOpen = false; S.offStr = ''; ui(); return; }
   if (a === 'kback') { S.offStr = S.offStr.slice(0, -1); const v = parseFloat(S.offStr); if (v > 0) S.offD = v / 100; ui(); return; }
 }
 let BP = null;

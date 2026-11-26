@@ -476,3 +476,7 @@ Testler: test/c1.py, test/c2.py (`PAGE=cad.html python3 test/run_all.py`).
 ### cad-1.2
 - Hızlı uzunluk paneli tek sütun (toplam, 10, 50, 100, ⌫, oklar, ✓ alt alta). Panel uzunsa kendi içinde kayar.
 - Katman sırası kesin: açılan pencere (z 30) > sağ sütun (z 20) > alt paneller (z 10); pencere açıkken alt paneller zaten gizli.
+
+### cad-1.3
+- Offset tuş takımı küçüldü (36 px) ve varsayılan kapalı: sadece değeri gösteren küçük düğme (örn. 15). Basınca tuş takımı açılır, yeni değer baştan yazılır, ✓ ile kapanır.
+- Bekleyen öneri (onay bekliyor): çizim modunda sağ sütun yerine sadece ≡ (menüye dön), geri, ileri + hızlı uzunluk; A = tek şerit, B = üstte mini sütun + altta ayrı panel, parmak tuvaldeyken soluk.
