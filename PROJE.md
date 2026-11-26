@@ -472,3 +472,7 @@ Testler: test/c1.py, test/c2.py (`PAGE=cad.html python3 test/run_all.py`).
 - Sütundaki Çiz/Düzenle: basınca son kullanılan araç direkt aktif + pencere açılır; pencerede başkası seçilebilir; tuvale dokununca pencere kapanır ve dokunuş işlenir. Bu yolla açılınca Sil/Explode/Join seçime hemen uygulanmaz (sadece pencereden seçilince).
 - Pencere açıkken hızlı uzunluk ve offset tuş takımı gizlenir (pencereyi örtüyordu).
 - Test: c3.py.
+
+### cad-1.2
+- Hızlı uzunluk paneli tek sütun (toplam, 10, 50, 100, ⌫, oklar, ✓ alt alta). Panel uzunsa kendi içinde kayar.
+- Katman sırası kesin: açılan pencere (z 30) > sağ sütun (z 20) > alt paneller (z 10); pencere açıkken alt paneller zaten gizli.

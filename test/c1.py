@@ -34,7 +34,9 @@ async def main():
         # 1) Pline dikdörtgen, ilk noktaya dokununca kapanır
         await tool('draw','pl')
         ck('Çiz penceresi seçince kapandı', await ev("getComputedStyle(document.querySelector('#fly')).display")=='none')
+        await ev("Object.assign(CAD.view,{s:25,ox:120,oy:330}); CAD.render()")
         for pt in [(0,0),(4,0),(4,3),(0,3),(0,0)]: await wtap(*pt)
+        await ev("Object.assign(CAD.view,{s:25,ox:200,oy:330}); CAD.render()")
         E=await ents()
         ck('pline kapalı 4 köşe', len(E)==1 and E[0]['t']=='pl' and E[0]['c'] and len(E[0]['p'])==4, E)
         ck('  kapalı alan dolgusu (1 alan)', await ev("faces(CAD.D.ents).length")==1)
