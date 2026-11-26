@@ -464,3 +464,11 @@ Kararlar (kullanıcıyla netleşti):
 - Düğmeler click değil pointerup ile (sürükleme sonrası ilk dokunuş kaybolmasın).
 Sonraki aşamalar (konuşuldu, yapılmadı): kapı/pencere (2 dokunuş, pline'a aynı doğrultuda kırık noktası ekler, DXF'te çizgi kesintisiz + ayrı katman), lazer ölçü notları (nokta-nokta, noktadan dik, çizgiden dik, dik ayak/dik boy; çizimi değiştirmez), nokta adları export'ta (kullanıcınınkiler kalır, diğerleri X1..), total CSV/NCN içe alma (sabit), DXF import (ayrı katman) ve export, PC'de gönye/ölçek programı.
 Testler: test/c1.py, test/c2.py (`PAGE=cad.html python3 test/run_all.py`).
+
+### cad-1.1
+- Aks takibi: çizilen zincirin noktalarından (başlangıç dahil) ve parmağın üzerinden geçtiği son 2 köşe/orta noktadan 90° hiza çizgileri (zincirin ilk kenar doğrultusu ve dik; XY açıksa eksenler). Ortho ışınıyla kesişince yakalar → dikdörtgenin 4. köşesi başlangıç hizasına oturur.
+- Kapalı alan hesabına yay ve daireler girdi (faces() yayları 64'te bir parçalara böler).
+- Explode/Join sonucu 1 sn yeşil/sarı yanıp söner, uç noktalar görünür. Join: zincir otomatik birleşmezse dokunulan obje seçili kalır, sonraki dokunulan ona eklenir (devam edilebilir), boşa dokununca bırakır.
+- Sütundaki Çiz/Düzenle: basınca son kullanılan araç direkt aktif + pencere açılır; pencerede başkası seçilebilir; tuvale dokununca pencere kapanır ve dokunuş işlenir. Bu yolla açılınca Sil/Explode/Join seçime hemen uygulanmaz (sadece pencereden seçilince).
+- Pencere açıkken hızlı uzunluk ve offset tuş takımı gizlenir (pencereyi örtüyordu).
+- Test: c3.py.

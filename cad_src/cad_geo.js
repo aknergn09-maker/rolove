@@ -181,7 +181,9 @@ function plRuns(e) {
 }
 /* kapalı alanlar: tüm doğru parçalarının düzlem grafı */
 function faces(ents) {
-  const segs = []; ents.forEach(e => prims(e).forEach(P => { if (P.k === 's' && vdist(P.a, P.b) > 1e-9) segs.push(P); }));
+  const segs = []; ents.forEach(e => prims(e).forEach(P => { if (P.k === 's') { if (vdist(P.a, P.b) > 1e-9) segs.push(P); return; }
+    const n = Math.max(6, Math.ceil(P.sw / (TAU / 64))); let prev = vadd(P.c, [P.r * Math.cos(P.a0), P.r * Math.sin(P.a0)]);
+    for (let k = 1; k <= n; k++) { const a = P.a0 + P.sw * k / n, q = vadd(P.c, [P.r * Math.cos(a), P.r * Math.sin(a)]); segs.push({ k: 's', a: prev, b: q }); prev = q; } }));
   const ts = segs.map(() => [0, 1]);
   for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) { const x = segSeg(segs[i].a, segs[i].b, segs[j].a, segs[j].b)[0]; if (x) { ts[i].push(x.t); ts[j].push(x.u); } }
   const key = p => Math.round(p[0] * 1e4) + ',' + Math.round(p[1] * 1e4); const nodes = new Map(), adj = new Map(), E = new Set();
