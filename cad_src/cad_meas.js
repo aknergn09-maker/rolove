@@ -1,17 +1,19 @@
 /* ROLEVE CAD — ölçü notları, nokta adları, lazer (çizimi hiç değiştirmez) */
-const MEAS = ['m_pp', 'm_obj', 'm_ll', 'm_ab', 'm_g', 'tag'];
+const MEAS = ['m_pp', 'm_obj', 'm_ll', 'm_ab', 'm_g', 'tag', 'note'];
 const MCAT = k => k === 'm_g' ? 'gonye' : k === 'm_ab' ? 'dik' : 'olcu';
 const MCOLS = { olcu: '#f5a623', gonye: '#5aa9ff', dik: '#c08bff' };
 const MCOL = '#f5a623';
 const cmS = m => String(Math.round(m * 1000) / 10);
 function measList() { return D.meas || (D.meas = []); }
 function nameList() { return D.names || (D.names = []); }
+function noteList() { return D.notes || (D.notes = []); }
 /* çizgiye bağlı tüm noktalar (kapı uçları, nokta adları, ölçü uçları) — geometri değişince birlikte gelir */
 function attPts() {
   const out = [];
   opsList().forEach(o => { out.push([o, 'a'], [o, 'b']); });
   nameList().forEach(n => out.push([n, 'p']));
   measList().forEach(m => m.pts.forEach((_, i) => out.push([m.pts, i])));
+  noteList().forEach(n => out.push([n, 'p']));
   return out;
 }
 function attMoveVertex(old, P) { attPts().forEach(([o, k]) => { if (vsame(o[k], old)) o[k] = cl(P); }); }
@@ -42,6 +44,7 @@ function measPts(q) { const out = []; q.picks.forEach(x => { if (x.p) out.push(x
 function measPlace(sn, X, Y) {
   const t = S.tool;
   if (t === 'tag') { tagPlace(sn, X, Y); return; }
+  if (t === 'note') { notePlace(sn, X, Y); return; }
   if ((!S.mq || !S.mq.picks.length || measDone()) && !['end', 'int', 'mid'].includes(sn.k)) { const mh = measHit(X, Y); if (mh) { S.mq = null; S.selMeas = S.selMeas === mh.m.id ? null : mh.m.id; S.mv = null; ui(); render(); return; } }
   S.selMeas = null; if (S.mv && S.mv.id) S.mv = null;
   if (!S.mq || (S.mq.k !== t && !(t === 'm_pp' && S.mq.k === 'm_pl')) || measDone()) S.mq = { k: t, picks: [], dir0: null };
@@ -89,7 +92,7 @@ function drawMeas() {
 }
 function measPanel() {
   const sm = S.selMeas && measById(S.selMeas);
-  if (S.fly || !(sm || (MEAS.includes(S.tool) && S.tool !== 'tag'))) return '';
+  if (S.fly || !(sm || (MEAS.includes(S.tool) && S.tool !== 'tag' && S.tool !== 'note'))) return '';
   if (sm && (!S.mv || S.mv.id !== sm.id)) S.mv = { id: sm.id, v: [sm.v == null ? '' : cmS(sm.v), sm.v2 == null ? '' : cmS(sm.v2)], act: 0, np: false };
   const done = sm || measDone(), two = sm ? sm.k === 'm_ab' : S.tool === 'm_ab';
   const st = LZ.state === 'bağlı' ? 'bt' : LZ.state === 'bağlanıyor' ? 'btw' : LZ.state === 'koptu' ? 'btx' : 'bt0';
@@ -136,7 +139,7 @@ function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = 
 function laserValue(m) {
   LZ.last = m; const s = cmS(m);
   if (S.selMeas && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
-  else if (MEAS.includes(S.tool) && S.tool !== 'tag' && measDone() && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
+  else if (MEAS.includes(S.tool) && S.tool !== 'tag' && S.tool !== 'note' && measDone() && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
   else LZ.pend = m;
   ui(); render();
 }
@@ -173,4 +176,30 @@ function measDXFLines(nameOf) {
     out.push({ cat: MCAT(m.k), lines: g.raw || g.lines, txt, at: g.labels[0][0], src: m.src, pts: m.k === 'm_ll' ? [] : P.filter((_, i) => !(m.k === 'm_pl' && i > 0)) });
   });
   return out;
+}
+
+/* ---------- notlar: krokide yere iliştirilmiş serbest yazı ---------- */
+function noteHit(X, Y) { let best = null; noteList().forEach(n => { const s = w2s(...n.p); const d = Math.hypot(s[0] + 9 - X, s[1] - 9 - Y); if (d < 20 && (!best || d < best.d)) best = { n, d }; }); return best; }
+function notePlace(sn, X, Y) {
+  if (S.selNote) { noteClose(); return; }
+  const h = noteHit(X, Y); if (h) { S.selNote = h.n.id; S.noteNew = false; ui(); render(); noteFocus(); return; }
+  const n = { id: 'nt' + (D.nid++), p: cl(sn.k === 'free' ? s2w(X, Y) : sn.p), s: '' }; noteList().push(n); S.selNote = n.id; S.noteNew = true; ui(); render(); noteFocus();
+}
+function noteFocus() { const t = document.getElementById('ntIn'); if (t) { t.focus(); const v = t.value; t.setSelectionRange(v.length, v.length); } }
+function noteClose(save = true) {
+  const n = noteList().find(x => x.id === S.selNote); const t = document.getElementById('ntIn'); const old = n ? n.s : null, wasNew = S.noteNew;
+  if (n && t && save) n.s = t.value.replace(/\s+$/, '');
+  if (n && !n.s) D.notes = noteList().filter(x => x !== n);
+  S.selNote = null; S.noteNew = false; if (t) t.blur(); if (n && (n.s !== old || !n.s || wasNew) && !(wasNew && !n.s)) commit(); else render(); ui();
+}
+function notePanel() {
+  if (S.fly || S.tool !== 'note' || !S.selNote) return ''; const n = noteList().find(x => x.id === S.selNote); if (!n) return '';
+  return `<textarea id="ntIn" rows="4" spellcheck="true">${n.s.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea><div class="ntb">${btn('ntok', 'ok', false, 'okb')}${btn('ntdel', 'erase', false, 'dng')}</div>`;
+}
+function drawNotes() {
+  if (S.vis.not === 0) return; cx.font = 'bold 12px Arial'; cx.textBaseline = 'middle';
+  noteList().forEach(n => { const s = w2s(...n.p), sel = S.selNote === n.id; cx.strokeStyle = cx.fillStyle = sel ? '#fff' : '#ffd84d'; cx.lineWidth = 1.4;
+    cx.beginPath(); cx.moveTo(s[0], s[1]); cx.lineTo(s[0] + 4, s[1] - 4); cx.stroke(); cx.fillRect(s[0] + 3, s[1] - 16, 13, 13); cx.fillStyle = '#121417'; cx.fillRect(s[0] + 5, s[1] - 12, 9, 1.5); cx.fillRect(s[0] + 5, s[1] - 9, 9, 1.5); cx.fillRect(s[0] + 5, s[1] - 6, 6, 1.5);
+    const t = (n.s || '').split('\n')[0]; if (t) { const tt = t.length > 22 ? t.slice(0, 21) + '…' : t; const w = cx.measureText(tt).width + 6; cx.fillStyle = 'rgba(18,20,23,.85)'; cx.fillRect(s[0] + 18, s[1] - 18, w, 16); cx.fillStyle = sel ? '#fff' : '#ffd84d'; cx.fillText(tt, s[0] + 21, s[1] - 10); } });
+  cx.textBaseline = 'alphabetic';
 }

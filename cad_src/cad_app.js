@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.4';
+const VER = 'cad-2.5';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -9,11 +9,11 @@ const S = {
   tool: 'sec', draw: 'line', edit: 'offset', fly: null, sel: new Set(),
   chain: null, cir: null, arc: null, pick: null, sum: 0, sumH: [], offD: 0.2, offStr: '',
   snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
-  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1, mtool: 'm_pp', mq: null, mv: null, selMeas: null, selName: null, nameNext: '1', showNames: true, fm: null, mode: 'k', vis: { olcu: 1, gonye: 1, dik: 1 }, capAsk: null
+  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1, mtool: 'm_pp', mq: null, mv: null, selMeas: null, selName: null, nameNext: '1', showNames: true, fm: null, mode: 'k', vis: { olcu: 1, gonye: 1, dik: 1, not: 1 }, capAsk: null, selNote: null, noteNew: false
 };
 const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'flat', 'move', 'copy', 'explode', 'join', 'erase'];
 const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
-const ICON = { m_obj: 'm_obj', m_g: 'm_g', m_pp: 'm_pp', m_pl: 'm_pl', m_ll: 'm_ll', m_ab: 'm_ab', tag: 'm_tag', door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
+const ICON = { note: 'note', m_obj: 'm_obj', m_g: 'm_g', m_pp: 'm_pp', m_pl: 'm_pl', m_ll: 'm_ll', m_ab: 'm_ab', tag: 'm_tag', door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
 const svg = k => `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[k] || ''}</svg>`;
 
 /* ---------- belge ---------- */
@@ -25,10 +25,11 @@ let CACHE = { v: -1 };
 function invalidate() { CACHE = { v: -1 }; }
 function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.stringify(D)); if (hist.length > 300) hist.shift(); hi = hist.length - 1; save(); render(); }
 function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut, mtool: S.mtool, nameNext: S.nameNext, showNames: S.showNames, mode: S.mode, vis: S.vis })); } catch (e) { } }
-function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; hist = [JSON.stringify(D)]; hi = 0; }
+function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; D.notes = D.notes || []; hist = [JSON.stringify(D)]; hi = 0; }
 function undo() {
   if (S.chain && S.chain.pts.length === 1) { S.chain = null; ui(); render(); return; }
   if (S.cir) { S.cir = null; ui(); render(); return; } if (S.arc) { S.arc.pts.pop(); if (!S.arc.pts.length) S.arc = null; ui(); render(); return; }
+  if (S.selNote) { noteClose(); return; }
   if (S.mq) { if (measDone()) { S.mv = null; } S.mq.picks.pop(); if (!S.mq.picks.length) S.mq = null; ui(); render(); return; }
   if (S.opA) { S.opA = null; render(); return; }
   if (hi <= 0) return; hi--; D = JSON.parse(hist[hi]); D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; invalidate(); if (S.selOp && !opById(S.selOp)) S.selOp = null; S.selMeas = null; S.selName = null; S.mv = null;
@@ -330,6 +331,7 @@ function applyJoin(r) { const i = Math.min(...r.used.map(e => D.ents.indexOf(e))
 
 /* ---------- araç seçimi ---------- */
 function setTool(t, quiet) {
+  if (S.selNote) noteClose();
   S.full = false; S.capAsk = null; S.acq = []; S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
   if (DRAW.includes(t)) S.draw = t; if (EDIT.includes(t)) S.edit = t; if (OPEN.includes(t)) S.open = t; if (MEAS.includes(t)) S.mtool = t; S.opA = null; S.mq = null; S.mv = null; S.selMeas = null; S.selName = null; if (t !== 'sec') S.selOp = null;
   if (!quiet && ['erase', 'explode', 'join'].includes(t) && S.sel.size) {
@@ -356,7 +358,7 @@ function ui() {
   else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + verD;
   if (S.fly) {
     let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'set') { const v = S.setStr !== '' ? S.setStr : String(Math.round(S.thMax * 100)); h = `<div class="lab">${svg('wallth')}</div><div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'].map(k => `<button class="num k" data-a="sk:${k}">${k}</button>`).join('') + btn('skback', 'clr') + btn('skok', 'ok', false, 'okb') + btn('scut', 'offcut', S.autoCut, 'sn wide'); }
-    if (S.fly === 'vis') h = btn('tgn', 'pts', S.showNames, 'sn') + btn('v:olcu', 'v_olcu', S.vis.olcu, 'sn') + btn('v:gonye', 'v_gonye', S.vis.gonye, 'sn') + btn('v:dik', 'v_dik', S.vis.dik, 'sn');
+    if (S.fly === 'vis') h = btn('tgn', 'pts', S.showNames, 'sn') + btn('v:olcu', 'v_olcu', S.vis.olcu, 'sn') + btn('v:gonye', 'v_gonye', S.vis.gonye, 'sn') + btn('v:dik', 'v_dik', S.vis.dik, 'sn') + btn('v:not', 'v_not', S.vis.not !== 0, 'sn');
     if (S.fly === 'open') h = OPEN.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'file') h = btn('exp', 'exp') + btn('imp', 'imp') + btn('new', 'newdoc', false, S.arm > Date.now() ? 'dng' : ''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
     fly.innerHTML = h; fly.className = S.fly === 'set' ? 'g3' : ''; fly.style.display = S.fly === 'set' ? 'grid' : 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
   } else fly.style.display = 'none';
@@ -366,6 +368,7 @@ function ui() {
     qp.innerHTML = `<div class="sum">${S.sum || 0}</div><button class="num" data-a="q:10">10</button><button class="num" data-a="q:50">50</button><button class="num" data-a="q:100">100</button>${btn('qback', 'clr')}` + ar.map(k => btn('qa:' + k, k, false, S.sum ? '' : 'dis')).join('') + (c ? btn('qok', 'ok', false, 'okb') : '');
     qp.style.display = 'grid';
   } else qp.style.display = 'none';
+  const ntp = document.getElementById('ntp'), nth = notePanel(), nsig = S.selNote + '|' + !!S.fly; if (ntp.dataset.sig !== nsig || !nth) { ntp.innerHTML = nth; ntp.dataset.sig = nsig; } ntp.style.display = nth ? 'flex' : 'none';
   const mp = document.getElementById('mp'), mh = measPanel(); mp.innerHTML = mh; mp.style.display = mh ? 'grid' : 'none';
   const nmp = document.getElementById('nmp'), nh = namePanel(), sig = S.tool + '|' + S.selName + '|' + !!S.fly; if (nmp.dataset.sig !== sig || !nh) { nmp.innerHTML = nh; nmp.dataset.sig = sig; const inp = document.getElementById('nmIn'); if (inp) { inp.addEventListener('input', () => { const n = S.selName && nameList().find(x => x.id === S.selName); if (n) { n.n = inp.value.trim() || n.n; render(); } else { S.nameNext = inp.value.trim(); save(); } }); inp.addEventListener('change', () => { if (S.selName) commit(); }); } } nmp.style.display = nh ? 'flex' : 'none';
   const opp = document.getElementById('opp'), oh = S.capAsk && !S.fly ? btn('capY', 'cap', false, 'okb') + btn('capN', 'nocap') : opPanel(); opp.innerHTML = oh; opp.style.display = oh ? 'grid' : 'none';
@@ -380,6 +383,8 @@ function onBtn(a) {
   if (a === 'mode') { S.mode = S.mode === 'o' ? 'k' : 'o'; S.fly = null; setTool(S.mode === 'o' ? S.mtool : 'sec'); return; }
   if (a.startsWith('v:')) { const k = a.slice(2); S.vis[k] = S.vis[k] ? 0 : 1; save(); ui(); render(); return; }
   if (a === 'capY' || a === 'capN') { capAnswer(a === 'capY'); return; }
+  if (a === 'ntok') { noteClose(); return; }
+  if (a === 'ntdel') { const n = noteList().find(x => x.id === S.selNote); if (n) n.s = ''; noteClose(false); return; }
   if (measBtn(a)) return;
   if (a === 'tgn') { S.showNames = !S.showNames; save(); ui(); render(); return; } /* pencere açık kalır */
   if (a === 'ndel') { D.names = nameList().filter(n => n.id !== S.selName); S.selName = null; commit(); ui(); return; }
@@ -427,7 +432,7 @@ function render() {
   cx.lineWidth = 1.6; cx.lineJoin = 'round'; cx.lineCap = 'round';
   D.ents.forEach(e => { const sel = S.sel.has(e.id), pk = S.pick && S.pick.id === e.id; cx.strokeStyle = pk ? '#f5a623' : sel ? '#6fb0ff' : e.imp ? '#6b7480' : '#e8e8e8'; if (e.t === 'pt') { const s = w2s(...e.p); cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(s[0] - 4, s[1] - 4); cx.lineTo(s[0] + 4, s[1] + 4); cx.moveTo(s[0] + 4, s[1] - 4); cx.lineTo(s[0] - 4, s[1] + 4); cx.stroke(); return; } cx.lineWidth = sel || pk ? 2.6 : 1.6; cx.setLineDash(sel ? [8, 5] : []); pathEnt(e); cx.stroke(); });
   cx.setLineDash([]);
-  drawOps(); drawMeas(); drawNames();
+  drawOps(); drawMeas(); drawNames(); drawNotes();
   if (S.capAsk) S.capAsk.pairs.forEach(([a, b]) => { const p = w2s(...b), q = w2s(...a); cx.strokeStyle = '#ffcf70'; cx.lineWidth = 2; cx.setLineDash([4, 3]); cx.beginPath(); cx.moveTo(...q); cx.lineTo(...p); cx.stroke(); cx.setLineDash([]); cx.beginPath(); cx.arc(p[0], p[1], 9, 0, TAU); cx.stroke(); });
   if (S.flash) { const cols = ['#4cd964', '#ffcf70']; let k = 0; S.flash.ids.forEach(id => { const e = entById(id); if (!e) return; cx.strokeStyle = cols[(k++) % 2]; cx.lineWidth = 4; pathEnt(e); cx.stroke(); if (S.flash.dots) chainEnds(e).forEach(p => { const s = w2s(...p); cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(s[0], s[1], 4.5, 0, TAU); cx.fill(); }); }); }
   if (S.preview) { cx.strokeStyle = '#4cd964'; cx.lineWidth = 1.6; S.preview.forEach(e => { pathEnt(e); cx.stroke(); }); }
@@ -466,7 +471,7 @@ function loupe(p) {
   cx.restore(); cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.strokeStyle = '#7dffb0'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, R, 0, TAU); cx.stroke(); cx.strokeStyle = 'rgba(125,255,176,.6)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(x - 8, y); cx.lineTo(x + 8, y); cx.moveTo(x, y - 8); cx.lineTo(x, y + 8); cx.stroke();
 }
 
-window.CAD = { LZ, laserValue, measList, nameList, get D() { return D; }, set D(v) { D = v; D.ops = D.ops || []; invalidate(); }, makeDXF, importDXF, parseDXF, pointNames, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
+window.CAD = { noteList, LZ, laserValue, measList, nameList, get D() { return D; }, set D(v) { D = v; D.ops = D.ops || []; invalidate(); }, makeDXF, importDXF, parseDXF, pointNames, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
 addEventListener('resize', resize);
 document.getElementById('fileIn').addEventListener('change', async ev => { const f = ev.target.files[0]; if (!f) return; try { importDXF(await f.text()); } catch (er) { flash(); } ev.target.value = ''; });
 load(); ui(); resize();

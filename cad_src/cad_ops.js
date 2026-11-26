@@ -120,6 +120,7 @@ function makeDXF() {
   PN.forEach(t => { const ly = t.user ? 'NOKTA_AD' : 'NOKTA_X'; point(ly, t.p); text(ly, [t.p[0] + 0.05, t.p[1] + 0.05], 0.1, t.name); });
   const measOut = (cat, ly) => ML.filter(o => o.cat === cat).forEach(o => { o.lines.forEach(([a, b]) => line(ly, a, b)); text(ly, o.at, 0.08, o.txt + (o.src === 'laser' ? ' L' : '')); });
   measOut('olcu', 'OLCU');
+  noteList().forEach(n => { if (!n.s) return; point('NOT', n.p); n.s.split('\n').forEach((ln, i) => { if (ln.trim()) text('NOT', [n.p[0] + 0.08, n.p[1] - 0.15 * i], 0.1, ln.slice(0, 250)); }); });
   /* PC programı için gizli bilgi (META katmanı donuk): kapı/pencere hangi iki noktaya bağlı */
   opsList().forEach(o => text('META', o.a, 0.05, `OP ${bname[o.id]} ${nameOf(o.a)} ${nameOf(o.b)} ${o.t}`));
   /* kopya 2 ve 3: aynı çizim sağa kaydırılmış — gönye, dik ayak/dik boy */
@@ -133,7 +134,7 @@ function makeDXF() {
     text(ly, [x0, yT + 0.4], 0.25, title);
   });
   OX = 0;
-  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA_AD', 3], ['NOKTA_X', 1], ['OLCU', 30], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
+  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA_AD', 3], ['NOKTA_X', 1], ['OLCU', 30], ['NOT', 2], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
   const H = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$DWGCODEPAGE', '3', 'ANSI_1254', '0', 'ENDSEC', '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(LY.length + 1)];
   LY.push(['META', 8]); LY.forEach(([n, c]) => H.push('0', 'LAYER', '2', n, '70', n === 'META' ? '1' : '0', '62', String(c), '6', 'CONTINUOUS')); H.push('0', 'ENDTAB', '0', 'TABLE', '2', 'STYLE', '70', '1', '0', 'STYLE', '2', 'ARIAL', '70', '0', '40', '0', '41', '1', '50', '0', '71', '0', '42', '0.1', '3', 'arial.ttf', '4', '', '0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'BLOCKS'); B.forEach(x => H.push(x)); H.push('0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
   return H.concat(E, ['0', 'ENDSEC', '0', 'EOF']).join('\r\n') + '\r\n';

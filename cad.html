@@ -34,12 +34,16 @@ html,body{height:100%;overflow:hidden;background:#121417;overscroll-behavior:non
 .b.bt{background:#1e5a3a;color:#7dffb0}.b.btw{background:#5a4a1e;color:#ffd27a}.b.btx{background:#5a1f24;color:#ff9b9b}.b.bt0{background:#262b33;color:#8a929c}.b.las{background:#3a2a10;color:#ffb347}
 #nmp{position:fixed;z-index:10;right:68px;bottom:calc(env(safe-area-inset-bottom) + 12px);display:none;gap:6px;padding:6px;background:rgba(30,34,40,.94);border-radius:14px;align-items:center}
 .nmin{width:110px;height:44px;border:0;border-radius:10px;background:#2a2f37;color:#7dffb0;font:bold 20px Arial;text-align:center;-webkit-user-select:text;user-select:text}.nmin.sel{color:#ffd27a;outline:2px solid #ffd27a}
+#ntp{position:fixed;z-index:25;right:68px;top:calc(env(safe-area-inset-top) + 8px);display:none;gap:6px;padding:6px;background:rgba(30,34,40,.96);border-radius:14px;align-items:stretch}
+#ntIn{width:min(230px,calc(100vw - 150px));border:0;border-radius:10px;background:#2a2f37;color:#ffd84d;font:16px Arial;padding:8px;resize:none;-webkit-user-select:text;user-select:text}
+.ntb{display:flex;flex-direction:column;gap:6px}
+@media (max-height:720px){#col .b{height:40px;flex:0 0 40px}#col{gap:3px}}
 .b.dng{background:#5a1f24;color:#ff9b9b}
 .num.k{background:#2a2f37;color:#e8e8e8}
 </style></head><body>
-<canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div><div id="opp"></div><div id="mp"></div><div id="nmp"></div><input type="file" id="fileIn" accept=".dxf,.DXF" style="display:none">
+<canvas id="cv"></canvas><div id="col"></div><div id="fly"></div><div id="qp"></div><div id="np"></div><div id="opp"></div><div id="mp"></div><div id="nmp"></div><div id="ntp"></div><input type="file" id="fileIn" accept=".dxf,.DXF" style="display:none">
 <script>
-const ICONS = {"line": "<line x1=\"5\" y1=\"19\" x2=\"19\" y2=\"5\"/><circle cx=\"5\" cy=\"19\" r=\"2\" fill=\"currentColor\"/><circle cx=\"19\" cy=\"5\" r=\"2\" fill=\"currentColor\"/>", "pline": "<polyline points=\"3,19 8,8 14,15 21,5\" fill=\"none\"/><circle cx=\"3\" cy=\"19\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"21\" cy=\"5\" r=\"1.6\" fill=\"currentColor\"/>", "circle": "<circle cx=\"12\" cy=\"12\" r=\"8\" fill=\"none\"/><circle cx=\"12\" cy=\"12\" r=\"1.3\" fill=\"currentColor\"/>", "arc": "<path d=\"M4 18 A9 9 0 0 1 20 18\" fill=\"none\"/><circle cx=\"4\" cy=\"18\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"20\" cy=\"18\" r=\"1.6\" fill=\"currentColor\"/>", "offset": "<line x1=\"4\" y1=\"8\" x2=\"20\" y2=\"8\"/><line x1=\"4\" y1=\"17\" x2=\"20\" y2=\"17\" stroke-dasharray=\"3 2\"/><path d=\"M12 9.5v5M10 12.5l2 2 2-2\" fill=\"none\"/>", "fillet": "<path d=\"M4 4v9a7 7 0 0 0 7 7h9\" fill=\"none\"/>", "stretch": "<polyline points=\"4,20 4,9 15,9\" fill=\"none\" stroke-dasharray=\"2.5 2\"/><polyline points=\"4,20 9,4 15,9\" fill=\"none\"/><rect x=\"7\" y=\"2\" width=\"4\" height=\"4\" fill=\"currentColor\"/>", "trim": "<line x1=\"12\" y1=\"3\" x2=\"12\" y2=\"21\"/><line x1=\"3\" y1=\"12\" x2=\"10\" y2=\"12\"/><line x1=\"14\" y1=\"12\" x2=\"21\" y2=\"12\" stroke-dasharray=\"2 2\" opacity=\".5\"/><path d=\"M16 9l4 6M20 9l-4 6\"/>", "extend": "<line x1=\"20\" y1=\"3\" x2=\"20\" y2=\"21\"/><line x1=\"3\" y1=\"12\" x2=\"10\" y2=\"12\"/><path d=\"M10 12h8M15 9l3 3-3 3\" fill=\"none\" stroke-dasharray=\"2 1.5\"/>", "move": "<path d=\"M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3\" fill=\"none\"/>", "erase": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "door": "<line x1=\"3\" y1=\"20\" x2=\"21\" y2=\"20\"/><line x1=\"7\" y1=\"20\" x2=\"7\" y2=\"7\"/><path d=\"M7 7a13 13 0 0 1 12 13\" fill=\"none\" stroke-dasharray=\"2 1.5\"/>", "window": "<rect x=\"3\" y=\"9\" width=\"18\" height=\"6\" fill=\"none\"/><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"/>", "laser": "<rect x=\"2\" y=\"9\" width=\"7\" height=\"6\" rx=\"1\" fill=\"none\"/><path d=\"M9 12h12\" stroke-dasharray=\"2 2\"/><circle cx=\"21\" cy=\"12\" r=\"1.6\" fill=\"#e33\"/>", "undo": "<path d=\"M9 8H4V3M4 8a8 8 0 1 1-1 7\" fill=\"none\"/>", "redo": "<path d=\"M15 8h5V3M20 8a8 8 0 1 0 1 7\" fill=\"none\"/>", "s_end": "<rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" fill=\"none\"/>", "s_mid": "<polygon points=\"12,5 19,18 5,18\" fill=\"none\"/>", "s_near": "<path d=\"M6 6h12L6 18h12z\" fill=\"none\"/>", "s_orth": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"4\" opacity=\".5\"/><path d=\"M8 16l5 5M10.5 18.5l2.5-2.5 2.5 2.5\" fill=\"none\"/>", "s_xy": "<path d=\"M5 3v16h16\" fill=\"none\"/><path d=\"M5 3l-2 3M5 3l2 3M21 19l-3-2M21 19l-3 2\" fill=\"none\"/>", "imp": "<path d=\"M12 3v11M8 10l4 4 4-4M4 16v4h16v-4\" fill=\"none\"/>", "exp": "<path d=\"M12 14V3M8 7l4-4 4 4M4 16v4h16v-4\" fill=\"none\"/>", "fit": "<path d=\"M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5\" fill=\"none\"/>", "pts": "<circle cx=\"6\" cy=\"17\" r=\"2.2\" fill=\"currentColor\"/><path d=\"M8.5 14.5l3-3\"/><rect x=\"11.5\" y=\"4.5\" width=\"9\" height=\"6\" rx=\"1.5\" fill=\"none\"/>", "gear": "<circle cx=\"12\" cy=\"12\" r=\"3.2\" fill=\"none\"/><path d=\"M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1\"/>", "left": "<path d=\"M19 18V10H6M10 6L6 10l4 4\" fill=\"none\"/>", "right": "<path d=\"M5 18V10h13M14 6l4 4-4 4\" fill=\"none\"/>", "up": "<path d=\"M12 20V5M7 10l5-5 5 5\" fill=\"none\"/>", "down": "<path d=\"M12 4v15M7 14l5 5 5-5\" fill=\"none\"/>", "ok": "<path d=\"M4 13l5 5L20 6\" fill=\"none\"/>", "clr": "<path d=\"M9 5h11v14H9l-6-7z\" fill=\"none\"/><path d=\"M12 9l5 6M17 9l-5 6\"/>", "sel": "<path d=\"M5 3l14 8-6 1.5L10 19z\" fill=\"none\"/>", "draw": "<path d=\"M4 20l3-1L19 7l-2-2L5 17z\" fill=\"none\"/><path d=\"M15 7l2 2\"/>", "edit": "<path d=\"M6 4l12 16M18 4L6 20\" opacity=\".0\"/><circle cx=\"7\" cy=\"17\" r=\"3\" fill=\"none\"/><circle cx=\"17\" cy=\"17\" r=\"3\" fill=\"none\"/><path d=\"M9 15L17 4M15 15L7 4\" fill=\"none\"/>", "snap": "<rect x=\"7\" y=\"7\" width=\"10\" height=\"10\" fill=\"none\"/><path d=\"M12 2v4M12 18v4M2 12h4M18 12h4\"/>", "explode": "<path d=\"M12 12l-6-6M12 12l6-6M12 12l-6 6M12 12l6 6\"/><circle cx=\"12\" cy=\"12\" r=\"2\" fill=\"currentColor\"/>", "join": "<polyline points=\"3,18 9,8\" /><polyline points=\"15,8 21,18\"/><path d=\"M9 8h6\" stroke-dasharray=\"2 2\"/><circle cx=\"9\" cy=\"8\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"8\" r=\"1.6\" fill=\"currentColor\"/>", "copy": "<rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" fill=\"none\"/><path d=\"M4 16V4h12\" fill=\"none\"/>", "trk": "<line x1=\"3\" y1=\"12\" x2=\"13\" y2=\"12\"/><line x1=\"13\" y1=\"12\" x2=\"22\" y2=\"12\" stroke-dasharray=\"2 2\"/><path d=\"M17 8l4 4-4 4\" fill=\"none\" opacity=\".0\"/><circle cx=\"13\" cy=\"12\" r=\"1.8\" fill=\"currentColor\"/>", "s_int": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "menu": "<path d=\"M4 7h16M4 12h16M4 17h16\"/>", "folder": "<path d=\"M3 6h6l2 2h10v11H3z\" fill=\"none\"/>", "newdoc": "<path d=\"M6 3h8l4 4v14H6z\" fill=\"none\"/><path d=\"M12 10v6M9 13h6\"/>", "dhinge": "<path d=\"M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4\" fill=\"none\"/>", "dswing": "<path d=\"M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4\" fill=\"none\"/>", "wallth": "<path d=\"M4 5h16M4 19h16\"/><path d=\"M12 8v8M9.5 10.5L12 8l2.5 2.5M9.5 13.5L12 16l2.5-2.5\" fill=\"none\"/>", "flat": "<path d=\"M3 8h6v6h6V8h6\" fill=\"none\" stroke-dasharray=\"2.5 2\" opacity=\".55\"/><path d=\"M3 8h18\"/><path d=\"M12 18v-3M10 16.5l2-2 2 2\" fill=\"none\"/>", "offcut": "<line x1=\"4\" y1=\"7\" x2=\"20\" y2=\"7\"/><path d=\"M4 16h6M14 16h6\" /><path d=\"M12 13v6\" stroke-dasharray=\"1.5 1.5\"/><path d=\"M10.5 12.5l3 3M13.5 12.5l-3 3\" opacity=\"0\"/>", "m_pp": "<circle cx=\"5\" cy=\"17\" r=\"2\" fill=\"currentColor\"/><circle cx=\"19\" cy=\"7\" r=\"2\" fill=\"currentColor\"/><path d=\"M6.5 16L17.5 8\" stroke-dasharray=\"2.5 2\"/>", "m_pl": "<line x1=\"18\" y1=\"3\" x2=\"18\" y2=\"21\"/><circle cx=\"5\" cy=\"12\" r=\"2\" fill=\"currentColor\"/><path d=\"M7 12h11\" stroke-dasharray=\"2.5 2\"/><path d=\"M15 12v-3h3\" fill=\"none\"/>", "m_ll": "<line x1=\"5\" y1=\"3\" x2=\"5\" y2=\"21\"/><line x1=\"19\" y1=\"3\" x2=\"19\" y2=\"21\"/><path d=\"M5 12h14\" stroke-dasharray=\"2.5 2\"/><path d=\"M8 9.5L5 12l3 2.5M16 9.5l3 2.5-3 2.5\" fill=\"none\"/>", "m_ab": "<line x1=\"3\" y1=\"19\" x2=\"21\" y2=\"19\"/><circle cx=\"4\" cy=\"19\" r=\"1.8\" fill=\"currentColor\"/><path d=\"M4 15.5h10\" stroke-dasharray=\"2 2\"/><path d=\"M14 19V8\" stroke-dasharray=\"2.5 2\"/><circle cx=\"14\" cy=\"7\" r=\"2\" fill=\"currentColor\"/>", "m_tag": "<path d=\"M3 12l7-7h9v9l-7 7z\" fill=\"none\"/><circle cx=\"15\" cy=\"9\" r=\"1.5\" fill=\"currentColor\"/>", "bt": "<path d=\"M7 7l10 10-5 4V3l5 4L7 17\" fill=\"none\"/>", "mode_k": "<path d=\"M4 20l3-1L19 7l-2-2L5 17z\" fill=\"none\"/>", "mode_o": "<rect x=\"2\" y=\"8\" width=\"20\" height=\"8\" rx=\"1.5\" fill=\"none\"/><path d=\"M6 8v3M10 8v4M14 8v3M18 8v4\"/>", "m_obj": "<path d=\"M4 18L20 6\"/><circle cx=\"4\" cy=\"18\" r=\"1.8\" fill=\"currentColor\"/><circle cx=\"20\" cy=\"6\" r=\"1.8\" fill=\"currentColor\"/><path d=\"M5.5 11.5l3 3M14 3.5l3 3\" opacity=\".6\"/>", "m_g": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" fill=\"none\"/><path d=\"M4 20L20 4\" stroke-dasharray=\"2.5 2\"/>", "eye": "<path d=\"M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z\" fill=\"none\"/><circle cx=\"12\" cy=\"12\" r=\"2.8\" fill=\"none\"/>", "v_olcu": "<path d=\"M4 12h16\" stroke=\"#f5a623\" stroke-dasharray=\"3 2\"/><path d=\"M4 8v8M20 8v8\"/>", "v_gonye": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" fill=\"none\"/><path d=\"M4 20L20 4\" stroke=\"#5aa9ff\" stroke-dasharray=\"2.5 2\"/>", "v_dik": "<line x1=\"3\" y1=\"19\" x2=\"21\" y2=\"19\"/><path d=\"M4 19h10V8\" stroke=\"#c08bff\" stroke-dasharray=\"2.5 2\"/>", "cap": "<path d=\"M6 4v12a6 2 0 0 0 0 0h12V4\" fill=\"none\" stroke-dasharray=\"2.5 2\" opacity=\".5\"/><path d=\"M6 16h12\"/>", "nocap": "<path d=\"M6 6l12 12M18 6L6 18\"/>"};
+const ICONS = {"line": "<line x1=\"5\" y1=\"19\" x2=\"19\" y2=\"5\"/><circle cx=\"5\" cy=\"19\" r=\"2\" fill=\"currentColor\"/><circle cx=\"19\" cy=\"5\" r=\"2\" fill=\"currentColor\"/>", "pline": "<polyline points=\"3,19 8,8 14,15 21,5\" fill=\"none\"/><circle cx=\"3\" cy=\"19\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"21\" cy=\"5\" r=\"1.6\" fill=\"currentColor\"/>", "circle": "<circle cx=\"12\" cy=\"12\" r=\"8\" fill=\"none\"/><circle cx=\"12\" cy=\"12\" r=\"1.3\" fill=\"currentColor\"/>", "arc": "<path d=\"M4 18 A9 9 0 0 1 20 18\" fill=\"none\"/><circle cx=\"4\" cy=\"18\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"20\" cy=\"18\" r=\"1.6\" fill=\"currentColor\"/>", "offset": "<line x1=\"4\" y1=\"8\" x2=\"20\" y2=\"8\"/><line x1=\"4\" y1=\"17\" x2=\"20\" y2=\"17\" stroke-dasharray=\"3 2\"/><path d=\"M12 9.5v5M10 12.5l2 2 2-2\" fill=\"none\"/>", "fillet": "<path d=\"M4 4v9a7 7 0 0 0 7 7h9\" fill=\"none\"/>", "stretch": "<polyline points=\"4,20 4,9 15,9\" fill=\"none\" stroke-dasharray=\"2.5 2\"/><polyline points=\"4,20 9,4 15,9\" fill=\"none\"/><rect x=\"7\" y=\"2\" width=\"4\" height=\"4\" fill=\"currentColor\"/>", "trim": "<line x1=\"12\" y1=\"3\" x2=\"12\" y2=\"21\"/><line x1=\"3\" y1=\"12\" x2=\"10\" y2=\"12\"/><line x1=\"14\" y1=\"12\" x2=\"21\" y2=\"12\" stroke-dasharray=\"2 2\" opacity=\".5\"/><path d=\"M16 9l4 6M20 9l-4 6\"/>", "extend": "<line x1=\"20\" y1=\"3\" x2=\"20\" y2=\"21\"/><line x1=\"3\" y1=\"12\" x2=\"10\" y2=\"12\"/><path d=\"M10 12h8M15 9l3 3-3 3\" fill=\"none\" stroke-dasharray=\"2 1.5\"/>", "move": "<path d=\"M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3\" fill=\"none\"/>", "erase": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "door": "<line x1=\"3\" y1=\"20\" x2=\"21\" y2=\"20\"/><line x1=\"7\" y1=\"20\" x2=\"7\" y2=\"7\"/><path d=\"M7 7a13 13 0 0 1 12 13\" fill=\"none\" stroke-dasharray=\"2 1.5\"/>", "window": "<rect x=\"3\" y=\"9\" width=\"18\" height=\"6\" fill=\"none\"/><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"/>", "laser": "<rect x=\"2\" y=\"9\" width=\"7\" height=\"6\" rx=\"1\" fill=\"none\"/><path d=\"M9 12h12\" stroke-dasharray=\"2 2\"/><circle cx=\"21\" cy=\"12\" r=\"1.6\" fill=\"#e33\"/>", "undo": "<path d=\"M9 8H4V3M4 8a8 8 0 1 1-1 7\" fill=\"none\"/>", "redo": "<path d=\"M15 8h5V3M20 8a8 8 0 1 0 1 7\" fill=\"none\"/>", "s_end": "<rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" fill=\"none\"/>", "s_mid": "<polygon points=\"12,5 19,18 5,18\" fill=\"none\"/>", "s_near": "<path d=\"M6 6h12L6 18h12z\" fill=\"none\"/>", "s_orth": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"4\" opacity=\".5\"/><path d=\"M8 16l5 5M10.5 18.5l2.5-2.5 2.5 2.5\" fill=\"none\"/>", "s_xy": "<path d=\"M5 3v16h16\" fill=\"none\"/><path d=\"M5 3l-2 3M5 3l2 3M21 19l-3-2M21 19l-3 2\" fill=\"none\"/>", "imp": "<path d=\"M12 3v11M8 10l4 4 4-4M4 16v4h16v-4\" fill=\"none\"/>", "exp": "<path d=\"M12 14V3M8 7l4-4 4 4M4 16v4h16v-4\" fill=\"none\"/>", "fit": "<path d=\"M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5\" fill=\"none\"/>", "pts": "<circle cx=\"6\" cy=\"17\" r=\"2.2\" fill=\"currentColor\"/><path d=\"M8.5 14.5l3-3\"/><rect x=\"11.5\" y=\"4.5\" width=\"9\" height=\"6\" rx=\"1.5\" fill=\"none\"/>", "gear": "<circle cx=\"12\" cy=\"12\" r=\"3.2\" fill=\"none\"/><path d=\"M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1\"/>", "left": "<path d=\"M19 18V10H6M10 6L6 10l4 4\" fill=\"none\"/>", "right": "<path d=\"M5 18V10h13M14 6l4 4-4 4\" fill=\"none\"/>", "up": "<path d=\"M12 20V5M7 10l5-5 5 5\" fill=\"none\"/>", "down": "<path d=\"M12 4v15M7 14l5 5 5-5\" fill=\"none\"/>", "ok": "<path d=\"M4 13l5 5L20 6\" fill=\"none\"/>", "clr": "<path d=\"M9 5h11v14H9l-6-7z\" fill=\"none\"/><path d=\"M12 9l5 6M17 9l-5 6\"/>", "sel": "<path d=\"M5 3l14 8-6 1.5L10 19z\" fill=\"none\"/>", "draw": "<path d=\"M4 20l3-1L19 7l-2-2L5 17z\" fill=\"none\"/><path d=\"M15 7l2 2\"/>", "edit": "<path d=\"M6 4l12 16M18 4L6 20\" opacity=\".0\"/><circle cx=\"7\" cy=\"17\" r=\"3\" fill=\"none\"/><circle cx=\"17\" cy=\"17\" r=\"3\" fill=\"none\"/><path d=\"M9 15L17 4M15 15L7 4\" fill=\"none\"/>", "snap": "<rect x=\"7\" y=\"7\" width=\"10\" height=\"10\" fill=\"none\"/><path d=\"M12 2v4M12 18v4M2 12h4M18 12h4\"/>", "explode": "<path d=\"M12 12l-6-6M12 12l6-6M12 12l-6 6M12 12l6 6\"/><circle cx=\"12\" cy=\"12\" r=\"2\" fill=\"currentColor\"/>", "join": "<polyline points=\"3,18 9,8\" /><polyline points=\"15,8 21,18\"/><path d=\"M9 8h6\" stroke-dasharray=\"2 2\"/><circle cx=\"9\" cy=\"8\" r=\"1.6\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"8\" r=\"1.6\" fill=\"currentColor\"/>", "copy": "<rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" fill=\"none\"/><path d=\"M4 16V4h12\" fill=\"none\"/>", "trk": "<line x1=\"3\" y1=\"12\" x2=\"13\" y2=\"12\"/><line x1=\"13\" y1=\"12\" x2=\"22\" y2=\"12\" stroke-dasharray=\"2 2\"/><path d=\"M17 8l4 4-4 4\" fill=\"none\" opacity=\".0\"/><circle cx=\"13\" cy=\"12\" r=\"1.8\" fill=\"currentColor\"/>", "s_int": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "menu": "<path d=\"M4 7h16M4 12h16M4 17h16\"/>", "folder": "<path d=\"M3 6h6l2 2h10v11H3z\" fill=\"none\"/>", "newdoc": "<path d=\"M6 3h8l4 4v14H6z\" fill=\"none\"/><path d=\"M12 10v6M9 13h6\"/>", "dhinge": "<path d=\"M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4\" fill=\"none\"/>", "dswing": "<path d=\"M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4\" fill=\"none\"/>", "wallth": "<path d=\"M4 5h16M4 19h16\"/><path d=\"M12 8v8M9.5 10.5L12 8l2.5 2.5M9.5 13.5L12 16l2.5-2.5\" fill=\"none\"/>", "flat": "<path d=\"M3 8h6v6h6V8h6\" fill=\"none\" stroke-dasharray=\"2.5 2\" opacity=\".55\"/><path d=\"M3 8h18\"/><path d=\"M12 18v-3M10 16.5l2-2 2 2\" fill=\"none\"/>", "offcut": "<line x1=\"4\" y1=\"7\" x2=\"20\" y2=\"7\"/><path d=\"M4 16h6M14 16h6\" /><path d=\"M12 13v6\" stroke-dasharray=\"1.5 1.5\"/><path d=\"M10.5 12.5l3 3M13.5 12.5l-3 3\" opacity=\"0\"/>", "m_pp": "<circle cx=\"5\" cy=\"17\" r=\"2\" fill=\"currentColor\"/><circle cx=\"19\" cy=\"7\" r=\"2\" fill=\"currentColor\"/><path d=\"M6.5 16L17.5 8\" stroke-dasharray=\"2.5 2\"/>", "m_pl": "<line x1=\"18\" y1=\"3\" x2=\"18\" y2=\"21\"/><circle cx=\"5\" cy=\"12\" r=\"2\" fill=\"currentColor\"/><path d=\"M7 12h11\" stroke-dasharray=\"2.5 2\"/><path d=\"M15 12v-3h3\" fill=\"none\"/>", "m_ll": "<line x1=\"5\" y1=\"3\" x2=\"5\" y2=\"21\"/><line x1=\"19\" y1=\"3\" x2=\"19\" y2=\"21\"/><path d=\"M5 12h14\" stroke-dasharray=\"2.5 2\"/><path d=\"M8 9.5L5 12l3 2.5M16 9.5l3 2.5-3 2.5\" fill=\"none\"/>", "m_ab": "<line x1=\"3\" y1=\"19\" x2=\"21\" y2=\"19\"/><circle cx=\"4\" cy=\"19\" r=\"1.8\" fill=\"currentColor\"/><path d=\"M4 15.5h10\" stroke-dasharray=\"2 2\"/><path d=\"M14 19V8\" stroke-dasharray=\"2.5 2\"/><circle cx=\"14\" cy=\"7\" r=\"2\" fill=\"currentColor\"/>", "m_tag": "<path d=\"M3 12l7-7h9v9l-7 7z\" fill=\"none\"/><circle cx=\"15\" cy=\"9\" r=\"1.5\" fill=\"currentColor\"/>", "bt": "<path d=\"M7 7l10 10-5 4V3l5 4L7 17\" fill=\"none\"/>", "mode_k": "<path d=\"M4 20l3-1L19 7l-2-2L5 17z\" fill=\"none\"/>", "mode_o": "<rect x=\"2\" y=\"8\" width=\"20\" height=\"8\" rx=\"1.5\" fill=\"none\"/><path d=\"M6 8v3M10 8v4M14 8v3M18 8v4\"/>", "m_obj": "<path d=\"M4 18L20 6\"/><circle cx=\"4\" cy=\"18\" r=\"1.8\" fill=\"currentColor\"/><circle cx=\"20\" cy=\"6\" r=\"1.8\" fill=\"currentColor\"/><path d=\"M5.5 11.5l3 3M14 3.5l3 3\" opacity=\".6\"/>", "m_g": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" fill=\"none\"/><path d=\"M4 20L20 4\" stroke-dasharray=\"2.5 2\"/>", "eye": "<path d=\"M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z\" fill=\"none\"/><circle cx=\"12\" cy=\"12\" r=\"2.8\" fill=\"none\"/>", "v_olcu": "<path d=\"M4 12h16\" stroke=\"#f5a623\" stroke-dasharray=\"3 2\"/><path d=\"M4 8v8M20 8v8\"/>", "v_gonye": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" fill=\"none\"/><path d=\"M4 20L20 4\" stroke=\"#5aa9ff\" stroke-dasharray=\"2.5 2\"/>", "v_dik": "<line x1=\"3\" y1=\"19\" x2=\"21\" y2=\"19\"/><path d=\"M4 19h10V8\" stroke=\"#c08bff\" stroke-dasharray=\"2.5 2\"/>", "cap": "<path d=\"M6 4v12a6 2 0 0 0 0 0h12V4\" fill=\"none\" stroke-dasharray=\"2.5 2\" opacity=\".5\"/><path d=\"M6 16h12\"/>", "nocap": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "note": "<path d=\"M5 3h10l4 4v14H5z\" fill=\"none\"/><path d=\"M15 3v4h4\"/><path d=\"M8 11h8M8 14.5h8M8 18h5\"/>", "v_not": "<path d=\"M5 3h10l4 4v14H5z\" fill=\"none\" stroke=\"#ffd84d\"/><path d=\"M8 11h8M8 14.5h8\" stroke=\"#ffd84d\"/>"};
 /* ROLEVE CAD — geometri çekirdeği (DOM yok). Birimler metre, y yukarı. */
 const TAU = Math.PI * 2, GE = 1e-9, CO = 1e-4;
 const vsub = (a, b) => [a[0] - b[0], a[1] - b[1]], vadd = (a, b) => [a[0] + b[0], a[1] + b[1]], vmul = (a, k) => [a[0] * k, a[1] * k];
@@ -455,6 +459,7 @@ function makeDXF() {
   PN.forEach(t => { const ly = t.user ? 'NOKTA_AD' : 'NOKTA_X'; point(ly, t.p); text(ly, [t.p[0] + 0.05, t.p[1] + 0.05], 0.1, t.name); });
   const measOut = (cat, ly) => ML.filter(o => o.cat === cat).forEach(o => { o.lines.forEach(([a, b]) => line(ly, a, b)); text(ly, o.at, 0.08, o.txt + (o.src === 'laser' ? ' L' : '')); });
   measOut('olcu', 'OLCU');
+  noteList().forEach(n => { if (!n.s) return; point('NOT', n.p); n.s.split('\n').forEach((ln, i) => { if (ln.trim()) text('NOT', [n.p[0] + 0.08, n.p[1] - 0.15 * i], 0.1, ln.slice(0, 250)); }); });
   /* PC programı için gizli bilgi (META katmanı donuk): kapı/pencere hangi iki noktaya bağlı */
   opsList().forEach(o => text('META', o.a, 0.05, `OP ${bname[o.id]} ${nameOf(o.a)} ${nameOf(o.b)} ${o.t}`));
   /* kopya 2 ve 3: aynı çizim sağa kaydırılmış — gönye, dik ayak/dik boy */
@@ -468,7 +473,7 @@ function makeDXF() {
     text(ly, [x0, yT + 0.4], 0.25, title);
   });
   OX = 0;
-  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA_AD', 3], ['NOKTA_X', 1], ['OLCU', 30], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
+  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA_AD', 3], ['NOKTA_X', 1], ['OLCU', 30], ['NOT', 2], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
   const H = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$DWGCODEPAGE', '3', 'ANSI_1254', '0', 'ENDSEC', '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(LY.length + 1)];
   LY.push(['META', 8]); LY.forEach(([n, c]) => H.push('0', 'LAYER', '2', n, '70', n === 'META' ? '1' : '0', '62', String(c), '6', 'CONTINUOUS')); H.push('0', 'ENDTAB', '0', 'TABLE', '2', 'STYLE', '70', '1', '0', 'STYLE', '2', 'ARIAL', '70', '0', '40', '0', '41', '1', '50', '0', '71', '0', '42', '0.1', '3', 'arial.ttf', '4', '', '0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'BLOCKS'); B.forEach(x => H.push(x)); H.push('0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
   return H.concat(E, ['0', 'ENDSEC', '0', 'EOF']).join('\r\n') + '\r\n';
@@ -525,19 +530,21 @@ function parseDXF(txt) {
 function importDXF(txt) { const list = parseDXF(txt); if (!list.length) { flash(); return 0; } list.forEach(e => { e.imp = true; addEnt(e); }); commit(); fit(); return list.length; }
 
 /* ROLEVE CAD — ölçü notları, nokta adları, lazer (çizimi hiç değiştirmez) */
-const MEAS = ['m_pp', 'm_obj', 'm_ll', 'm_ab', 'm_g', 'tag'];
+const MEAS = ['m_pp', 'm_obj', 'm_ll', 'm_ab', 'm_g', 'tag', 'note'];
 const MCAT = k => k === 'm_g' ? 'gonye' : k === 'm_ab' ? 'dik' : 'olcu';
 const MCOLS = { olcu: '#f5a623', gonye: '#5aa9ff', dik: '#c08bff' };
 const MCOL = '#f5a623';
 const cmS = m => String(Math.round(m * 1000) / 10);
 function measList() { return D.meas || (D.meas = []); }
 function nameList() { return D.names || (D.names = []); }
+function noteList() { return D.notes || (D.notes = []); }
 /* çizgiye bağlı tüm noktalar (kapı uçları, nokta adları, ölçü uçları) — geometri değişince birlikte gelir */
 function attPts() {
   const out = [];
   opsList().forEach(o => { out.push([o, 'a'], [o, 'b']); });
   nameList().forEach(n => out.push([n, 'p']));
   measList().forEach(m => m.pts.forEach((_, i) => out.push([m.pts, i])));
+  noteList().forEach(n => out.push([n, 'p']));
   return out;
 }
 function attMoveVertex(old, P) { attPts().forEach(([o, k]) => { if (vsame(o[k], old)) o[k] = cl(P); }); }
@@ -568,6 +575,7 @@ function measPts(q) { const out = []; q.picks.forEach(x => { if (x.p) out.push(x
 function measPlace(sn, X, Y) {
   const t = S.tool;
   if (t === 'tag') { tagPlace(sn, X, Y); return; }
+  if (t === 'note') { notePlace(sn, X, Y); return; }
   if ((!S.mq || !S.mq.picks.length || measDone()) && !['end', 'int', 'mid'].includes(sn.k)) { const mh = measHit(X, Y); if (mh) { S.mq = null; S.selMeas = S.selMeas === mh.m.id ? null : mh.m.id; S.mv = null; ui(); render(); return; } }
   S.selMeas = null; if (S.mv && S.mv.id) S.mv = null;
   if (!S.mq || (S.mq.k !== t && !(t === 'm_pp' && S.mq.k === 'm_pl')) || measDone()) S.mq = { k: t, picks: [], dir0: null };
@@ -615,7 +623,7 @@ function drawMeas() {
 }
 function measPanel() {
   const sm = S.selMeas && measById(S.selMeas);
-  if (S.fly || !(sm || (MEAS.includes(S.tool) && S.tool !== 'tag'))) return '';
+  if (S.fly || !(sm || (MEAS.includes(S.tool) && S.tool !== 'tag' && S.tool !== 'note'))) return '';
   if (sm && (!S.mv || S.mv.id !== sm.id)) S.mv = { id: sm.id, v: [sm.v == null ? '' : cmS(sm.v), sm.v2 == null ? '' : cmS(sm.v2)], act: 0, np: false };
   const done = sm || measDone(), two = sm ? sm.k === 'm_ab' : S.tool === 'm_ab';
   const st = LZ.state === 'bağlı' ? 'bt' : LZ.state === 'bağlanıyor' ? 'btw' : LZ.state === 'koptu' ? 'btx' : 'bt0';
@@ -662,7 +670,7 @@ function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = 
 function laserValue(m) {
   LZ.last = m; const s = cmS(m);
   if (S.selMeas && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
-  else if (MEAS.includes(S.tool) && S.tool !== 'tag' && measDone() && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
+  else if (MEAS.includes(S.tool) && S.tool !== 'tag' && S.tool !== 'note' && measDone() && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
   else LZ.pend = m;
   ui(); render();
 }
@@ -701,8 +709,34 @@ function measDXFLines(nameOf) {
   return out;
 }
 
+/* ---------- notlar: krokide yere iliştirilmiş serbest yazı ---------- */
+function noteHit(X, Y) { let best = null; noteList().forEach(n => { const s = w2s(...n.p); const d = Math.hypot(s[0] + 9 - X, s[1] - 9 - Y); if (d < 20 && (!best || d < best.d)) best = { n, d }; }); return best; }
+function notePlace(sn, X, Y) {
+  if (S.selNote) { noteClose(); return; }
+  const h = noteHit(X, Y); if (h) { S.selNote = h.n.id; S.noteNew = false; ui(); render(); noteFocus(); return; }
+  const n = { id: 'nt' + (D.nid++), p: cl(sn.k === 'free' ? s2w(X, Y) : sn.p), s: '' }; noteList().push(n); S.selNote = n.id; S.noteNew = true; ui(); render(); noteFocus();
+}
+function noteFocus() { const t = document.getElementById('ntIn'); if (t) { t.focus(); const v = t.value; t.setSelectionRange(v.length, v.length); } }
+function noteClose(save = true) {
+  const n = noteList().find(x => x.id === S.selNote); const t = document.getElementById('ntIn'); const old = n ? n.s : null, wasNew = S.noteNew;
+  if (n && t && save) n.s = t.value.replace(/\s+$/, '');
+  if (n && !n.s) D.notes = noteList().filter(x => x !== n);
+  S.selNote = null; S.noteNew = false; if (t) t.blur(); if (n && (n.s !== old || !n.s || wasNew) && !(wasNew && !n.s)) commit(); else render(); ui();
+}
+function notePanel() {
+  if (S.fly || S.tool !== 'note' || !S.selNote) return ''; const n = noteList().find(x => x.id === S.selNote); if (!n) return '';
+  return `<textarea id="ntIn" rows="4" spellcheck="true">${n.s.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea><div class="ntb">${btn('ntok', 'ok', false, 'okb')}${btn('ntdel', 'erase', false, 'dng')}</div>`;
+}
+function drawNotes() {
+  if (S.vis.not === 0) return; cx.font = 'bold 12px Arial'; cx.textBaseline = 'middle';
+  noteList().forEach(n => { const s = w2s(...n.p), sel = S.selNote === n.id; cx.strokeStyle = cx.fillStyle = sel ? '#fff' : '#ffd84d'; cx.lineWidth = 1.4;
+    cx.beginPath(); cx.moveTo(s[0], s[1]); cx.lineTo(s[0] + 4, s[1] - 4); cx.stroke(); cx.fillRect(s[0] + 3, s[1] - 16, 13, 13); cx.fillStyle = '#121417'; cx.fillRect(s[0] + 5, s[1] - 12, 9, 1.5); cx.fillRect(s[0] + 5, s[1] - 9, 9, 1.5); cx.fillRect(s[0] + 5, s[1] - 6, 6, 1.5);
+    const t = (n.s || '').split('\n')[0]; if (t) { const tt = t.length > 22 ? t.slice(0, 21) + '…' : t; const w = cx.measureText(tt).width + 6; cx.fillStyle = 'rgba(18,20,23,.85)'; cx.fillRect(s[0] + 18, s[1] - 18, w, 16); cx.fillStyle = sel ? '#fff' : '#ffd84d'; cx.fillText(tt, s[0] + 21, s[1] - 10); } });
+  cx.textBaseline = 'alphabetic';
+}
+
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.4';
+const VER = 'cad-2.5';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -712,11 +746,11 @@ const S = {
   tool: 'sec', draw: 'line', edit: 'offset', fly: null, sel: new Set(),
   chain: null, cir: null, arc: null, pick: null, sum: 0, sumH: [], offD: 0.2, offStr: '',
   snaps: { end: 1, mid: 1, near: 1, orth: 1, xy: 0, trk: 1 },
-  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1, mtool: 'm_pp', mq: null, mv: null, selMeas: null, selName: null, nameNext: '1', showNames: true, fm: null, mode: 'k', vis: { olcu: 1, gonye: 1, dik: 1 }, capAsk: null
+  cur: null, snap: null, drag: null, preview: null, hl: null, acq: [], flash: null, npOpen: false, open: 'door', selOp: null, opA: null, arm: 0, thMax: 0.6, setStr: '', autoCut: 1, mtool: 'm_pp', mq: null, mv: null, selMeas: null, selName: null, nameNext: '1', showNames: true, fm: null, mode: 'k', vis: { olcu: 1, gonye: 1, dik: 1, not: 1 }, capAsk: null, selNote: null, noteNew: false
 };
 const DRAW = ['line', 'pl', 'cir', 'arc'], EDIT = ['offset', 'trim', 'extend', 'fillet', 'flat', 'move', 'copy', 'explode', 'join', 'erase'];
 const SNAPK = [['end', 's_end'], ['mid', 's_mid'], ['near', 's_near'], ['orth', 's_orth'], ['xy', 's_xy'], ['trk', 'trk']];
-const ICON = { m_obj: 'm_obj', m_g: 'm_g', m_pp: 'm_pp', m_pl: 'm_pl', m_ll: 'm_ll', m_ab: 'm_ab', tag: 'm_tag', door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
+const ICON = { note: 'note', m_obj: 'm_obj', m_g: 'm_g', m_pp: 'm_pp', m_pl: 'm_pl', m_ll: 'm_ll', m_ab: 'm_ab', tag: 'm_tag', door: 'door', win: 'window', line: 'line', pl: 'pline', cir: 'circle', arc: 'arc', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet', flat: 'flat', move: 'move', copy: 'copy', explode: 'explode', join: 'join', erase: 'erase' };
 const svg = k => `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[k] || ''}</svg>`;
 
 /* ---------- belge ---------- */
@@ -728,10 +762,11 @@ let CACHE = { v: -1 };
 function invalidate() { CACHE = { v: -1 }; }
 function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.stringify(D)); if (hist.length > 300) hist.shift(); hi = hist.length - 1; save(); render(); }
 function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut, mtool: S.mtool, nameNext: S.nameNext, showNames: S.showNames, mode: S.mode, vis: S.vis })); } catch (e) { } }
-function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; hist = [JSON.stringify(D)]; hi = 0; }
+function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; D.notes = D.notes || []; hist = [JSON.stringify(D)]; hi = 0; }
 function undo() {
   if (S.chain && S.chain.pts.length === 1) { S.chain = null; ui(); render(); return; }
   if (S.cir) { S.cir = null; ui(); render(); return; } if (S.arc) { S.arc.pts.pop(); if (!S.arc.pts.length) S.arc = null; ui(); render(); return; }
+  if (S.selNote) { noteClose(); return; }
   if (S.mq) { if (measDone()) { S.mv = null; } S.mq.picks.pop(); if (!S.mq.picks.length) S.mq = null; ui(); render(); return; }
   if (S.opA) { S.opA = null; render(); return; }
   if (hi <= 0) return; hi--; D = JSON.parse(hist[hi]); D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; invalidate(); if (S.selOp && !opById(S.selOp)) S.selOp = null; S.selMeas = null; S.selName = null; S.mv = null;
@@ -1033,6 +1068,7 @@ function applyJoin(r) { const i = Math.min(...r.used.map(e => D.ents.indexOf(e))
 
 /* ---------- araç seçimi ---------- */
 function setTool(t, quiet) {
+  if (S.selNote) noteClose();
   S.full = false; S.capAsk = null; S.acq = []; S.chain = null; S.cir = null; S.arc = null; S.pick = null; S.sum = 0; S.sumH = [];
   if (DRAW.includes(t)) S.draw = t; if (EDIT.includes(t)) S.edit = t; if (OPEN.includes(t)) S.open = t; if (MEAS.includes(t)) S.mtool = t; S.opA = null; S.mq = null; S.mv = null; S.selMeas = null; S.selName = null; if (t !== 'sec') S.selOp = null;
   if (!quiet && ['erase', 'explode', 'join'].includes(t) && S.sel.size) {
@@ -1059,7 +1095,7 @@ function ui() {
   else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + verD;
   if (S.fly) {
     let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'set') { const v = S.setStr !== '' ? S.setStr : String(Math.round(S.thMax * 100)); h = `<div class="lab">${svg('wallth')}</div><div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'].map(k => `<button class="num k" data-a="sk:${k}">${k}</button>`).join('') + btn('skback', 'clr') + btn('skok', 'ok', false, 'okb') + btn('scut', 'offcut', S.autoCut, 'sn wide'); }
-    if (S.fly === 'vis') h = btn('tgn', 'pts', S.showNames, 'sn') + btn('v:olcu', 'v_olcu', S.vis.olcu, 'sn') + btn('v:gonye', 'v_gonye', S.vis.gonye, 'sn') + btn('v:dik', 'v_dik', S.vis.dik, 'sn');
+    if (S.fly === 'vis') h = btn('tgn', 'pts', S.showNames, 'sn') + btn('v:olcu', 'v_olcu', S.vis.olcu, 'sn') + btn('v:gonye', 'v_gonye', S.vis.gonye, 'sn') + btn('v:dik', 'v_dik', S.vis.dik, 'sn') + btn('v:not', 'v_not', S.vis.not !== 0, 'sn');
     if (S.fly === 'open') h = OPEN.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'file') h = btn('exp', 'exp') + btn('imp', 'imp') + btn('new', 'newdoc', false, S.arm > Date.now() ? 'dng' : ''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
     fly.innerHTML = h; fly.className = S.fly === 'set' ? 'g3' : ''; fly.style.display = S.fly === 'set' ? 'grid' : 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
   } else fly.style.display = 'none';
@@ -1069,6 +1105,7 @@ function ui() {
     qp.innerHTML = `<div class="sum">${S.sum || 0}</div><button class="num" data-a="q:10">10</button><button class="num" data-a="q:50">50</button><button class="num" data-a="q:100">100</button>${btn('qback', 'clr')}` + ar.map(k => btn('qa:' + k, k, false, S.sum ? '' : 'dis')).join('') + (c ? btn('qok', 'ok', false, 'okb') : '');
     qp.style.display = 'grid';
   } else qp.style.display = 'none';
+  const ntp = document.getElementById('ntp'), nth = notePanel(), nsig = S.selNote + '|' + !!S.fly; if (ntp.dataset.sig !== nsig || !nth) { ntp.innerHTML = nth; ntp.dataset.sig = nsig; } ntp.style.display = nth ? 'flex' : 'none';
   const mp = document.getElementById('mp'), mh = measPanel(); mp.innerHTML = mh; mp.style.display = mh ? 'grid' : 'none';
   const nmp = document.getElementById('nmp'), nh = namePanel(), sig = S.tool + '|' + S.selName + '|' + !!S.fly; if (nmp.dataset.sig !== sig || !nh) { nmp.innerHTML = nh; nmp.dataset.sig = sig; const inp = document.getElementById('nmIn'); if (inp) { inp.addEventListener('input', () => { const n = S.selName && nameList().find(x => x.id === S.selName); if (n) { n.n = inp.value.trim() || n.n; render(); } else { S.nameNext = inp.value.trim(); save(); } }); inp.addEventListener('change', () => { if (S.selName) commit(); }); } } nmp.style.display = nh ? 'flex' : 'none';
   const opp = document.getElementById('opp'), oh = S.capAsk && !S.fly ? btn('capY', 'cap', false, 'okb') + btn('capN', 'nocap') : opPanel(); opp.innerHTML = oh; opp.style.display = oh ? 'grid' : 'none';
@@ -1083,6 +1120,8 @@ function onBtn(a) {
   if (a === 'mode') { S.mode = S.mode === 'o' ? 'k' : 'o'; S.fly = null; setTool(S.mode === 'o' ? S.mtool : 'sec'); return; }
   if (a.startsWith('v:')) { const k = a.slice(2); S.vis[k] = S.vis[k] ? 0 : 1; save(); ui(); render(); return; }
   if (a === 'capY' || a === 'capN') { capAnswer(a === 'capY'); return; }
+  if (a === 'ntok') { noteClose(); return; }
+  if (a === 'ntdel') { const n = noteList().find(x => x.id === S.selNote); if (n) n.s = ''; noteClose(false); return; }
   if (measBtn(a)) return;
   if (a === 'tgn') { S.showNames = !S.showNames; save(); ui(); render(); return; } /* pencere açık kalır */
   if (a === 'ndel') { D.names = nameList().filter(n => n.id !== S.selName); S.selName = null; commit(); ui(); return; }
@@ -1130,7 +1169,7 @@ function render() {
   cx.lineWidth = 1.6; cx.lineJoin = 'round'; cx.lineCap = 'round';
   D.ents.forEach(e => { const sel = S.sel.has(e.id), pk = S.pick && S.pick.id === e.id; cx.strokeStyle = pk ? '#f5a623' : sel ? '#6fb0ff' : e.imp ? '#6b7480' : '#e8e8e8'; if (e.t === 'pt') { const s = w2s(...e.p); cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(s[0] - 4, s[1] - 4); cx.lineTo(s[0] + 4, s[1] + 4); cx.moveTo(s[0] + 4, s[1] - 4); cx.lineTo(s[0] - 4, s[1] + 4); cx.stroke(); return; } cx.lineWidth = sel || pk ? 2.6 : 1.6; cx.setLineDash(sel ? [8, 5] : []); pathEnt(e); cx.stroke(); });
   cx.setLineDash([]);
-  drawOps(); drawMeas(); drawNames();
+  drawOps(); drawMeas(); drawNames(); drawNotes();
   if (S.capAsk) S.capAsk.pairs.forEach(([a, b]) => { const p = w2s(...b), q = w2s(...a); cx.strokeStyle = '#ffcf70'; cx.lineWidth = 2; cx.setLineDash([4, 3]); cx.beginPath(); cx.moveTo(...q); cx.lineTo(...p); cx.stroke(); cx.setLineDash([]); cx.beginPath(); cx.arc(p[0], p[1], 9, 0, TAU); cx.stroke(); });
   if (S.flash) { const cols = ['#4cd964', '#ffcf70']; let k = 0; S.flash.ids.forEach(id => { const e = entById(id); if (!e) return; cx.strokeStyle = cols[(k++) % 2]; cx.lineWidth = 4; pathEnt(e); cx.stroke(); if (S.flash.dots) chainEnds(e).forEach(p => { const s = w2s(...p); cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(s[0], s[1], 4.5, 0, TAU); cx.fill(); }); }); }
   if (S.preview) { cx.strokeStyle = '#4cd964'; cx.lineWidth = 1.6; S.preview.forEach(e => { pathEnt(e); cx.stroke(); }); }
@@ -1169,7 +1208,7 @@ function loupe(p) {
   cx.restore(); cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.strokeStyle = '#7dffb0'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, R, 0, TAU); cx.stroke(); cx.strokeStyle = 'rgba(125,255,176,.6)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(x - 8, y); cx.lineTo(x + 8, y); cx.moveTo(x, y - 8); cx.lineTo(x, y + 8); cx.stroke();
 }
 
-window.CAD = { LZ, laserValue, measList, nameList, get D() { return D; }, set D(v) { D = v; D.ops = D.ops || []; invalidate(); }, makeDXF, importDXF, parseDXF, pointNames, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
+window.CAD = { noteList, LZ, laserValue, measList, nameList, get D() { return D; }, set D(v) { D = v; D.ops = D.ops || []; invalidate(); }, makeDXF, importDXF, parseDXF, pointNames, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
 addEventListener('resize', resize);
 document.getElementById('fileIn').addEventListener('change', async ev => { const f = ev.target.files[0]; if (!f) return; try { importDXF(await f.text()); } catch (er) { flash(); } ev.target.value = ''; });
 load(); ui(); resize();

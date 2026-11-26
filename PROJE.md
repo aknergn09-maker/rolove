@@ -571,3 +571,10 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 - Çıktı: dengelenmiş DXF (CIZIM, kapı/pencere blokları döndürülüp ölçeklenmiş INSERT, NOKTA_TOTAL / NOKTA_AD / NOKTA_X, krokide olmayan totaller TOTAL_DIGER, OLCU/GONYE/DIKAYAK, Arial) + koordinat listesi CSV (AD;Y;X;KAYNAK). Rapor: her ölçünün düzeltmesi (1 cm üstü dikkat, 3 cm üstü kontrol et), en çok düzelen kroki köşeleri.
 - Sentetik test (g_make.py + g1.py): 16° dönük, bir köşesi 88.5° bina, %8 küçük ve dik açılı çizilmiş kroki → ölçülen noktalar gerçeğe < 1 mm. Ölçülmeyen noktalar (kapı) krokideki oranla yerleşir.
 - Telefon DXF'ine META katmanı (donuk) eklendi: kapı/pencere bağlı olduğu iki nokta.
+
+### cad-2.5 — not alma
+- Ölçme modunda Not aracı (sütunda nokta adının altında). Krokide bir yere dokun (köşe/çizgiye yakalanır, boşsa dokunulan yer) → üstte yazı kutusu açılır, telefonun kendi klavyesi; ✓ kaydet, kırmızı sil. Boş bırakılan yeni not kaydedilmez. Not iğnesine dokununca düzenlenir.
+- Ekranda sarı not simgesi + ilk satırın başı. Göz penceresinden gizlenebilir. Notlar çizgiye bağlı (attPts): duvar kayınca gelir.
+- DXF: NOT katmanında (sarı 2) nokta + her satır ayrı TEXT (Arial).
+- Kısa ekranda sütun düğmeleri 40 px.
+- Test: c10.py.
