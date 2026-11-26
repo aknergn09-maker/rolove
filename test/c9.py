@@ -40,13 +40,13 @@ async def main():
         await ev("CAD.laserValue(5)")
         ck('  uç seçmeden gelen lazer değeri bekliyor', await ev("!!document.querySelector('#mp .mval.pend')"))
         await wtap(0,0); await wtap(4,3)
-        ck('  iki köşe seçilince değer kutuda', (await ev("document.querySelector('#mp .mval').textContent"))=='5.000')
+        ck('  iki köşe seçilince değer kutuda (cm: 500)', (await ev("document.querySelector('#mp .mval').textContent"))=='500')
         await btn('mok'); m=await M()
         ck('  nokta–nokta kaydedildi, çizim değişmedi', m[-1]['k']=='m_pp' and m[-1]['v']==5 and await ev("CAD.D.ents[0].p.length")==6)
         # obje yakalayan: köşe → duvar = dik
         await wtap(2,1.9); await wtap(3,3)
-        await btn('mv:0'); await btn('mk:1'); await btn('mk:.'); await btn('mk:1'); await btn('mok'); m=await M()
-        ck('obje yakalayan: noktadan duvara dokununca dik (kolon köşesi→üst duvar 1.1)', m[-1]['k']=='m_pl' and m[-1]['v']==1.1 and near(m[-1]['pts'][1],(4,3)) and near(m[-1]['pts'][2],(0,3)), m[-1])
+        await btn('mv:0'); await btn('mk:1'); await btn('mk:1'); await btn('mk:0'); await btn('mok'); m=await M()
+        ck('obje yakalayan: noktadan duvara dokununca dik (kolon köşesi→üst duvar, tuşla 110 cm = 1.1 m)', m[-1]['k']=='m_pl' and abs(m[-1]['v']-1.1)<1e-9 and near(m[-1]['pts'][1],(4,3)) and near(m[-1]['pts'][2],(0,3)), m[-1])
         # obje seçen: pline kenarı (kapı kırıkları olsa da bütün kenar) ve kapı
         await btn('t:m_obj'); await wtap(3.2,0)
         ck('obje seçen: tek dokunuşla alt kenarın tamamı', await ev("!!document.querySelector('#mp .mval')"))

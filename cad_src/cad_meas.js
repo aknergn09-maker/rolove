@@ -3,6 +3,7 @@ const MEAS = ['m_pp', 'm_obj', 'm_ll', 'm_ab', 'm_g', 'tag'];
 const MCAT = k => k === 'm_g' ? 'gonye' : k === 'm_ab' ? 'dik' : 'olcu';
 const MCOLS = { olcu: '#f5a623', gonye: '#5aa9ff', dik: '#c08bff' };
 const MCOL = '#f5a623';
+const cmS = m => String(Math.round(m * 1000) / 10);
 function measList() { return D.meas || (D.meas = []); }
 function nameList() { return D.names || (D.names = []); }
 /* çizgiye bağlı tüm noktalar (kapı uçları, nokta adları, ölçü uçları) — geometri değişince birlikte gelir */
@@ -49,7 +50,7 @@ function measPlace(sn, X, Y) {
   else if (need === 'ps') { if (['end', 'int', 'mid', 'trk'].includes(sn.k)) S.mq.picks.push({ p: cl(sn.p) }); else { const s = segAt(X, Y); if (!s) { flash(); return; } S.mq.k = 'm_pl'; S.mq.picks.push(s); } }
   else if (need === 'p') { S.mq.picks.push({ p: cl(sn.p) }); if (S.mq.picks.length === 1 && sn.P && sn.P.k === 's') S.mq.dir0 = vsub(sn.P.b, sn.P.a); }
   else { const s = segAt(X, Y); if (!s) { flash(); return; } S.mq.picks.push(s); }
-  if (measDone()) { S.mv = { v: [LZ.pend != null ? LZ.pend.toFixed(3) : '', ''], act: 0, np: false }; LZ.pend = null; }
+  if (measDone()) { S.mv = { v: [LZ.pend != null ? cmS(LZ.pend) : '', ''], act: 0, np: false }; LZ.pend = null; }
   ui(); render();
 }
 function measSnapOpts() {
@@ -61,7 +62,7 @@ function measSnapOpts() {
   return o;
 }
 function measSave() {
-  const vals = S.mv.v.map(s => s === '' ? null : parseFloat(s)); const two = S.mq ? S.mq.k === 'm_ab' : (S.selMeas && measById(S.selMeas).k === 'm_ab');
+  const vals = S.mv.v.map(s => s === '' ? null : parseFloat(s) / 100); const two = S.mq ? S.mq.k === 'm_ab' : (S.selMeas && measById(S.selMeas).k === 'm_ab');
   if (vals[0] == null || isNaN(vals[0]) || (two && (vals[1] == null || isNaN(vals[1])))) { flash(); return; }
   if (S.selMeas) { const m = measById(S.selMeas); m.v = vals[0]; if (two) m.v2 = vals[1]; m.src = S.mv.src || m.src; S.selMeas = null; S.mv = null; commit(); ui(); return; }
   const m = { id: 'm' + (D.nid++), k: S.mq.k, pts: measPts(S.mq), v: vals[0], src: S.mv.src || 'typed' }; if (two) m.v2 = vals[1];
@@ -89,12 +90,12 @@ function drawMeas() {
 function measPanel() {
   const sm = S.selMeas && measById(S.selMeas);
   if (S.fly || !(sm || (MEAS.includes(S.tool) && S.tool !== 'tag'))) return '';
-  if (sm && (!S.mv || S.mv.id !== sm.id)) S.mv = { id: sm.id, v: [sm.v == null ? '' : sm.v.toFixed(3), sm.v2 == null ? '' : sm.v2.toFixed(3)], act: 0, np: false };
+  if (sm && (!S.mv || S.mv.id !== sm.id)) S.mv = { id: sm.id, v: [sm.v == null ? '' : cmS(sm.v), sm.v2 == null ? '' : cmS(sm.v2)], act: 0, np: false };
   const done = sm || measDone(), two = sm ? sm.k === 'm_ab' : S.tool === 'm_ab';
   const st = LZ.state === 'bağlı' ? 'bt' : LZ.state === 'bağlanıyor' ? 'btw' : LZ.state === 'koptu' ? 'btx' : 'bt0';
   let h = '';
-  if (done) { const mv = S.mv; [0].concat(two ? [1] : []).forEach(i => { h += `<button class="mval ${mv.act === i ? 'act' : ''}" data-a="mv:${i}">${mv.v[i] || '0.000'}</button>`; }); }
-  else if (LZ.pend != null) h += `<div class="mval pend">${LZ.pend.toFixed(3)}</div>`;
+  if (done) { const mv = S.mv; [0].concat(two ? [1] : []).forEach(i => { h += `<button class="mval ${mv.act === i ? 'act' : ''}" data-a="mv:${i}">${mv.v[i] || '0'}</button>`; }); }
+  else if (LZ.pend != null) h += `<div class="mval pend">${cmS(LZ.pend)}</div>`;
   h += btn('lzc', 'bt', false, st) + btn('lzt', 'laser', false, 'las');
   if (done) { h += btn('mback', 'clr'); if (S.mv.np) h += ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'].map(k => `<button class="num k" data-a="mk:${k}">${k}</button>`).join(''); h += btn('mok', 'ok', false, 'okb wide2') + (sm ? btn('mdel', 'erase', false, 'dng') : ''); }
   return h;
@@ -133,7 +134,7 @@ const GLM_ON = [0xC0, 0x55, 0x02, 0x01, 0x00, 0x1A], GLM_TRIG = [0xC0, 0x56, 0x0
 async function glmWrite(bytes) { const chr = LZ.chr; if (!chr) return false; const v = new Uint8Array(bytes); for (const f of ['writeValueWithResponse', 'writeValue', 'writeValueWithoutResponse']) { if (!chr[f]) continue; try { await chr[f](v); LZ.wm = f; return true; } catch (e) { LZ.werr = String((e && e.message) || e); } } return false; }
 function laserParse(dv) { if (!dv || dv.byteLength < 11) return null; const b = i => dv.getUint8(i); if (b(0) !== 0xC0 || b(1) !== 0x55 || b(2) !== 0x10) return null; const v = dv.getFloat32(7, true); return isFinite(v) && v > 0.01 && v < 300 ? v : null; }
 function laserValue(m) {
-  LZ.last = m; const s = m.toFixed(3);
+  LZ.last = m; const s = cmS(m);
   if (S.selMeas && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
   else if (MEAS.includes(S.tool) && S.tool !== 'tag' && measDone() && S.mv) { S.mv.v[S.mv.act] = s; S.mv.src = 'laser'; laserNext(); }
   else LZ.pend = m;

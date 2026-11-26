@@ -548,3 +548,7 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 - DXF 3 kopya: 1) gerçek koordinat: CIZIM, KAPI, PENCERE, NOKTA, OLCU (NN, ND, OB, CC); 2) sağa 1.5×genişlik: KOPYA_GONYE çizim + GONYE (GN) + uç adları + başlık; 3) KOPYA_DIKAYAK + DIKAYAK (DA). Kopya sadece o türden ölçü varsa yazılır. PC programı adlarla çalışır (NOKTA katmanı sadece kopya 1).
 - Açık çizgi/pline offset (otomatik kesme açıkken): kaynağın ucu başka çizgiye bağlıysa offset ucu o çizgiye oturur; boş uç(lar) yanıp söner, sağ altta kapak / ✕ sorusu (kapak = kaynak ucu ile offset ucu arası çizgi). Tuvale dokununca ya da araç değişince soru kapanır.
 - Test: c9.py yeniden yazıldı.
+
+### cad-2.2
+- Ölçü panelinde değerler cm (tuş takımı cm yazar; lazer değeri de cm gösterilir, örn. 687.3). Kayıt ve çizimdeki etiketler metre (3 hane), DXF metre.
+- DXF kopya 2/3 sadece o türden ölçü varsa (kullanıcı onayı).
