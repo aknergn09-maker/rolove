@@ -61,7 +61,7 @@ async def main():
         await pg.screenshot(path=str(OUT/'c5.png'))
         # DXF
         dx=await ev("CAD.makeDXF()")
-        ck('DXF: kapalı POLYLINE, PENCERE ve NOKTA katmanı, X1 adı', 'POLYLINE' in dx and '\r\n70\r\n1\r\n' in dx and '\r\nPENCERE\r\n' in dx and '\r\nX1\r\n' in dx and dx.rstrip().endswith('EOF'))
+        ck('DXF: kapalı POLYLINE, PENCERE ve NOKTA katmanı, X1 adı', 'POLYLINE' in dx and '\r\n70\r\n1\r\n' in dx and '\r\nPENCERE\r\n' in dx and '\r\nX1\r\n' in dx and '\r\nINSERT\r\n' in dx and 'arial.ttf' in dx and dx.rstrip().endswith('EOF'))
         n0=await ev("CAD.D.ents.length")
         async with pg.expect_download() as dl: await btn('fly:file'); await btn('exp')
         d=await dl.value

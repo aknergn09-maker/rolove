@@ -552,3 +552,9 @@ Aşama 4'ün KALANI onay bekliyor: lazer ölçü notları, ölçü türleri, nok
 ### cad-2.2
 - Ölçü panelinde değerler cm (tuş takımı cm yazar; lazer değeri de cm gösterilir, örn. 687.3). Kayıt ve çizimdeki etiketler metre (3 hane), DXF metre.
 - DXF kopya 2/3 sadece o türden ölçü varsa (kullanıcı onayı).
+
+### cad-2.3 — DXF düzeni
+- Yazılar ARIAL stilinde (STYLE tablosu, arial.ttf, TEXT 7=ARIAL).
+- Kapı/pencere her biri tek blok: BLOCKS bölümünde KAPI_n / PENCERE_n (taban = kapı a ucu, içerik katman 0), çizimde INSERT (KAPI, PENCERE; kopyalarda KOPYA_* katmanı).
+- Nokta adları iki katman: NOKTA_AD (kullanıcının verdiği adlar = total eşleşmesi, yeşil 3), NOKTA_X (programın verdiği X.., kırmızı 1).
+- ezdxf denetiminden hatasız geçiyor.

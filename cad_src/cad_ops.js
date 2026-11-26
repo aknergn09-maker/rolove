@@ -99,7 +99,7 @@ function makeDXF() {
   const E = [], f = v => (Math.round(v * 10000) / 10000).toString(), deg = r => nrm(r) * 180 / Math.PI;
   let OX = 0; const T = p => [p[0] + OX, p[1]];
   const line = (ly, a, b) => { a = T(a); b = T(b); E.push('0', 'LINE', '8', ly, '10', f(a[0]), '20', f(a[1]), '30', '0', '11', f(b[0]), '21', f(b[1]), '31', '0'); };
-  const text = (ly, p, h, t) => { p = T(p); E.push('0', 'TEXT', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0', '40', f(h), '1', dxfStr(t)); };
+  const text = (ly, p, h, t) => { p = T(p); E.push('0', 'TEXT', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0', '40', f(h), '1', dxfStr(t), '7', 'ARIAL'); };
   const point = (ly, p) => { p = T(p); E.push('0', 'POINT', '8', ly, '10', f(p[0]), '20', f(p[1]), '30', '0'); };
   const ent = (e, ly) => {
     if (e.t === 'line') line(ly, e.a, e.b);
@@ -108,12 +108,16 @@ function makeDXF() {
     else if (e.t === 'arc') { const c = T(e.c); E.push('0', 'ARC', '8', ly, '10', f(c[0]), '20', f(c[1]), '30', '0', '40', f(e.r), '50', f(deg(e.a0)), '51', f(deg(e.a1))); }
     else if (e.t === 'pt') point(ly, e.p);
   };
-  const opsOut = (lyK, lyP) => opsList().forEach(o => { const g = opGeo(o), ly = o.t === 'door' ? lyK : lyP; g.jambs.concat(g.lines).forEach(([a, b]) => line(ly, a, b));
-    if (g.arc) { const e = vsub(g.arc.e, g.arc.c), j = vsub(g.arc.j, g.arc.c); const a1 = vang(e), a2 = vang(j); const ccw = vcross(e, j) > 0; const c = T(g.arc.c); E.push('0', 'ARC', '8', ly, '10', f(c[0]), '20', f(c[1]), '30', '0', '40', f(g.arc.r), '50', f(deg(ccw ? a1 : a2)), '51', f(deg(ccw ? a2 : a1))); } });
+  /* kapı/pencere: her biri tek blok (BLOCK + INSERT); blok içi katman 0 → INSERT'in katmanını/rengini alır */
+  const B = [], bname = {}; opsList().forEach((o, k) => { const nm = (o.t === 'door' ? 'KAPI_' : 'PENCERE_') + (k + 1); bname[o.id] = nm; const g = opGeo(o), bl = (a, b) => B.push('0', 'LINE', '8', '0', '10', f(a[0]), '20', f(a[1]), '30', '0', '11', f(b[0]), '21', f(b[1]), '31', '0');
+    B.push('0', 'BLOCK', '8', '0', '2', nm, '70', '0', '10', f(o.a[0]), '20', f(o.a[1]), '30', '0', '3', nm); g.jambs.concat(g.lines).forEach(([a, b]) => bl(a, b));
+    if (g.arc) { const e = vsub(g.arc.e, g.arc.c), j = vsub(g.arc.j, g.arc.c); const a1 = vang(e), a2 = vang(j); const ccw = vcross(e, j) > 0; B.push('0', 'ARC', '8', '0', '10', f(g.arc.c[0]), '20', f(g.arc.c[1]), '30', '0', '40', f(g.arc.r), '50', f(deg(ccw ? a1 : a2)), '51', f(deg(ccw ? a2 : a1))); }
+    B.push('0', 'ENDBLK', '8', '0'); });
+  const opsOut = (lyK, lyP) => opsList().forEach(o => { const p = T(o.a); E.push('0', 'INSERT', '8', o.t === 'door' ? lyK : lyP, '2', bname[o.id], '10', f(p[0]), '20', f(p[1]), '30', '0'); });
   const PN = pointNames(), nameOf = p => { const t = PN.find(x => vsame(x.p, p)); return t ? t.name : '?'; }, ML = measDXFLines(nameOf);
   /* kopya 1 (gerçek koordinat): çizim, kapı/pencere, nokta adları, ölçüler */
   D.ents.forEach(e => ent(e, e.imp ? 'IMPORT' : 'CIZIM')); opsOut('KAPI', 'PENCERE');
-  PN.forEach(t => { point('NOKTA', t.p); text('NOKTA', [t.p[0] + 0.05, t.p[1] + 0.05], 0.1, t.name); });
+  PN.forEach(t => { const ly = t.user ? 'NOKTA_AD' : 'NOKTA_X'; point(ly, t.p); text(ly, [t.p[0] + 0.05, t.p[1] + 0.05], 0.1, t.name); });
   const measOut = (cat, ly) => ML.filter(o => o.cat === cat).forEach(o => { o.lines.forEach(([a, b]) => line(ly, a, b)); text(ly, o.at, 0.08, o.txt + (o.src === 'laser' ? ' L' : '')); });
   measOut('olcu', 'OLCU');
   /* kopya 2 ve 3: aynı çizim sağa kaydırılmış — gönye, dik ayak/dik boy */
@@ -127,9 +131,9 @@ function makeDXF() {
     text(ly, [x0, yT + 0.4], 0.25, title);
   });
   OX = 0;
-  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA', 1], ['OLCU', 30], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
+  const LY = [['CIZIM', 7], ['KAPI', 2], ['PENCERE', 4], ['NOKTA_AD', 3], ['NOKTA_X', 1], ['OLCU', 30], ['GONYE', 5], ['DIKAYAK', 6], ['KOPYA_GONYE', 8], ['KOPYA_DIKAYAK', 8], ['IMPORT', 8]];
   const H = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$DWGCODEPAGE', '3', 'ANSI_1254', '0', 'ENDSEC', '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', String(LY.length)];
-  LY.forEach(([n, c]) => H.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS')); H.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
+  LY.forEach(([n, c]) => H.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS')); H.push('0', 'ENDTAB', '0', 'TABLE', '2', 'STYLE', '70', '1', '0', 'STYLE', '2', 'ARIAL', '70', '0', '40', '0', '41', '1', '50', '0', '71', '0', '42', '0.1', '3', 'arial.ttf', '4', '', '0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'BLOCKS'); B.forEach(x => H.push(x)); H.push('0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
   return H.concat(E, ['0', 'ENDSEC', '0', 'EOF']).join('\r\n') + '\r\n';
 }
 async function shareOrDownload(text, name, type) {

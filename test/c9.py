@@ -89,6 +89,7 @@ async def main():
         dx=await ev("CAD.makeDXF()")
         ck('DXF: OLCU, GONYE, DIKAYAK katmanları ve kopyalar', all(x in dx for x in ['\r\nOLCU\r\n','\r\nGONYE\r\n','\r\nDIKAYAK\r\n','\r\nKOPYA_GONYE\r\n','\r\nKOPYA_DIKAYAK\r\n','OB ','GN ','DA ','ND ','CC ']))
         ck('  gönye kopyası sağa kaydırılmış (x > 4)', any(l.startswith('GN ') for l in dx.split('\r\n')))
+        ck('  verilen adlar NOKTA_AD, program adları NOKTA_X katmanında', '\r\nNOKTA_AD\r\n' in dx and '\r\nNOKTA_X\r\n' in dx)
         await pg.screenshot(path=str(OUT/'c9.png'))
         # açık uçlu offset: bir ucu duvara bağlı bölme → bağlı uç oturur, boş uç sorulur
         await btn('mode')
