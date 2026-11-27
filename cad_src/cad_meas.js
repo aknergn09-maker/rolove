@@ -118,7 +118,8 @@ function incName(s) { const m = /^(.*?)(\d+)$/.exec(s); if (!m) return s; const 
 function nameHit(X, Y) { let best = null; nameList().forEach(n => { const s = w2s(...n.p); const d = Math.hypot(s[0] - X, s[1] - Y); if (d < 16 && (!best || d < best.d)) best = { n, d }; }); return best; }
 function tagPlace(sn, X, Y) {
   const h = nameHit(X, Y); if (h) { S.selName = h.n.id; ui(); render(); return; }
-  if (!(sn.k === 'end' || sn.k === 'int' || sn.k === 'mid' || sn.k === 'near')) { flash(); return; }
+  const onObj = D.ents.some(e => { const r = nearEnt(e, sn.p); return r && r.d < CO; });
+  if (!(sn.k === 'end' || sn.k === 'int' || sn.k === 'mid' || sn.k === 'near' || (sn.k === 'trk' && onObj))) { flash(); return; }
   const nm = (S.nameNext || '1').trim() || '1'; const n = { id: 'n' + (D.nid++), n: nm, p: cl(sn.p) }; nameList().push(n); S.nameNext = incName(nm); S.selName = null; S.showNames = true; commit(); ui();
 }
 function namePanel() {

@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.9';
+const VER = 'cad-3.0';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -32,11 +32,11 @@ function undo() {
   if (S.selNote) { noteClose(); return; }
   if (S.mq) { if (measDone()) { S.mv = null; } S.mq.picks.pop(); if (!S.mq.picks.length) S.mq = null; ui(); render(); return; }
   if (S.opA) { S.opA = null; render(); return; }
-  if (hi <= 0) return; hi--; D = JSON.parse(hist[hi]); D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; invalidate(); if (S.selOp && !opById(S.selOp)) S.selOp = null; S.selMeas = null; S.selName = null; S.mv = null;
+  if (hi <= 0) return; const nb = nameList().slice(); hi--; D = JSON.parse(hist[hi]); D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; invalidate(); if (S.selOp && !opById(S.selOp)) S.selOp = null; S.selMeas = null; S.selName = null; S.mv = null;
   if (S.chain) { S.chain.pts.pop(); if (S.chain.k === 'pl' && S.chain.pts.length < 2) { S.chain.eid = null; } }
-  S.sel = new Set([...S.sel].filter(id => entById(id))); save(); render();
+  S.sel = new Set([...S.sel].filter(id => entById(id))); { const gone = nb.filter(n => !(D.names || []).some(x => x.id === n.id)); if (gone.length) { S.nameNext = gone[gone.length - 1].n; const inp = document.getElementById('nmIn'); if (inp && !S.selName) inp.value = S.nameNext; } } save(); ui(); render();
 }
-function redo() { if (hi >= hist.length - 1) return; hi++; D = JSON.parse(hist[hi]); D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; invalidate(); S.chain = null; save(); render(); }
+function redo() { if (hi >= hist.length - 1) return; const nb = nameList().slice(); hi++; D = JSON.parse(hist[hi]); { const add = (D.names || []).filter(n => !nb.some(x => x.id === n.id)); if (add.length) { S.nameNext = incName(add[add.length - 1].n); const inp = document.getElementById('nmIn'); if (inp && !S.selName) inp.value = S.nameNext; } } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; invalidate(); S.chain = null; save(); render(); }
 
 /* ---------- görünüm ---------- */
 let W = 0, H = 0, DPR = 1;
@@ -56,6 +56,14 @@ function allInts() {
   if (CACHE.ints) return CACHE.ints; const out = [], E = D.ents;
   for (let i = 0; i < E.length; i++) { const A = prims(E[i]); for (let j = i + 1; j < E.length; j++) { const B = prims(E[j]); A.forEach(P => B.forEach(Q => primInts(P, Q).forEach(p => out.push(p)))); } }
   return (CACHE.ints = out);
+}
+/* hiza kaynağı köşeler: çizgi uçları, pline'ın yön değiştirdiği köşeler (kapı kırıkları hariç), yay uçları */
+function cornerPts(ex) {
+  const out = []; D.ents.forEach(e => { if (ex && ex.has(e.id)) return;
+    if (e.t === 'line') out.push(e.a, e.b);
+    else if (e.t === 'pl') { const n = e.p.length; e.p.forEach((p, i) => { if (!e.c && (i === 0 || i === n - 1)) { out.push(p); return; } const a = e.p[(i - 1 + n) % n], b = e.p[(i + 1) % n]; if (Math.abs(vcross(vunit(vsub(p, a)), vunit(vsub(b, p)))) > 1e-6) out.push(p); }); }
+    else if (e.t === 'arc') { const a = arcPts(e); out.push(a[0], a[2]); } });
+  return out;
 }
 function keyPts(ex) {
   const out = []; D.ents.forEach(e => { if (ex && ex.has(e.id)) return;
@@ -86,7 +94,7 @@ function snapAt(X, Y, o) {
     const RTo = 16 / view.s;
     if (sn.trk) trkLines(segs, o).forEach(L => { const x = segSeg(o.from, far, L.a, vadd(L.a, L.d), true)[0]; if (!x) return; const go = trkOrigin(L, x.p); if (go && vdist(x.p, proj) <= RTo) tryP(x.p, 'trk', [go, x.p]); });
     /* kendiliğinden hiza: ekrandaki her uç/köşenin eksen üzerindeki izdüşümü (üstünden geçmek gerekmez) */
-    if (sn.trk) { const vw = [s2w(0, H), s2w(W, 0)]; keyPts(ex).concat((o.extra || []).map(p => ({ p }))).forEach(k => { const p = k.p; if (p[0] < vw[0][0] || p[0] > vw[1][0] || p[1] < vw[0][1] || p[1] > vw[1][1] || vdist(p, o.from) < 1e-6) return; const t = vdot(vsub(p, o.from), bd); if (t <= 1e-9) return; const pj = vadd(o.from, vmul(bd, t)); if (vdist(pj, p) < 1e-6) return; const d = vdist(pj, proj); if (d <= 12 / view.s && (!hit || hit.k !== 'int' || d < hit.d - 1e-9)) tryP(pj, 'trk', [p, pj]); }); }
+    if (sn.trk) { const vw = [s2w(0, H), s2w(W, 0)]; cornerPts(ex).concat(o.extra || []).forEach(p => { if (p[0] < vw[0][0] || p[0] > vw[1][0] || p[1] < vw[0][1] || p[1] > vw[1][1] || vdist(p, o.from) < 1e-6) return; const t = vdot(vsub(p, o.from), bd); if (t <= 1e-9) return; const pj = vadd(o.from, vmul(bd, t)); if (vdist(pj, p) < 1e-6) return; const d = vdist(pj, proj); if (d <= 12 / view.s && (!hit || hit.k !== 'int' || d < hit.d - 1e-9)) tryP(pj, 'trk', [p, pj]); }); }
     /* eksenin üstündeki köşe tutarlıdır; eksen dışındaki köşe ancak parmağa hiza noktasından çok daha yakınsa kazanır */
     const onRay = pre && Math.abs(vcross(bd, vsub(pre.p, o.from))) < 1e-6 && vdot(vsub(pre.p, o.from), bd) > 0;
     if (!hit && pre && !onRay) { const pj = vadd(o.from, vmul(bd, vdot(vsub(pre.p, o.from), bd))); if (vdot(vsub(pj, o.from), bd) > 1e-9 && vdist(pj, proj) <= 10 / view.s) hit = { p: cl(pj), k: 'trk', d: vdist(pj, proj), g: [pre.p, pj] }; }
@@ -240,7 +248,7 @@ function pmove(X, Y) {
     if (S.tool === 'move') { const att = attPts().filter(([o, k]) => sel.some(e => { const r = nearEnt(e, o[k]); return r && r.d < CO; })); sel.forEach(e => moveEnt(e, dl)); att.forEach(([o, k]) => { o[k] = vadd(o[k], dl); }); } else { G.copies = []; sel.forEach(e => { const c = JSON.parse(JSON.stringify(e)); moveEnt(c, dl); G.copies.push(c); }); G.opc = opsList().filter(onSel).map(o => ({ ...o, a: vadd(o.a, dl), b: vadd(o.b, dl) })); }
     S.preview = S.tool === 'copy' ? G.copies : null; invalidate(); render(); }
 }
-function acquire(sn) { if (!sn || !(sn.k === 'end' || sn.k === 'int' || sn.k === 'mid')) return; if (S.acq.some(p => vsame(p, sn.p))) return; S.acq.push(cl(sn.p)); if (S.acq.length > 2) S.acq.shift(); }
+function acquire(sn) { if (!sn || !(sn.k === 'end' || sn.k === 'int')) return; if (sn.k === 'end' && !cornerPts().some(p => vsame(p, sn.p))) return; if (S.acq.some(p => vsame(p, sn.p))) return; S.acq.push(cl(sn.p)); if (S.acq.length > 2) S.acq.shift(); }
 function moveEnt(e, d) { if (e.t === 'line') { e.a = vadd(e.a, d); e.b = vadd(e.b, d); } else if (e.t === 'pl') e.p = e.p.map(p => vadd(p, d)); else e.c = vadd(e.c, d); }
 function drawSnapOpts() {
   const t = S.tool, o = {}; if (MEAS.includes(t)) return measSnapOpts();

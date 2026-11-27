@@ -599,3 +599,9 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 ### cad-2.9 — kendiliğinden hiza
 - Ortho/XY ile çizerken (zincir, tutamak, taşı/kopyala, dik ayak) ekrandaki her uç/köşe/nokta adının eksen üzerindeki izdüşümü kendiliğinden hiza noktası (üstünden geçmek gerekmez); yakalama 12 px. Çizgi uzantısı ve geçilen noktaların hizaları 16 px. Kesik kılavuz çizgisi o noktaya uzanır.
 - Serbest konumda (ortho yok) hiza yine 10 px (daha büyüğü boşlukta fazla yapışıyordu).
+
+### cad-3.0
+- Hiza kaynakları sadece köşeler (cornerPts: çizgi uçları, pline'ın yön değiştirdiği köşeler — kapı kırıkları hariç, yay uçları) ve çizgi uzantıları. Nokta adları, orta noktalar, kapı uçları kendiliğinden hiza vermez; parmağın geçtiği noktalardan sadece köşe/kesişim toplanır.
+- Nokta adı: çizgi üstüne düşen hiza noktası da kabul (önceden "trk" türü reddedilip ad verilemiyordu).
+- Geri al nokta adını silince sıradaki numara da geri gelir (29 → geri al → yine 29, kutuda da); ileri al ilerletir.
+- Test: c13.py.
