@@ -586,3 +586,8 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 - Dolu kroki varken 3 günden uzun yedek alınmadıysa klasör ve Krokiler düğmesinde kırmızı nokta, Yedek al düğmesi turuncu.
 - localStorage dolarsa en eski ara kayıtlar yarıya indirilip tekrar denenir.
 - Test: c11.py (c5 yeni kroki davranışına güncellendi).
+
+### cad-2.7 — obje üstünde hizalama
+- Parmak bir çizginin/yayın üstündeyken (obje üstü), hiza çizgilerinin (geçilen köşelerden 90°, zincir noktaları, çizgi uzantıları) o objeyle kesişimi yakalanır. Köşe/orta nokta yakalaması varken, hiza noktası parmağa onlardan yarı mesafeden yakınsa hiza kazanır.
+- Seç tutamak sürükleme ve Taşı/Kopyala sırasında da geçilen köşeler hiza için toplanır (acquire).
+- Test: c12.py.

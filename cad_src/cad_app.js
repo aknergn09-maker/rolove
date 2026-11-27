@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.6';
+const VER = 'cad-2.7';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -72,9 +72,9 @@ function snapAt(X, Y, o) {
   const ents = D.ents.filter(e => !(ex && ex.has(e.id)));
   const consider = (p, k, P, g) => { const d = vdist(p, q); if (d <= R && (!best || d < best.d - 1e-12)) best = { p: cl(p), k, P, d, g }; };
   if (sn.end) { keyPts(ex).forEach(k => consider(k.p, 'end', k.P)); (o.extra || []).forEach(p => consider(p, 'end')); if (!ex) allInts().forEach(p => consider(p, 'int')); else intsAmong(ents).forEach(p => consider(p, 'int')); }
-  const orthoCtx = !!(o.from && (sn.orth || sn.xy)); let pre = null; if (best) { if (!orthoCtx) return best; pre = best; }
+  const orthoCtx = !!(o.from && (sn.orth || sn.xy)); let pre = null; if (best) pre = best;
   if (!pre && sn.mid) { ents.forEach(e => { if (e.t === 'arc') consider(arcPts(e)[1], 'mid'); else prims(e).forEach(P => { if (P.k === 's') consider(vmul(vadd(P.a, P.b), 0.5), 'mid', P); }); }); }
-  if (best && !pre) { if (!orthoCtx) return best; pre = best; }
+  if (best && !pre) pre = best;
   const segs = []; ents.forEach(e => prims(e).forEach(P => { if (P.k === 's' && vdist(P.a, P.b) > 1e-6) segs.push(P); }));
   let dirs = [];
   if (o.from) { const base = o.dir ? vunit(o.dir) : [1, 0]; if (sn.orth) { const b = o.dir ? base : [1, 0]; dirs.push(b, vperp(b), vmul(b, -1), vmul(vperp(b), -1)); } if (sn.xy) dirs.push([1, 0], [0, 1], [-1, 0], [0, -1]); }
@@ -88,6 +88,16 @@ function snapAt(X, Y, o) {
     if (pre) return pre;
     return { p: proj, k: 'orth', g: [[o.from, proj]], ortho: true };
   }
+  /* obje üstünde hiza: hiza/uzantı çizgisinin parmağın altındaki objeyle kesiştiği nokta */
+  let tb = null;
+  if (sn.trk && sn.near) {
+    const TL = trkLines(segs, o), nearP = []; ents.forEach(e => prims(e).forEach(P => { if (nearPrim(P, q).d <= R) nearP.push(P); }));
+    nearP.forEach(P => TL.forEach(L => { if (L.P === P) return; const far = vadd(L.a, L.d);
+      const xs = P.k === 's' ? segSeg(L.a, far, P.a, P.b, true).filter(x => x.u >= -1e-9 && x.u <= 1 + 1e-9).map(x => x.p) : lineCirc2(L.a, far, P);
+      xs.forEach(x => { const go = trkOrigin(L, x), d = vdist(x, q); if (go && d <= R && (!tb || d < tb.d)) tb = { p: cl(x), k: 'trk', P, d, g: [[go, x]] }; }); }));
+  }
+  if (pre) return tb && vdist(tb.p, q) < 0.5 * vdist(pre.p, q) ? tb : pre;
+  if (tb) return tb;
   if (sn.near) ents.forEach(e => prims(e).forEach(P => { const r = nearPrim(P, q); consider(r.p, 'near', P); }));
   if (best) return best;
   if (sn.trk) {
@@ -215,11 +225,11 @@ function pmove(X, Y) {
   if (G.k === 'pan') { view.ox = G.v0.ox + dx; view.oy = G.v0.oy + dy; render(); return; }
   if (G.k === 'place') { const o = drawSnapOpts(); S.snap = snapAt(X, Y, o); acquire(S.snap); S.cur = [X, Y]; render(); return; }
   if (G.k === 'grip' && G.gp.op) { D = JSON.parse(G.base); const o = opById(G.gp.op), w = G.gp.g.w, old = cl(o[w]); let sn = snapAt(X, Y, {}); if (vdist(sn.p, old) < 1e-6) sn = { p: s2w(X, Y), k: 'free' }; S.snap = sn; S.cur = [X, Y]; if (G.moved) { const u = vunit(vsub(o.b, o.a)); const np = vadd(old, vmul(u, vdot(vsub(sn.p, old), u))); const th = opTh(o), tn = vmul(opN(o), th); coincident(old, null, -1).forEach(c => c.set(cl(np))); attMoveVertex(old, np); if (th) coincident(vadd(old, tn), null, -1).forEach(c => c.set(vadd(np, tn))); o[w] = cl(np); } invalidate(); render(); return; }
-  if (G.k === 'grip') { const { e, g } = G.gp; D = JSON.parse(G.base); const e2 = entById(e.id); const sn = snapAt(X, Y, { ex: new Set([e.id]), from: g.k === 'm' ? null : G.orig, dir: gripDir(e2, g) }); S.snap = sn; S.cur = [X, Y]; if (G.moved) applyGrip(e2, g, sn.p); invalidate(); render(); return; }
+  if (G.k === 'grip') { const { e, g } = G.gp; D = JSON.parse(G.base); const e2 = entById(e.id); const sn = snapAt(X, Y, { ex: new Set([e.id]), from: g.k === 'm' ? null : G.orig, dir: gripDir(e2, g) }); acquire(sn); S.snap = sn; S.cur = [X, Y]; if (G.moved) applyGrip(e2, g, sn.p); invalidate(); render(); return; }
   if (G.k === 'mv') { if (!G.base0) { G.sb = snapAt(G.x0, G.y0, {}); G.base0 = G.sb.p; G.doc = JSON.stringify(D); G.h0 = hitEnt(G.x0, G.y0); }
     if (!G.moved) { S.snap = G.sb; S.cur = [X, Y]; render(); return; }
     if (!G.ids) { if (!S.sel.size && G.h0) S.sel.add(G.h0.e.id); G.ids = new Set(S.sel); if (!G.ids.size) { G.k = 'pan'; G.v0 = { ...view }; return; } }
-    D = JSON.parse(G.doc); const sn = snapAt(X, Y, { ex: G.ids, from: G.base0 }); S.snap = sn; S.cur = [X, Y]; const dl = vsub(sn.p, G.base0);
+    D = JSON.parse(G.doc); const sn = snapAt(X, Y, { ex: G.ids, from: G.base0 }); acquire(sn); S.snap = sn; S.cur = [X, Y]; const dl = vsub(sn.p, G.base0);
     const sel = D.ents.filter(e => G.ids.has(e.id)), onSel = o => sel.some(e => [o.a, o.b].every(p => { const r = nearEnt(e, p); return r && r.d < CO; }));
     if (S.tool === 'move') { const att = attPts().filter(([o, k]) => sel.some(e => { const r = nearEnt(e, o[k]); return r && r.d < CO; })); sel.forEach(e => moveEnt(e, dl)); att.forEach(([o, k]) => { o[k] = vadd(o[k], dl); }); } else { G.copies = []; sel.forEach(e => { const c = JSON.parse(JSON.stringify(e)); moveEnt(c, dl); G.copies.push(c); }); G.opc = opsList().filter(onSel).map(o => ({ ...o, a: vadd(o.a, dl), b: vadd(o.b, dl) })); }
     S.preview = S.tool === 'copy' ? G.copies : null; invalidate(); render(); }
