@@ -832,7 +832,7 @@ function backupIn(txt) {
 function projName() { const p = projCur(); return p ? p.name : 'kroki'; }
 
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.8';
+const VER = 'cad-2.9';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -916,7 +916,10 @@ function snapAt(X, Y, o) {
     const proj = vadd(o.from, vmul(bd, Math.max(0, vdot(vsub(q, o.from), bd)))); const far = vadd(o.from, bd);
     let hit = null; const tryP = (p, k, g) => { const d = vdist(p, proj); if (d <= R && vdot(vsub(p, o.from), bd) > 1e-9 && (!hit || d < hit.d)) hit = { p: cl(p), k, d, g }; };
     if (sn.near) ents.forEach(e => prims(e).forEach(P => { if (P.k === 's') segSeg(o.from, far, P.a, P.b, true).forEach(x => { if (x.u >= -1e-9 && x.u <= 1 + 1e-9) tryP(x.p, 'int'); }); else lineCirc2(o.from, far, P).forEach(p => tryP(p, 'int')); }));
-    if (sn.trk) trkLines(segs, o).forEach(L => { const x = segSeg(o.from, far, L.a, vadd(L.a, L.d), true)[0]; if (!x) return; const go = trkOrigin(L, x.p); if (go && vdist(x.p, proj) <= 10 / view.s) tryP(x.p, 'trk', [go, x.p]); });
+    const RTo = 16 / view.s;
+    if (sn.trk) trkLines(segs, o).forEach(L => { const x = segSeg(o.from, far, L.a, vadd(L.a, L.d), true)[0]; if (!x) return; const go = trkOrigin(L, x.p); if (go && vdist(x.p, proj) <= RTo) tryP(x.p, 'trk', [go, x.p]); });
+    /* kendiliğinden hiza: ekrandaki her uç/köşenin eksen üzerindeki izdüşümü (üstünden geçmek gerekmez) */
+    if (sn.trk) { const vw = [s2w(0, H), s2w(W, 0)]; keyPts(ex).concat((o.extra || []).map(p => ({ p }))).forEach(k => { const p = k.p; if (p[0] < vw[0][0] || p[0] > vw[1][0] || p[1] < vw[0][1] || p[1] > vw[1][1] || vdist(p, o.from) < 1e-6) return; const t = vdot(vsub(p, o.from), bd); if (t <= 1e-9) return; const pj = vadd(o.from, vmul(bd, t)); if (vdist(pj, p) < 1e-6) return; const d = vdist(pj, proj); if (d <= 12 / view.s && (!hit || hit.k !== 'int' || d < hit.d - 1e-9)) tryP(pj, 'trk', [p, pj]); }); }
     /* eksenin üstündeki köşe tutarlıdır; eksen dışındaki köşe ancak parmağa hiza noktasından çok daha yakınsa kazanır */
     const onRay = pre && Math.abs(vcross(bd, vsub(pre.p, o.from))) < 1e-6 && vdot(vsub(pre.p, o.from), bd) > 0;
     if (!hit && pre && !onRay) { const pj = vadd(o.from, vmul(bd, vdot(vsub(pre.p, o.from), bd))); if (vdot(vsub(pj, o.from), bd) > 1e-9 && vdist(pj, proj) <= 10 / view.s) hit = { p: cl(pj), k: 'trk', d: vdist(pj, proj), g: [pre.p, pj] }; }

@@ -595,3 +595,7 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 ### cad-2.8 — eksen dışındaki uçlar
 - Ortho/XY ile çizerken yakındaki köşe/uç eksenin üstünde değilse, onun eksen üzerindeki izdüşümü (hiza noktası) yakalanır; köşenin kendisi ancak parmağa hiza noktasından yarı mesafeden yakınsa kazanır. Eksen üstündeki köşe varsayılan kazanır, hiza noktası ondan yarı mesafeden yakınsa hiza kazanır. (Kullanıcı resmi: yukarıdan aşağı inerken alttaki çizginin ucu eksenin 7 px yanında → çizgi dik kalır, o hizada biter.)
 - Test: c12.py genişletildi.
+
+### cad-2.9 — kendiliğinden hiza
+- Ortho/XY ile çizerken (zincir, tutamak, taşı/kopyala, dik ayak) ekrandaki her uç/köşe/nokta adının eksen üzerindeki izdüşümü kendiliğinden hiza noktası (üstünden geçmek gerekmez); yakalama 12 px. Çizgi uzantısı ve geçilen noktaların hizaları 16 px. Kesik kılavuz çizgisi o noktaya uzanır.
+- Serbest konumda (ortho yok) hiza yine 10 px (daha büyüğü boşlukta fazla yapışıyordu).
