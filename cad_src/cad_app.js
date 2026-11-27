@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.7';
+const VER = 'cad-2.8';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -84,7 +84,10 @@ function snapAt(X, Y, o) {
     let hit = null; const tryP = (p, k, g) => { const d = vdist(p, proj); if (d <= R && vdot(vsub(p, o.from), bd) > 1e-9 && (!hit || d < hit.d)) hit = { p: cl(p), k, d, g }; };
     if (sn.near) ents.forEach(e => prims(e).forEach(P => { if (P.k === 's') segSeg(o.from, far, P.a, P.b, true).forEach(x => { if (x.u >= -1e-9 && x.u <= 1 + 1e-9) tryP(x.p, 'int'); }); else lineCirc2(o.from, far, P).forEach(p => tryP(p, 'int')); }));
     if (sn.trk) trkLines(segs, o).forEach(L => { const x = segSeg(o.from, far, L.a, vadd(L.a, L.d), true)[0]; if (!x) return; const go = trkOrigin(L, x.p); if (go && vdist(x.p, proj) <= 10 / view.s) tryP(x.p, 'trk', [go, x.p]); });
-    if (hit) { if (pre && vdist(pre.p, q) <= 2 * vdist(hit.p, q)) return pre; return { ...hit, g: [[o.from, hit.p]].concat(hit.g ? [hit.g] : []), ortho: true }; }
+    /* eksenin üstündeki köşe tutarlıdır; eksen dışındaki köşe ancak parmağa hiza noktasından çok daha yakınsa kazanır */
+    const onRay = pre && Math.abs(vcross(bd, vsub(pre.p, o.from))) < 1e-6 && vdot(vsub(pre.p, o.from), bd) > 0;
+    if (!hit && pre && !onRay) { const pj = vadd(o.from, vmul(bd, vdot(vsub(pre.p, o.from), bd))); if (vdot(vsub(pj, o.from), bd) > 1e-9 && vdist(pj, proj) <= 10 / view.s) hit = { p: cl(pj), k: 'trk', d: vdist(pj, proj), g: [pre.p, pj] }; }
+    if (hit) { if (pre) { const dp = vdist(pre.p, q), dh = vdist(hit.p, q); if (onRay ? dh >= 0.5 * dp : dp < 0.5 * dh) return pre; } return { ...hit, g: [[o.from, hit.p]].concat(hit.g ? [hit.g] : []), ortho: true }; }
     if (pre) return pre;
     return { p: proj, k: 'orth', g: [[o.from, proj]], ortho: true };
   }

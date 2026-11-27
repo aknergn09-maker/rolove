@@ -591,3 +591,7 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 - Parmak bir çizginin/yayın üstündeyken (obje üstü), hiza çizgilerinin (geçilen köşelerden 90°, zincir noktaları, çizgi uzantıları) o objeyle kesişimi yakalanır. Köşe/orta nokta yakalaması varken, hiza noktası parmağa onlardan yarı mesafeden yakınsa hiza kazanır.
 - Seç tutamak sürükleme ve Taşı/Kopyala sırasında da geçilen köşeler hiza için toplanır (acquire).
 - Test: c12.py.
+
+### cad-2.8 — eksen dışındaki uçlar
+- Ortho/XY ile çizerken yakındaki köşe/uç eksenin üstünde değilse, onun eksen üzerindeki izdüşümü (hiza noktası) yakalanır; köşenin kendisi ancak parmağa hiza noktasından yarı mesafeden yakınsa kazanır. Eksen üstündeki köşe varsayılan kazanır, hiza noktası ondan yarı mesafeden yakınsa hiza kazanır. (Kullanıcı resmi: yukarıdan aşağı inerken alttaki çizginin ucu eksenin 7 px yanında → çizgi dik kalır, o hizada biter.)
+- Test: c12.py genişletildi.
