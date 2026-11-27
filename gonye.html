@@ -8,7 +8,7 @@ h1{font-size:19px;margin:0 0 4px}h3{font-size:15px;margin:16px 0 6px}#ver{color:
 #drop{border:2px dashed #3a414b;border-radius:10px;padding:16px;text-align:center;margin:12px 0;color:#9aa3ad}#drop.on{border-color:#2b6fd6;background:#1b2533}
 #drop label{display:inline-block;margin-top:8px;background:#2b6fd6;color:#fff;padding:7px 14px;border-radius:7px;cursor:pointer}#drop input{display:none}
 .f{padding:6px 9px;border-radius:7px;background:#20252c;margin:4px 0}.f.ok{border-left:4px solid #4cd964}.f i{color:#778}
-.sum{color:#aeb6bf;margin:6px 0}.warn{color:#ffcf70;margin:6px 0}.bad{color:#ff7b7b}
+.sum{color:#aeb6bf;margin:6px 0}.warn{color:#ffcf70;margin:6px 0}.bad{color:#ff7b7b}span.warn{color:#ffcf70}span.bad{color:#ff7b7b}
 button{font:inherit;border:0;border-radius:8px;padding:9px 16px;background:#2b6fd6;color:#fff;cursor:pointer}button:disabled{background:#333a43;color:#778;cursor:default}
 #dl{display:none;gap:8px;margin:10px 0}#dl button{background:#1e5a3a}
 table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{padding:4px 5px;border-bottom:1px solid #2a2f36;text-align:left}th{color:#8a929c;font-weight:normal}
@@ -24,7 +24,7 @@ details{margin:12px 0}summary{cursor:pointer;color:#9aa3ad}#sets label{display:f
 <div id="dl"><button id="dxf">Dengelenmiş DXF</button><button id="csv">Koordinat listesi</button></div>
 <div id="out"></div>
 <details><summary>Ayarlar (standart sapmalar)</summary><div id="sets"></div>
-<div class="help">Küçük değer = o bilgiye daha çok güven. Total noktaları sabittir. Kroki açıları ve boyları zayıf tutulur, ölçüler onları düzeltir; düz duvarlar düz kalır.</div></details>
+<div class="help">Küçük değer = o bilgiye daha çok güven. Totallere 1 cm pay verilir. Önce ölçülerle hesaplanır, sonra 90°'ye sınırdan yakın köşeler tam 90° yapılır; bir total sınırdan çok kayarsa ya da bir ölçü bozulursa o çevredeki köşeler bırakılır. Önizlemede yeşil kare = 90°'ye kırıldı, turuncu daire = kırılmadı. Önizleme: tekerlek yakınlaştırır, sürükle kaydırır, çift tık sığdırır.</div></details>
 </div>
 <div id="main"><canvas id="cv"></canvas></div>
 <script>
@@ -121,7 +121,7 @@ const G = (() => {
   const applyH = (h, p) => [h.a * p[0] - h.b * p[1] + h.tx, h.b * p[0] + h.a * p[1] + h.ty];
 
   /* ---------- dengeleme ---------- */
-  const DEF = { sLaser: 0.003, sTyped: 0.01, sTotal: 0.0005, sAngle: 2, sStraight: 0.05, sLenRel: 0.05, sLenAbs: 0.03, sOnLine: 0.002, sRight: 0.2 };
+  const DEF = { squareTol: 2, maxTot: 0.03, maxMeas: 0.02, sLaser: 0.003, sTyped: 0.01, sTotal: 0.01, sAngle: 2, sStraight: 0.05, sLenRel: 0.05, sLenAbs: 0.03, sOnLine: 0.002, sRight: 0.2 };
   function adjust(M, totals, opt) {
     opt = Object.assign({}, DEF, opt || {});
     const idx = {}; M.list.forEach((n, i) => { idx[n.name] = i; }); const N = M.list.length, NK = 2 * N; const nP = NK + 1;
@@ -157,21 +157,46 @@ const G = (() => {
     Object.keys(nb).forEach(vn => { const V = M.names[vn].sk, ns = nb[vn].slice().sort((p, q) => Math.atan2(...sub(M.names[p].sk, V).reverse()) - Math.atan2(...sub(M.names[q].sk, V).reverse())); if (ns.length < 2) return;
       for (let k = 0; k < ns.length; k++) { if (ns.length === 2 && k === 1) break; const an = ns[k], bn = ns[(k + 1) % ns.length]; const u0 = sub(M.names[an].sk, V), w0 = sub(M.names[bn].sk, V); const th0 = Math.atan2(cross(u0, w0), dot(u0, w0));
         const straight = Math.abs(Math.abs(th0) - Math.PI) < 0.5 * Math.PI / 180; const v = I(vn), a = I(an), b = I(bn);
-        O(pv(v).concat(pv(a), pv(b)), x => { const u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return wrap(Math.atan2(cross(u, w), dot(u, w)) - th0) * 180 / Math.PI; }, straight ? opt.sStraight : opt.sAngle, { k: straight ? 'duz-duvar' : 'kroki-aci', v: vn }); } });
+        O(pv(v).concat(pv(a), pv(b)), x => { const u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return wrap(Math.atan2(cross(u, w), dot(u, w)) - th0) * 180 / Math.PI; }, straight ? opt.sStraight : opt.sAngle, { k: straight ? 'duz-duvar' : 'kroki-aci', v: vn, a: an, b: bn }); } });
     /* kenar üstündeki adlı noktalar (çizgi üstü nokta adı, dik ayak ucu) kenarda kalır */
     M.list.forEach(n => { if (nb[n.name]) return; edges.forEach(([an, bn]) => { const A = M.names[an].sk, B = M.names[bn].sk, d = sub(B, A), t = dot(sub(n.sk, A), d) / dot(d, d); if (t <= 1e-4 || t >= 1 - 1e-4) return; if (Math.abs(cross(d, sub(n.sk, A))) / len(d) > 2e-3) return; const p = I(n.name), a = I(an), b = I(bn); O(pv(p).concat(pv(a), pv(b)), x => cross(sub(P(b, x), P(a, x)), sub(P(p, x), P(a, x))) / dist(P(a, x), P(b, x)), opt.sOnLine, { k: 'kenarda', name: n.name }); }); });
     /* Gauss-Newton (yoğun normal denklemler, Cholesky) */
-    let it = 0, dxMax = 1;
-    for (; it < 25 && dxMax > 1e-7; it++) {
-      const Nm = new Float64Array(nP * nP), bv = new Float64Array(nP);
-      obs.forEach(o => { const w = 1 / (o.s * o.s), r0 = o.f(X), g = o.vars.map(j => { const h = 1e-6, old = X[j]; X[j] = old + h; const r1 = o.f(X); X[j] = old - h; const r2 = o.f(X); X[j] = old; return (r1 - r2) / (2 * h); });
-        for (let p = 0; p < g.length; p++) { const jp = o.vars[p]; bv[jp] -= w * g[p] * r0; for (let q = 0; q < g.length; q++) Nm[jp * nP + o.vars[q]] += w * g[p] * g[q]; } });
-      for (let j = 0; j < nP; j++) Nm[j * nP + j] += 1e-9 + Nm[j * nP + j] * 1e-12;
-      const dx = chol(Nm, bv, nP); dxMax = 0; for (let j = 0; j < nP; j++) { X[j] += dx[j]; if (j < NK) dxMax = Math.max(dxMax, Math.abs(dx[j])); }
+    let it = 0;
+    const solve = () => { let dxMax = 1, k = 0;
+      for (; k < 25 && dxMax > 1e-7; k++) {
+        const Nm = new Float64Array(nP * nP), bv = new Float64Array(nP);
+        obs.forEach(o => { const w = 1 / (o.s * o.s), r0 = o.f(X), g = o.vars.map(j => { const h = 1e-6, old = X[j]; X[j] = old + h; const r1 = o.f(X); X[j] = old - h; const r2 = o.f(X); X[j] = old; return (r1 - r2) / (2 * h); });
+          for (let p = 0; p < g.length; p++) { const jp = o.vars[p]; bv[jp] -= w * g[p] * r0; for (let q = 0; q < g.length; q++) Nm[jp * nP + o.vars[q]] += w * g[p] * g[q]; } });
+        for (let j = 0; j < nP; j++) Nm[j * nP + j] += 1e-9 + Nm[j * nP + j] * 1e-12;
+        const dx = chol(Nm, bv, nP); dxMax = 0; for (let j = 0; j < nP; j++) { X[j] += dx[j]; if (j < NK) dxMax = Math.max(dxMax, Math.abs(dx[j])); }
+      } it += k; };
+    solve();
+    /* gönyeye kır: 90°'nin katına squareTol'dan yakın köşeler tam yapılır; total/ölçü sınırı aşılırsa o çevredeki köşeler bırakılır */
+    const angOf = (o, x) => { const v = I(o.info.v), a = I(o.info.a), b = I(o.info.b), u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return Math.atan2(cross(u, w), dot(u, w)) * 180 / Math.PI; };
+    const sq = []; const released = [];
+    if (opt.squareTol > 0) {
+      obs.filter(o => o.info.k === 'kroki-aci').forEach(o => { const th = angOf(o, X), tg = Math.round(th / 90) * 90; if (tg !== 0 && Math.abs(th - tg) < opt.squareTol) { const v = I(o.info.v), a = I(o.info.a), b = I(o.info.b); const so = { vars: pv(v).concat(pv(a), pv(b)), f: x => { const u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return wrap(Math.atan2(cross(u, w), dot(u, w)) - tg * Math.PI / 180) * 180 / Math.PI; }, s: 0.003, info: { k: 'gonye', v: o.info.v, a: o.info.a, b: o.info.b, from: th, to: tg } }; obs.push(so); sq.push(so); } });
+      if (sq.length) {
+        const X0 = Float64Array.from(X);
+        const adj = {}; edges.forEach(([a, b]) => { (adj[a] = adj[a] || new Set()).add(b); (adj[b] = adj[b] || new Set()).add(a); });
+        const near = (nm, hops) => { const seen = new Set([nm]); let fr = [nm]; for (let h = 0; h < hops; h++) { const nx = []; fr.forEach(x => (adj[x] || []).forEach(y => { if (!seen.has(y)) { seen.add(y); nx.push(y); } })); fr = nx; } return seen; };
+        for (let round = 0; round < 8; round++) {
+          X.set(X0); solve();
+          const bad = new Set();
+          matched.forEach(n => { const i = idx[n.name], t = tot[n.name].p; if (Math.hypot(X[2 * i] - t[0], X[2 * i + 1] - t[1]) > opt.maxTot) bad.add(n.name); });
+          obs.forEach(o => { if (!o.info.m || o.info.k === 'DA-dik') return; if (Math.abs(o.f(X)) > opt.maxMeas) ['a', 'b', 'p', 'o', 'f', 'c', 'd'].forEach(k => { if (o.info.m[k]) bad.add(o.info.m[k]); }); });
+          if (!bad.size) break;
+          const zone = new Set(); bad.forEach(nm => near(nm, 1 + Math.min(round, 3)).forEach(x => zone.add(x)));
+          const rel = sq.filter(o => obs.includes(o) && zone.has(o.info.v)); if (!rel.length) break;
+          rel.forEach(o => { obs.splice(obs.indexOf(o), 1); released.push(o.info); });
+        }
+      }
     }
     const coords = {}; M.list.forEach((n, i) => { coords[n.name] = [X[2 * i], X[2 * i + 1]]; });
     const res = obs.filter(o => o.info.k !== 'prior').map(o => ({ ...o.info, r: o.f(X), s: o.s }));
-    return { coords, K: X[NK], H, matched: matched.map(n => n.name), iter: it, res, unmatchedTotals: totals.filter(t => !idx.hasOwnProperty(t.name)).map(t => t.name) };
+    const squared = sq.filter(o => obs.includes(o)).map(o => o.info);
+    const totShift = matched.map(n => { const i = idx[n.name], t = tot[n.name].p; return { name: n.name, d: Math.hypot(X[2 * i] - t[0], X[2 * i + 1] - t[1]) }; });
+    return { coords, K: X[NK], H, matched: matched.map(n => n.name), iter: it, res, squared, released, totShift, unmatchedTotals: totals.filter(t => !idx.hasOwnProperty(t.name)).map(t => t.name) };
   }
   function chol(A, b, n) {
     const L = new Float64Array(n * n);
@@ -215,7 +240,7 @@ const G = (() => {
 if (typeof module !== 'undefined' && typeof window === 'undefined') module.exports = G;
 
 /* ROLEVE GÖNYE — PC arayüzü */
-const VERP = 'gonye-1.0';
+const VERP = 'gonye-1.1';
 const $ = s => document.querySelector(s);
 const ST = { dxfTxt: null, dxfName: '', totTxt: null, totName: '', M: null, tot: [], R: null };
 const OPT = Object.assign({}, G.DEF);
@@ -234,7 +259,7 @@ function load() {
   h += `<div class="f ${ST.totTxt ? 'ok' : ''}"><b>Total</b> ${ST.totName || '<i>yok (isteğe bağlı)</i>'}${ST.tot.length ? ' · ' + ST.tot.length + ' nokta' : ''}</div>`;
   if (M) { const user = M.list.filter(n => n.user).map(n => n.name), tset = new Set(ST.tot.map(t => t.name)), match = M.list.filter(n => tset.has(n.name)).map(n => n.name);
     h += `<div class="sum">${M.list.length} nokta (${user.length} senin verdiğin) · ${M.segs.length} kroki kenarı · ${M.meas.length} ölçü · ${M.ops.length} kapı/pencere</div>`;
-    h += `<div class="sum">Total ile eşleşen: <b>${match.length ? match.join(', ') : 'yok'}</b>${user.filter(u => !tset.has(u)).length && ST.tot.length ? ' · totalde bulunmayan adlar: ' + user.filter(u => !tset.has(u)).join(', ') : ''}</div>`;
+    h += `<div class="sum">Total ile eşleşen: <b>${match.length ? match.length + ' nokta' + (match.length > 12 ? ' (' + match.slice(0, 12).join(', ') + '…)' : ' (' + match.join(', ') + ')') : 'yok'}</b>${user.filter(u => !tset.has(u)).length && ST.tot.length ? ' · totalde bulunmayan adlar: ' + user.filter(u => !tset.has(u)).join(', ') : ''}</div>`;
     if (match.length < 2) h += `<div class="warn">${match.length === 0 ? 'Total ile eşleşen nokta yok: sonuç yerel koordinatta, ölçek ve gönye yine düzeltilir.' : 'Sadece 1 total noktası eşleşti: konum doğru, yön krokideki gibi kalır.'}</div>`;
     if (!M.meas.length) h += `<div class="warn">DXF'te ölçü yok: sadece total noktalarına oturtulur.</div>`; }
   $('#info').innerHTML = h; $('#run').disabled = !M; draw();
@@ -253,6 +278,11 @@ function run() {
     const val = r.k === 'DA-boy' ? r.m.v2 : r.k === 'DA-dik' ? 90 : r.m.v;
     h += `<tr class="${bad ? 'bad' : mid ? 'mid' : ''}"><td>${TR[r.k] || r.k}</td><td>${r.m.txt.replace(/ L$/, '')}</td><td>${isAng ? '90°' : val.toFixed(3) + ' m'}</td><td>${isAng ? r.r.toFixed(2) + '°' : (-r.r >= 0 ? '+' : '') + mm(-r.r) + ' mm'}</td><td>${bad ? 'kontrol et' : mid ? 'dikkat' : 'iyi'}</td></tr>`; });
   h += '</table>';
+  const sqN = R.squared.length, rel = R.released;
+  h += `<h3>Gönye</h3><div class="sum"><b>${sqN}</b> köşe tam 90°'ye kırıldı (${OPT.squareTol}°'den yakın olanlar).${rel.length ? ` <b>${rel.length}</b> köşe kırılmadı, çünkü kırınca bir total ${(OPT.maxTot * 100).toFixed(0)} cm'den fazla kayıyor ya da bir ölçü ${(OPT.maxMeas * 100).toFixed(0)} cm'den fazla bozuluyordu: ${rel.map(r => r.v).join(', ')}` : ''}</div>`;
+  const ts = R.totShift.slice().sort((a, b) => b.d - a.d);
+  if (ts.length) { const med = ts[ts.length >> 1].d; h += `<h3>Totalden kayma</h3><div class="sum">Ortanca ${(med * 100).toFixed(1)} cm · en çok kayanlar: ${ts.slice(0, 8).map(t => `<span class="${t.d > OPT.maxTot ? 'bad' : t.d > OPT.maxTot / 2 ? 'warn' : ''}">${t.name}: ${(t.d * 100).toFixed(1)} cm</span>`).join(' · ')}</div>`;
+    const far = ts.filter(t => t.d > OPT.maxTot); if (far.length) h += `<div class="warn">${far.map(t => t.name).join(', ')} krokideki yerinden ${(OPT.maxTot * 100).toFixed(0)} cm'den uzak okunmuş. Krokide doğru duvara/köşeye konduğunu ya da totalin doğru yüzeyden okunduğunu kontrol et.</div>`; }
   const ang = R.res.filter(r => r.k === 'kroki-aci').sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 8);
   if (ang.length) h += '<h3>Krokiye göre en çok düzelen köşeler</h3><div class="sum">' + ang.map(r => `${r.v}: ${(-r.r).toFixed(2)}°`).join(' · ') + '</div>';
   if (R.unmatchedTotals.length) h += `<div class="sum">Krokide olmayan total noktaları DXF'e ayrı katmanda (TOTAL_DIGER) eklenir: ${R.unmatchedTotals.slice(0, 30).join(', ')}${R.unmatchedTotals.length > 30 ? '…' : ''}</div>`;
@@ -264,19 +294,28 @@ function baseName() { return (ST.dxfName || 'kroki').replace(/\.dxf$/i, ''); }
 function draw() {
   const cv = $('#cv'), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1; cv.width = r.width * dpr; cv.height = r.height * dpr; const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = '#121417'; c.fillRect(0, 0, r.width, r.height);
   const M = ST.M; if (!M) return; const R = ST.R, P = n => R ? R.coords[n] : M.names[n].sk;
-  const pts = M.list.map(n => P(n.name)).filter(Boolean); if (R) ST.tot.forEach(t => pts.push(t.p)); if (!pts.length) return;
-  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const s = Math.min((r.width - 40) / Math.max(x1 - x0, 0.5), (r.height - 40) / Math.max(y1 - y0, 0.5)), ox = 20 + ((r.width - 40) - (x1 - x0) * s) / 2, oy = r.height - 20 - ((r.height - 40) - (y1 - y0) * s) / 2;
-  const w = p => [ox + (p[0] - x0) * s, oy - (p[1] - y0) * s];
+  const pts = M.list.map(n => P(n.name)).filter(Boolean); if (!pts.length) return;
+  const key = (R ? 'R' : 'S') + M.list.length;
+  if (!VW || VW.key !== key) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const s0 = Math.min((r.width - 40) / Math.max(x1 - x0, 0.5), (r.height - 40) / Math.max(y1 - y0, 0.5)); VW = { key, s: s0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 }; }
+  const s = VW.s, w = p => [r.width / 2 + (p[0] - VW.cx) * s, r.height / 2 - (p[1] - VW.cy) * s];
   c.strokeStyle = '#e8e8e8'; c.lineWidth = 1.4; M.drawn.forEach(d => { const q = d.ns.map(n => n && P(n)); if (q.some(x => !x)) return; c.beginPath(); q.forEach((p, i) => { const a = w(p); if (i) c.lineTo(...a); else c.moveTo(...a); }); if (d.c) c.closePath(); c.stroke(); });
   const resOf = m => R ? R.res.filter(x => x.m === m) : [];
   M.meas.forEach(m => { const bad = resOf(m).some(x => x.k === 'DA-dik' ? Math.abs(x.r) > 1 : Math.abs(x.r) > 0.03), mid = resOf(m).some(x => x.k === 'DA-dik' ? Math.abs(x.r) > 0.3 : Math.abs(x.r) > 0.01);
     c.strokeStyle = !R ? (m.k === 'GN' ? '#5aa9ff' : m.k === 'DA' ? '#c08bff' : '#f5a623') : bad ? '#ff5d5d' : mid ? '#ffcf70' : '#4cd964'; c.setLineDash([6, 4]); c.lineWidth = 1.2; c.beginPath();
     const seg = (a, b) => { if (!P(a) || !P(b)) return; c.moveTo(...w(P(a))); c.lineTo(...w(P(b))); };
     if (m.k === 'DA') { seg(m.o, m.f); seg(m.f, m.c); } else if (m.a && m.b && m.k !== 'CC') seg(m.a, m.b); c.stroke(); c.setLineDash([]); });
+  if (R) { const sq = new Set(R.squared.map(q => q.v)); R.res.filter(x => x.k === 'kroki-aci').forEach(x => { const p = P(x.v); if (!p) return; const a = w(p); const isSq = sq.has(x.v); if (isSq) { c.strokeStyle = '#4cd964'; c.lineWidth = 1; c.strokeRect(a[0] - 3, a[1] - 3, 6, 6); } }); R.released.forEach(q => { const p = P(q.v); if (!p) return; const a = w(p); c.strokeStyle = '#ffb347'; c.lineWidth = 2; c.beginPath(); c.arc(a[0], a[1], 6, 0, Math.PI * 2); c.stroke(); }); }
   c.font = '11px Arial'; M.list.forEach(n => { const p = P(n.name); if (!p) return; const a = w(p), tot = R && R.matched.includes(n.name); c.fillStyle = tot ? '#5aa9ff' : n.user ? '#7dffb0' : '#8a929c'; c.beginPath(); c.arc(a[0], a[1], tot ? 4 : 2.5, 0, Math.PI * 2); c.fill(); if (n.user || tot) c.fillText(n.name, a[0] + 5, a[1] - 5); });
   if (R) { c.strokeStyle = '#5aa9ff'; ST.tot.filter(t => !R.coords[t.name]).forEach(t => { const a = w(t.p); c.beginPath(); c.moveTo(a[0], a[1] - 5); c.lineTo(a[0] + 4.5, a[1] + 3); c.lineTo(a[0] - 4.5, a[1] + 3); c.closePath(); c.stroke(); }); }
 }
+let VW = null;
+/* önizleme: tekerlek = yakınlaştır, sürükle = kaydır */
+(() => { const cv = $('#cv'); let dr = null;
+  cv.addEventListener('wheel', e => { if (!VW) return; e.preventDefault(); const r = cv.getBoundingClientRect(), k = Math.exp(-e.deltaY * 0.0015); const mx = (e.clientX - r.left - r.width / 2) / VW.s + VW.cx, my = -(e.clientY - r.top - r.height / 2) / VW.s + VW.cy; VW.s *= k; VW.cx = mx - (e.clientX - r.left - r.width / 2) / VW.s; VW.cy = my + (e.clientY - r.top - r.height / 2) / VW.s; draw(); }, { passive: false });
+  cv.addEventListener('pointerdown', e => { if (VW) { dr = { x: e.clientX, y: e.clientY, cx: VW.cx, cy: VW.cy }; cv.setPointerCapture(e.pointerId); } });
+  cv.addEventListener('pointermove', e => { if (!dr) return; VW.cx = dr.cx - (e.clientX - dr.x) / VW.s; VW.cy = dr.cy + (e.clientY - dr.y) / VW.s; draw(); });
+  cv.addEventListener('pointerup', () => { dr = null; }); cv.addEventListener('dblclick', () => { VW = null; draw(); }); })();
 /* olaylar */
 document.addEventListener('dragover', e => { e.preventDefault(); $('#drop').classList.add('on'); });
 document.addEventListener('dragleave', e => { if (e.target === document.documentElement || e.target === document.body) $('#drop').classList.remove('on'); });
@@ -285,9 +324,9 @@ $('#pick').addEventListener('change', e => { takeFiles([...e.target.files]); e.t
 $('#run').addEventListener('click', run);
 $('#dxf').addEventListener('click', () => ST.R && download(G.outputDXF(ST.M, ST.R, ST.tot), baseName() + '_gonye.dxf', 'application/dxf'));
 $('#csv').addEventListener('click', () => ST.R && download(G.coordCSV(ST.M, ST.R), baseName() + '_koordinat.csv', 'text/csv'));
-const SETS = [['sLaser', 'Lazer ölçüsü (m)'], ['sTyped', 'Elle yazılan ölçü (m)'], ['sAngle', 'Kroki köşe açısı (°)'], ['sStraight', 'Düz duvar (°)'], ['sLenRel', 'Kroki boy oranı'], ['sRight', 'Dik ayak dik açısı (°)']];
+const SETS = [['squareTol', 'Gönyeye kırma sınırı (°, 0 = kapalı)'], ['sTotal', 'Total payı (m)'], ['maxTot', 'Total en çok kayma (m)'], ['maxMeas', 'Ölçü en çok bozulma (m)'], ['sLaser', 'Lazer ölçüsü (m)'], ['sTyped', 'Elle yazılan ölçü (m)'], ['sAngle', 'Kroki köşe açısı (°)'], ['sStraight', 'Düz duvar (°)'], ['sLenRel', 'Kroki boy oranı'], ['sRight', 'Dik ayak dik açısı (°)']];
 $('#sets').innerHTML = SETS.map(([k, t]) => `<label>${t}<input type="number" step="any" data-k="${k}" value="${OPT[k]}"></label>`).join('');
-$('#sets').addEventListener('input', e => { const k = e.target.dataset.k; const v = parseFloat(e.target.value); if (k && v > 0) OPT[k] = v; });
+$('#sets').addEventListener('input', e => { const k = e.target.dataset.k; const v = parseFloat(e.target.value); if (k && (v > 0 || (k === 'squareTol' && v === 0))) OPT[k] = v; });
 addEventListener('resize', draw);
 $('#ver').textContent = VERP; load();
 window.GN = { ST, run, load, takeFiles, G };

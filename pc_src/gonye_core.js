@@ -91,7 +91,7 @@ const G = (() => {
   const applyH = (h, p) => [h.a * p[0] - h.b * p[1] + h.tx, h.b * p[0] + h.a * p[1] + h.ty];
 
   /* ---------- dengeleme ---------- */
-  const DEF = { sLaser: 0.003, sTyped: 0.01, sTotal: 0.0005, sAngle: 2, sStraight: 0.05, sLenRel: 0.05, sLenAbs: 0.03, sOnLine: 0.002, sRight: 0.2 };
+  const DEF = { squareTol: 2, maxTot: 0.03, maxMeas: 0.02, sLaser: 0.003, sTyped: 0.01, sTotal: 0.01, sAngle: 2, sStraight: 0.05, sLenRel: 0.05, sLenAbs: 0.03, sOnLine: 0.002, sRight: 0.2 };
   function adjust(M, totals, opt) {
     opt = Object.assign({}, DEF, opt || {});
     const idx = {}; M.list.forEach((n, i) => { idx[n.name] = i; }); const N = M.list.length, NK = 2 * N; const nP = NK + 1;
@@ -127,21 +127,46 @@ const G = (() => {
     Object.keys(nb).forEach(vn => { const V = M.names[vn].sk, ns = nb[vn].slice().sort((p, q) => Math.atan2(...sub(M.names[p].sk, V).reverse()) - Math.atan2(...sub(M.names[q].sk, V).reverse())); if (ns.length < 2) return;
       for (let k = 0; k < ns.length; k++) { if (ns.length === 2 && k === 1) break; const an = ns[k], bn = ns[(k + 1) % ns.length]; const u0 = sub(M.names[an].sk, V), w0 = sub(M.names[bn].sk, V); const th0 = Math.atan2(cross(u0, w0), dot(u0, w0));
         const straight = Math.abs(Math.abs(th0) - Math.PI) < 0.5 * Math.PI / 180; const v = I(vn), a = I(an), b = I(bn);
-        O(pv(v).concat(pv(a), pv(b)), x => { const u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return wrap(Math.atan2(cross(u, w), dot(u, w)) - th0) * 180 / Math.PI; }, straight ? opt.sStraight : opt.sAngle, { k: straight ? 'duz-duvar' : 'kroki-aci', v: vn }); } });
+        O(pv(v).concat(pv(a), pv(b)), x => { const u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return wrap(Math.atan2(cross(u, w), dot(u, w)) - th0) * 180 / Math.PI; }, straight ? opt.sStraight : opt.sAngle, { k: straight ? 'duz-duvar' : 'kroki-aci', v: vn, a: an, b: bn }); } });
     /* kenar üstündeki adlı noktalar (çizgi üstü nokta adı, dik ayak ucu) kenarda kalır */
     M.list.forEach(n => { if (nb[n.name]) return; edges.forEach(([an, bn]) => { const A = M.names[an].sk, B = M.names[bn].sk, d = sub(B, A), t = dot(sub(n.sk, A), d) / dot(d, d); if (t <= 1e-4 || t >= 1 - 1e-4) return; if (Math.abs(cross(d, sub(n.sk, A))) / len(d) > 2e-3) return; const p = I(n.name), a = I(an), b = I(bn); O(pv(p).concat(pv(a), pv(b)), x => cross(sub(P(b, x), P(a, x)), sub(P(p, x), P(a, x))) / dist(P(a, x), P(b, x)), opt.sOnLine, { k: 'kenarda', name: n.name }); }); });
     /* Gauss-Newton (yoğun normal denklemler, Cholesky) */
-    let it = 0, dxMax = 1;
-    for (; it < 25 && dxMax > 1e-7; it++) {
-      const Nm = new Float64Array(nP * nP), bv = new Float64Array(nP);
-      obs.forEach(o => { const w = 1 / (o.s * o.s), r0 = o.f(X), g = o.vars.map(j => { const h = 1e-6, old = X[j]; X[j] = old + h; const r1 = o.f(X); X[j] = old - h; const r2 = o.f(X); X[j] = old; return (r1 - r2) / (2 * h); });
-        for (let p = 0; p < g.length; p++) { const jp = o.vars[p]; bv[jp] -= w * g[p] * r0; for (let q = 0; q < g.length; q++) Nm[jp * nP + o.vars[q]] += w * g[p] * g[q]; } });
-      for (let j = 0; j < nP; j++) Nm[j * nP + j] += 1e-9 + Nm[j * nP + j] * 1e-12;
-      const dx = chol(Nm, bv, nP); dxMax = 0; for (let j = 0; j < nP; j++) { X[j] += dx[j]; if (j < NK) dxMax = Math.max(dxMax, Math.abs(dx[j])); }
+    let it = 0;
+    const solve = () => { let dxMax = 1, k = 0;
+      for (; k < 25 && dxMax > 1e-7; k++) {
+        const Nm = new Float64Array(nP * nP), bv = new Float64Array(nP);
+        obs.forEach(o => { const w = 1 / (o.s * o.s), r0 = o.f(X), g = o.vars.map(j => { const h = 1e-6, old = X[j]; X[j] = old + h; const r1 = o.f(X); X[j] = old - h; const r2 = o.f(X); X[j] = old; return (r1 - r2) / (2 * h); });
+          for (let p = 0; p < g.length; p++) { const jp = o.vars[p]; bv[jp] -= w * g[p] * r0; for (let q = 0; q < g.length; q++) Nm[jp * nP + o.vars[q]] += w * g[p] * g[q]; } });
+        for (let j = 0; j < nP; j++) Nm[j * nP + j] += 1e-9 + Nm[j * nP + j] * 1e-12;
+        const dx = chol(Nm, bv, nP); dxMax = 0; for (let j = 0; j < nP; j++) { X[j] += dx[j]; if (j < NK) dxMax = Math.max(dxMax, Math.abs(dx[j])); }
+      } it += k; };
+    solve();
+    /* gönyeye kır: 90°'nin katına squareTol'dan yakın köşeler tam yapılır; total/ölçü sınırı aşılırsa o çevredeki köşeler bırakılır */
+    const angOf = (o, x) => { const v = I(o.info.v), a = I(o.info.a), b = I(o.info.b), u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return Math.atan2(cross(u, w), dot(u, w)) * 180 / Math.PI; };
+    const sq = []; const released = [];
+    if (opt.squareTol > 0) {
+      obs.filter(o => o.info.k === 'kroki-aci').forEach(o => { const th = angOf(o, X), tg = Math.round(th / 90) * 90; if (tg !== 0 && Math.abs(th - tg) < opt.squareTol) { const v = I(o.info.v), a = I(o.info.a), b = I(o.info.b); const so = { vars: pv(v).concat(pv(a), pv(b)), f: x => { const u = sub(P(a, x), P(v, x)), w = sub(P(b, x), P(v, x)); return wrap(Math.atan2(cross(u, w), dot(u, w)) - tg * Math.PI / 180) * 180 / Math.PI; }, s: 0.003, info: { k: 'gonye', v: o.info.v, a: o.info.a, b: o.info.b, from: th, to: tg } }; obs.push(so); sq.push(so); } });
+      if (sq.length) {
+        const X0 = Float64Array.from(X);
+        const adj = {}; edges.forEach(([a, b]) => { (adj[a] = adj[a] || new Set()).add(b); (adj[b] = adj[b] || new Set()).add(a); });
+        const near = (nm, hops) => { const seen = new Set([nm]); let fr = [nm]; for (let h = 0; h < hops; h++) { const nx = []; fr.forEach(x => (adj[x] || []).forEach(y => { if (!seen.has(y)) { seen.add(y); nx.push(y); } })); fr = nx; } return seen; };
+        for (let round = 0; round < 8; round++) {
+          X.set(X0); solve();
+          const bad = new Set();
+          matched.forEach(n => { const i = idx[n.name], t = tot[n.name].p; if (Math.hypot(X[2 * i] - t[0], X[2 * i + 1] - t[1]) > opt.maxTot) bad.add(n.name); });
+          obs.forEach(o => { if (!o.info.m || o.info.k === 'DA-dik') return; if (Math.abs(o.f(X)) > opt.maxMeas) ['a', 'b', 'p', 'o', 'f', 'c', 'd'].forEach(k => { if (o.info.m[k]) bad.add(o.info.m[k]); }); });
+          if (!bad.size) break;
+          const zone = new Set(); bad.forEach(nm => near(nm, 1 + Math.min(round, 3)).forEach(x => zone.add(x)));
+          const rel = sq.filter(o => obs.includes(o) && zone.has(o.info.v)); if (!rel.length) break;
+          rel.forEach(o => { obs.splice(obs.indexOf(o), 1); released.push(o.info); });
+        }
+      }
     }
     const coords = {}; M.list.forEach((n, i) => { coords[n.name] = [X[2 * i], X[2 * i + 1]]; });
     const res = obs.filter(o => o.info.k !== 'prior').map(o => ({ ...o.info, r: o.f(X), s: o.s }));
-    return { coords, K: X[NK], H, matched: matched.map(n => n.name), iter: it, res, unmatchedTotals: totals.filter(t => !idx.hasOwnProperty(t.name)).map(t => t.name) };
+    const squared = sq.filter(o => obs.includes(o)).map(o => o.info);
+    const totShift = matched.map(n => { const i = idx[n.name], t = tot[n.name].p; return { name: n.name, d: Math.hypot(X[2 * i] - t[0], X[2 * i + 1] - t[1]) }; });
+    return { coords, K: X[NK], H, matched: matched.map(n => n.name), iter: it, res, squared, released, totShift, unmatchedTotals: totals.filter(t => !idx.hasOwnProperty(t.name)).map(t => t.name) };
   }
   function chol(A, b, n) {
     const L = new Float64Array(n * n);

@@ -605,3 +605,11 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 - Nokta adı: çizgi üstüne düşen hiza noktası da kabul (önceden "trk" türü reddedilip ad verilemiyordu).
 - Geri al nokta adını silince sıradaki numara da geri gelir (29 → geri al → yine 29, kutuda da); ileri al ilerletir.
 - Test: c13.py.
+
+### gonye-1.1 — gönyeye kırma (kullanıcının elle çizimine göre ayarlandı)
+- Kullanıcı karşılaştırması (G_nye_fark.dxf): elle çizimde dik köşelerin 58/92'si tam 90°, totallerden köşe farkı %90 < 1.7 cm; eski program 35/104 (total 0.5 mm çivi → total hatası kısa duvarlarda açıya dönüşüyordu).
+- Totallere 1 cm pay (sTotal 0.01). İki aşama: 1) normal dengeleme; 2) 90°'nin katına squareTol (2°) yakın kroki köşelerine 0.003° kısıt, yeniden çöz. Bir total maxTot (3 cm) üstü kayarsa ya da bir ölçü maxMeas (2 cm) üstü bozulursa o noktanın 1..4 kenar çevresindeki kırılmış köşeler bırakılır, tekrar (en fazla 8 tur).
+- Kullanıcının gerçek işinde (180 nokta, 89 total, 27 ölçü): 104 dik köşeden 80'i tam 90° (eski 35), 12 köşe bırakıldı, totalden kayma ortanca 0.7 cm, %90 1.4 cm; tek 4.2 cm kayma (82) gönyeden değil: total, krokide konduğu duvardan 4.2 cm uzak okunmuş → raporda uyarı.
+- Rapor: kırılan/bırakılan köşeler, totalden kayma (ortanca, en çok kayanlar; sınır üstü kırmızı + uyarı). Ayarlar: gönye sınırı (0 = kapalı), total payı, total en çok kayma, ölçü en çok bozulma.
+- Önizleme: çizime sığar (uzak totaller dışarıda kalabilir), tekerlek yakınlaştır, sürükle kaydır, çift tık sığdır; yeşil kare = 90°'ye kırıldı, turuncu daire = bırakıldı.
+- Kullanıcı verisi depoya konmadı (site herkese açık).

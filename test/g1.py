@@ -15,7 +15,7 @@ async def main():
         await pg.goto((ROOT/'gonye.html').as_uri()); await pg.wait_for_timeout(200); ev=pg.evaluate
         await pg.set_input_files('#pick', [str(OUT/'g_kroki.dxf'), str(OUT/'g_total.ncn')]); await pg.wait_for_timeout(300)
         info=await ev("document.querySelector('#info').innerText")
-        ck('dosyalar okundu: 2 total eşleşti, 7 ölçü', 'Total ile eşleşen: 101, 102' in info and '7 ölçü' in info, info)
+        ck('dosyalar okundu: 2 total eşleşti, 7 ölçü', 'Total ile eşleşen: 2 nokta (101, 102)' in info and '7 ölçü' in info, info)
         await pg.click('#run'); await pg.wait_for_timeout(300)
         out=await ev("document.querySelector('#out').innerText")
         ck('rapor çıktı, kötü ölçü yok', 'Sonuç' in out and 'kontrol et' not in out, out[:400])

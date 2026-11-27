@@ -8,7 +8,7 @@ h1{font-size:19px;margin:0 0 4px}h3{font-size:15px;margin:16px 0 6px}#ver{color:
 #drop{border:2px dashed #3a414b;border-radius:10px;padding:16px;text-align:center;margin:12px 0;color:#9aa3ad}#drop.on{border-color:#2b6fd6;background:#1b2533}
 #drop label{display:inline-block;margin-top:8px;background:#2b6fd6;color:#fff;padding:7px 14px;border-radius:7px;cursor:pointer}#drop input{display:none}
 .f{padding:6px 9px;border-radius:7px;background:#20252c;margin:4px 0}.f.ok{border-left:4px solid #4cd964}.f i{color:#778}
-.sum{color:#aeb6bf;margin:6px 0}.warn{color:#ffcf70;margin:6px 0}.bad{color:#ff7b7b}
+.sum{color:#aeb6bf;margin:6px 0}.warn{color:#ffcf70;margin:6px 0}.bad{color:#ff7b7b}span.warn{color:#ffcf70}span.bad{color:#ff7b7b}
 button{font:inherit;border:0;border-radius:8px;padding:9px 16px;background:#2b6fd6;color:#fff;cursor:pointer}button:disabled{background:#333a43;color:#778;cursor:default}
 #dl{display:none;gap:8px;margin:10px 0}#dl button{background:#1e5a3a}
 table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{padding:4px 5px;border-bottom:1px solid #2a2f36;text-align:left}th{color:#8a929c;font-weight:normal}
@@ -24,7 +24,7 @@ details{margin:12px 0}summary{cursor:pointer;color:#9aa3ad}#sets label{display:f
 <div id="dl"><button id="dxf">Dengelenmiş DXF</button><button id="csv">Koordinat listesi</button></div>
 <div id="out"></div>
 <details><summary>Ayarlar (standart sapmalar)</summary><div id="sets"></div>
-<div class="help">Küçük değer = o bilgiye daha çok güven. Total noktaları sabittir. Kroki açıları ve boyları zayıf tutulur, ölçüler onları düzeltir; düz duvarlar düz kalır.</div></details>
+<div class="help">Küçük değer = o bilgiye daha çok güven. Totallere 1 cm pay verilir. Önce ölçülerle hesaplanır, sonra 90°'ye sınırdan yakın köşeler tam 90° yapılır; bir total sınırdan çok kayarsa ya da bir ölçü bozulursa o çevredeki köşeler bırakılır. Önizlemede yeşil kare = 90°'ye kırıldı, turuncu daire = kırılmadı. Önizleme: tekerlek yakınlaştırır, sürükle kaydırır, çift tık sığdırır.</div></details>
 </div>
 <div id="main"><canvas id="cv"></canvas></div>
 <script>
