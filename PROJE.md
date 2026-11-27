@@ -578,3 +578,11 @@ Kaynak: pc_src/ (gonye_core.js = DOM'suz çekirdek, node ile test edilir; app.js
 - DXF: NOT katmanında (sarı 2) nokta + her satır ayrı TEXT (Arial).
 - Kısa ekranda sütun düğmeleri 40 px.
 - Test: c10.py.
+
+### cad-2.6 — krokiler ve yedek
+- Kaynak: cad_src/cad_proj.js. Depolama: rcad1_idx {cur, list:[{id,name,ts,n}], bk}, rcad1_p_<id> {D, view}, rcad1_s_<id> [{ts, D}] (ara kayıtlar). Ayarlar yine rcad1_doc (D artık burada değil). Eski rcad1_doc.D ilk açılışta "Kroki 1" olur.
+- Dosya penceresi: DXF dışa, DXF içe, Krokiler (liste paneli), Yeni kroki (artık siler değil, yeni kroki açar). DXF dosya adı = kroki adı + tarih.
+- Krokiler paneli: üstte ad kutusu (yeniden adlandır), yeni, çoğalt; liste (ad, son değişiklik, obje sayısı; dokun = aç; açık olmayanı sil: 3 sn içinde iki dokunuş); "Önceki halleri" (10 dakikada bir, en fazla 12; açılışta/geçişte ara kaydı olmayan dolu kroki hemen kaydedilir; dokununca o hale döner, geri al ile geri alınır); Yedek al (bütün krokiler tek .json, paylaş menüsü) ve Yedekten yükle (ekler; aynısını çoğaltmaz, ad çakışırsa "(yedek)").
+- Dolu kroki varken 3 günden uzun yedek alınmadıysa klasör ve Krokiler düğmesinde kırmızı nokta, Yedek al düğmesi turuncu.
+- localStorage dolarsa en eski ara kayıtlar yarıya indirilip tekrar denenir.
+- Test: c11.py (c5 yeni kroki davranışına güncellendi).

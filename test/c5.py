@@ -65,11 +65,9 @@ async def main():
         n0=await ev("CAD.D.ents.length")
         async with pg.expect_download() as dl: await btn('fly:file'); await btn('exp')
         d=await dl.value
-        ck('  dışa aktar düğmesi dosya verdi', d.suggested_filename.startswith('cizim_') and d.suggested_filename.endswith('.dxf'), d.suggested_filename)
+        ck('  dışa aktar düğmesi dosya verdi', d.suggested_filename.startswith('Kroki 1_') and d.suggested_filename.endswith('.dxf'), d.suggested_filename)
         await btn('fly:file'); await btn('new')
-        ck('yeni çizim tek dokunuşta silmedi (onay bekliyor)', await ev("CAD.D.ents.length")==n0 and await ev("!!document.querySelector('button[data-a=new].dng')"))
-        await btn('new')
-        ck('  ikinci dokunuşta temizlendi', await ev("CAD.D.ents.length")==0 and await ev("CAD.D.ops.length")==0)
+        ck('yeni çizim: yeni kroki açıldı, eskisi listede duruyor', await ev("CAD.D.ents.length")==0 and await ev("CAD.D.ops.length")==0 and await ev("CAD.IDX.list.length")==2)
         await pg.set_input_files('#fileIn', files=[{'name':'a.dxf','mimeType':'application/dxf','buffer':dx.encode()}]); await pg.wait_for_timeout(300)
         im=await ev("CAD.D.ents.map(e=>e.t+(e.imp?'*':''))")
         ck('DXF içe aktarıldı: polyline, çizgi, nokta; hepsi altlık', 'pl*' in im and 'line*' in im and 'pt*' in im and all(x.endswith('*') for x in im), im)

@@ -1,5 +1,5 @@
 /* ROLEVE CAD — uygulama */
-const VER = 'cad-2.5';
+const VER = 'cad-2.6';
 const KEY = 'rcad1_doc';
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
 let D = { ents: [], nid: 1 };
@@ -24,8 +24,8 @@ function replEnt(e, list) { const i = D.ents.indexOf(e); D.ents.splice(i, 1); S.
 let CACHE = { v: -1 };
 function invalidate() { CACHE = { v: -1 }; }
 function commit() { invalidate(); hist = hist.slice(0, hi + 1); hist.push(JSON.stringify(D)); if (hist.length > 300) hist.shift(); hi = hist.length - 1; save(); render(); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify({ D, view, snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut, mtool: S.mtool, nameNext: S.nameNext, showNames: S.showNames, mode: S.mode, vis: S.vis })); } catch (e) { } }
-function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) { D = o.D || D; view = o.view || view; Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; D.notes = D.notes || []; hist = [JSON.stringify(D)]; hi = 0; }
+function save() { projSave(D, view); try { localStorage.setItem(KEY, JSON.stringify({ snaps: S.snaps, offD: S.offD, draw: S.draw, edit: S.edit, open: S.open, thMax: S.thMax, autoCut: S.autoCut, mtool: S.mtool, nameNext: S.nameNext, showNames: S.showNames, mode: S.mode, vis: S.vis })); } catch (e) { } }
+function load() { let leg = null, legV = null; try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); leg = o && o.D; legV = o && o.view; if (o) { Object.assign(S.snaps, o.snaps || {}); S.offD = o.offD || 0.2; S.draw = o.draw || 'line'; S.edit = o.edit || 'offset'; S.open = o.open || 'door'; S.thMax = o.thMax || 0.6; S.autoCut = o.autoCut == null ? 1 : o.autoCut; S.mtool = o.mtool || 'm_pp'; S.nameNext = o.nameNext || '1'; S.showNames = o.showNames !== false; S.mode = o.mode || 'k'; if (o.vis) S.vis = o.vis; if (!MEAS.includes(S.mtool)) S.mtool = 'm_pp'; } } catch (e) { } { const pr = projLoadIdx(leg, legV); D = pr.D || D; if (pr.view) view = pr.view; } D.ops = D.ops || []; D.meas = D.meas || []; D.names = D.names || []; D.notes = D.notes || []; hist = [JSON.stringify(D)]; hi = 0; }
 function undo() {
   if (S.chain && S.chain.pts.length === 1) { S.chain = null; ui(); render(); return; }
   if (S.cir) { S.cir = null; ui(); render(); return; } if (S.arc) { S.arc.pts.pop(); if (!S.arc.pts.length) S.arc = null; ui(); render(); return; }
@@ -354,12 +354,13 @@ function ui() {
   col.className = mini ? 'mini' : ''; qp.className = mini ? 'mini' : '';
   const modeB = btn('mode', S.mode === 'o' ? 'mode_o' : 'mode_k', false, S.mode === 'o' ? 'mo' : 'mk'), verD = `<div class="ver">${VER.replace('cad-', '')}</div>`;
   if (mini) col.innerHTML = btn('full', 'menu') + btn('undo', 'undo') + btn('redo', 'redo') + btn('fit', 'fit');
-  else if (S.mode === 'o') col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + MEAS.map(k => btn('t:' + k, ICON[k], t === k)).join('') + '<i></i>' + btn('fly:vis', 'eye', false, S.fly === 'vis' ? 'open' : '') + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + verD;
-  else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, S.fly === 'file' ? 'open' : '') + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + verD;
-  if (S.fly) {
+  else if (S.mode === 'o') col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + MEAS.map(k => btn('t:' + k, ICON[k], t === k)).join('') + '<i></i>' + btn('fly:vis', 'eye', false, S.fly === 'vis' ? 'open' : '') + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, (S.fly === 'file' ? 'open ' : '') + (backupOld() ? 'dot' : '')) + verD;
+  else col.innerHTML = btn('undo', 'undo') + btn('redo', 'redo') + modeB + '<i></i>' + btn('sec', 'sel', t === 'sec') + btn('fly:draw', ICON[S.draw], DRAW.includes(t)) + btn('fly:edit', ICON[S.edit], EDIT.includes(t)) + btn('fly:open', ICON[S.open], OPEN.includes(t)) + '<i></i>' + btn('fly:snap', 'snap', false, S.fly === 'snap' ? 'open' : '') + btn('fit', 'fit') + btn('fly:file', 'folder', false, (S.fly === 'file' ? 'open ' : '') + (backupOld() ? 'dot' : '')) + btn('fly:set', 'gear', false, S.fly === 'set' ? 'open' : '') + verD;
+  const pp = document.getElementById('pp'), ph = projPanel(), psig = ph ? IDX.cur + '|' + IDX.list.map(p => p.id + p.name + p.ts).join() + '|' + S.parm + (S.arm > Date.now()) + IDX.bk : ''; if (pp.dataset.sig !== psig) { pp.innerHTML = ph; pp.dataset.sig = psig; const ni = document.getElementById('ppName'); if (ni) ni.addEventListener('change', () => { const c = projCur(); if (c && ni.value.trim()) { c.name = ni.value.trim(); lsSet(PIDX, IDX); ui(); } }); } pp.style.display = ph ? 'flex' : 'none';
+  if (S.fly && S.fly !== 'proj') {
     let h = ''; if (S.fly === 'draw') h = DRAW.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'edit') h = EDIT.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'set') { const v = S.setStr !== '' ? S.setStr : String(Math.round(S.thMax * 100)); h = `<div class="lab">${svg('wallth')}</div><div class="sum">${v}</div>` + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'].map(k => `<button class="num k" data-a="sk:${k}">${k}</button>`).join('') + btn('skback', 'clr') + btn('skok', 'ok', false, 'okb') + btn('scut', 'offcut', S.autoCut, 'sn wide'); }
     if (S.fly === 'vis') h = btn('tgn', 'pts', S.showNames, 'sn') + btn('v:olcu', 'v_olcu', S.vis.olcu, 'sn') + btn('v:gonye', 'v_gonye', S.vis.gonye, 'sn') + btn('v:dik', 'v_dik', S.vis.dik, 'sn') + btn('v:not', 'v_not', S.vis.not !== 0, 'sn');
-    if (S.fly === 'open') h = OPEN.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'file') h = btn('exp', 'exp') + btn('imp', 'imp') + btn('new', 'newdoc', false, S.arm > Date.now() ? 'dng' : ''); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
+    if (S.fly === 'open') h = OPEN.map(k => btn('t:' + k, ICON[k], t === k)).join(''); if (S.fly === 'file') h = btn('exp', 'exp') + btn('imp', 'imp') + btn('proj', 'pstack', false, backupOld() ? 'dot' : '') + btn('new', 'newdoc'); if (S.fly === 'snap') h = SNAPK.map(([k, ic]) => btn('s:' + k, ic, S.snaps[k], 'sn')).join('');
     fly.innerHTML = h; fly.className = S.fly === 'set' ? 'g3' : ''; fly.style.display = S.fly === 'set' ? 'grid' : 'flex'; const b = col.querySelector(`[data-a="fly:${S.fly}"]`); const r = b.getBoundingClientRect(); fly.style.top = '0px'; const fh = fly.offsetHeight; fly.style.top = Math.max(8, Math.min(innerHeight - fh - 8, r.top - 6)) + 'px';
   } else fly.style.display = 'none';
   if (!S.fly && (t === 'line' || t === 'pl')) {
@@ -388,6 +389,7 @@ function onBtn(a) {
   if (measBtn(a)) return;
   if (a === 'tgn') { S.showNames = !S.showNames; save(); ui(); render(); return; } /* pencere açık kalır */
   if (a === 'ndel') { D.names = nameList().filter(n => n.id !== S.selName); S.selName = null; commit(); ui(); return; }
+  if (projBtn(a)) return;
   if (a === 'full') { S.full = true; ui(); return; }
   if (a.startsWith('sk:')) { S.setStr = (S.setStr + a.slice(3)).slice(0, 3); ui(); return; }
   if (a === 'scut') { S.autoCut = S.autoCut ? 0 : 1; save(); ui(); return; }
@@ -395,7 +397,7 @@ function onBtn(a) {
   if (a === 'skok') { const v = parseInt(S.setStr, 10); if (v >= 5 && v <= 300) S.thMax = v / 100; S.setStr = ''; S.fly = null; save(); invalidate(); ui(); render(); return; }
   if (a === 'exp') { S.fly = null; ui(); exportDXF(); return; }
   if (a === 'imp') { S.fly = null; ui(); document.getElementById('fileIn').click(); return; }
-  if (a === 'new') { if (S.arm > Date.now()) { S.arm = 0; D = { ents: [], nid: 1, ops: [] }; S.sel.clear(); S.selOp = null; S.fly = null; commit(); fit(); ui(); } else { S.arm = Date.now() + 3000; ui(); setTimeout(ui, 3100); } return; }
+  if (a === 'new') { S.fly = null; projNew(); return; }
   if (a === 'oph' || a === 'ops' || a === 'opt' || a === 'opdel' || a === 'opw') { const o = opById(S.selOp); if (!o) return; if (a === 'opw') opWall(o); if (a === 'oph') o.hinge = o.hinge ? 0 : 1; if (a === 'ops') o.sw = -o.sw; if (a === 'opt') o.t = o.t === 'door' ? 'win' : 'door'; if (a === 'opdel') { opDelete(o); S.selOp = null; } commit(); ui(); return; }
   if (a === 'sec') { setTool('sec'); return; } if (a === 'fit') { fit(); return; }
   if (a.startsWith('fly:')) { const f = a.slice(4); S.setStr = ''; if (S.fly === f) { S.fly = null; ui(); return; }
@@ -471,8 +473,9 @@ function loupe(p) {
   cx.restore(); cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.strokeStyle = '#7dffb0'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, R, 0, TAU); cx.stroke(); cx.strokeStyle = 'rgba(125,255,176,.6)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(x - 8, y); cx.lineTo(x + 8, y); cx.moveTo(x, y - 8); cx.lineTo(x, y + 8); cx.stroke();
 }
 
-window.CAD = { noteList, LZ, laserValue, measList, nameList, get D() { return D; }, set D(v) { D = v; D.ops = D.ops || []; invalidate(); }, makeDXF, importDXF, parseDXF, pointNames, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
+window.CAD = { get IDX() { return IDX; }, projSwitch, backupIn, noteList, LZ, laserValue, measList, nameList, get D() { return D; }, set D(v) { D = v; D.ops = D.ops || []; invalidate(); }, makeDXF, importDXF, parseDXF, pointNames, S, get view() { return view; }, w2s, s2w, commit, setTool, render, ui, fit, undo, redo };
 addEventListener('resize', resize);
+document.getElementById('bkIn').addEventListener('change', async ev => { const f = ev.target.files[0]; if (!f) return; backupIn(await f.text()); ev.target.value = ''; });
 document.getElementById('fileIn').addEventListener('change', async ev => { const f = ev.target.files[0]; if (!f) return; try { importDXF(await f.text()); } catch (er) { flash(); } ev.target.value = ''; });
 load(); ui(); resize();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

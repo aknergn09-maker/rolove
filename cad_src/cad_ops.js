@@ -144,7 +144,7 @@ async function shareOrDownload(text, name, type) {
   try { if (navigator.canShare && navigator.canShare({ files: [fl] })) { await navigator.share({ files: [fl] }); return true; } } catch (er) { if (er.name === 'AbortError') return false; }
   const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true;
 }
-function exportDXF() { const d = new Date(), z = v => String(v).padStart(2, '0'); const n = `cizim_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.dxf`; window._lastDXF = makeDXF(); window._lastDXFName = n; shareOrDownload(window._lastDXF, n, 'application/dxf').then(ok => { if (ok) flashOk(D.ents.map(e => e.id), false); }); }
+function exportDXF() { const d = new Date(), z = v => String(v).padStart(2, '0'); const n = `${projName().replace(/[\\/:*?"<>|]+/g, '_')}_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.dxf`; window._lastDXF = makeDXF(); window._lastDXFName = n; shareOrDownload(window._lastDXF, n, 'application/dxf').then(ok => { if (ok) flashOk(D.ents.map(e => e.id), false); }); }
 
 /* ---------- DXF içe aktarma ---------- */
 function parseDXF(txt) {
